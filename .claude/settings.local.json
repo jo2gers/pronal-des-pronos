@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)",
+      "Bash(npm --version)",
+      "Bash(gh repo *)",
+      "Bash(npm create *)",
+      "Bash(npx sv *)",
+      "Bash(npm install *)",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__list_organizations",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__get_cost",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__confirm_cost",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__create_project",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__get_project_url",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__get_publishable_keys",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__apply_migration",
+      "mcp__97eec0e1-e856-4ca9-9555-08f3c5d85784__list_teams",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__execute_sql",
+      "Bash(npm run *)"
+    ]
+  }
+}
