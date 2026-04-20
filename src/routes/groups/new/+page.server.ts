@@ -18,19 +18,22 @@ export const actions: Actions = {
 
 		if (!name) return fail(400, { error: 'Le nom est obligatoire' });
 
-		const { data: group, error: groupError } = await supabase
+		// Generate UUID here so we can insert group_members immediately after
+		// without needing to SELECT the new group (which would fail RLS before membership exists)
+		const groupId = crypto.randomUUID();
+
+		const { error: groupError } = await supabase
 			.from('groups')
-			.insert({ name, description: description || null, creator_id: user.id })
-			.select()
-			.single();
+			.insert({ id: groupId, name, description: description || null, creator_id: user.id });
 
-		if (groupError || !group) return fail(500, { error: groupError?.message ?? 'Erreur création' });
+		if (groupError) return fail(500, { error: groupError.message });
 
-		// Creator becomes admin
-		await supabase
+		const { error: memberError } = await supabase
 			.from('group_members')
-			.insert({ group_id: group.id, user_id: user.id, role: 'admin' });
+			.insert({ group_id: groupId, user_id: user.id, role: 'admin' });
 
-		redirect(303, `/groups/${group.id}`);
+		if (memberError) return fail(500, { error: memberError.message });
+
+		redirect(303, `/groups/${groupId}`);
 	}
 };
