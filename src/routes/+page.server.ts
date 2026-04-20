@@ -3,21 +3,40 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 
-	const [{ data: upcomingMatches }, statsResult] = await Promise.all([
-		supabase
-			.from('matches')
-			.select('id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, status')
-			.eq('status', 'upcoming')
-			.neq('home_team', 'TBD')
-			.order('match_datetime', { ascending: true })
-			.limit(5),
-		user
-			? supabase
-					.from('pronostics')
-					.select('match_id, predicted_home, predicted_away, points_earned')
-					.eq('user_id', user.id)
-			: Promise.resolve({ data: null })
-	]);
+	const matchFields = 'id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, venue, status, home_score, away_score';
+
+	const [{ data: liveMatches }, { data: nextMatch }, { data: upcomingMatches }, statsResult] =
+		await Promise.all([
+			// Live matches
+			supabase
+				.from('matches')
+				.select(matchFields)
+				.eq('status', 'live')
+				.neq('home_team', 'TBD'),
+			// Next upcoming match
+			supabase
+				.from('matches')
+				.select(matchFields)
+				.eq('status', 'upcoming')
+				.neq('home_team', 'TBD')
+				.order('match_datetime', { ascending: true })
+				.limit(1)
+				.maybeSingle(),
+			// Next 5 upcoming for the list below
+			supabase
+				.from('matches')
+				.select('id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, status')
+				.eq('status', 'upcoming')
+				.neq('home_team', 'TBD')
+				.order('match_datetime', { ascending: true })
+				.limit(5),
+			user
+				? supabase
+						.from('pronostics')
+						.select('match_id, predicted_home, predicted_away, points_earned')
+						.eq('user_id', user.id)
+				: Promise.resolve({ data: null })
+		]);
 
 	let stats = null;
 	let userPronostics: Record<string, { predicted_home: number; predicted_away: number }> = {};
@@ -42,5 +61,11 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		};
 	}
 
-	return { upcomingMatches: upcomingMatches ?? [], stats, userPronostics };
+	return {
+		liveMatches: liveMatches ?? [],
+		nextMatch: nextMatch ?? null,
+		upcomingMatches: upcomingMatches ?? [],
+		stats,
+		userPronostics
+	};
 };
