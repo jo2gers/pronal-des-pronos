@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
-	let { data } = $props();
+	let { data, form } = $props();
 	let copied = $state(false);
+	let showAddFriend = $state(false);
+	let addingId = $state<string | null>(null);
 
 	const inviteUrl = $derived(`${typeof window !== 'undefined' ? window.location.origin : ''}/groups/join/${data.group.invite_code}`);
 
@@ -11,12 +13,21 @@
 		copied = true;
 		setTimeout(() => (copied = false), 2000);
 	}
+
+	const canAddMembers = $derived(
+		data.isAdmin || (data.group.is_public !== false)
+	);
 </script>
 
 <div class="space-y-6">
 	<div class="flex items-start justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-fg">{data.group.name}</h1>
+			<div class="flex items-center gap-2">
+				<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">{data.group.name}</h1>
+				<span class="text-xs border border-wire rounded px-1.5 py-0.5 text-faint">
+					{data.group.is_public === false ? 'Privé' : 'Public'}
+				</span>
+			</div>
 			{#if data.group.description}
 				<p class="text-muted text-sm mt-1">{data.group.description}</p>
 			{/if}
@@ -42,6 +53,51 @@
 		</div>
 	</div>
 
+	<!-- Add a friend -->
+	{#if canAddMembers && data.friendsNotInGroup.length > 0}
+		<div class="rounded-xl bg-panel border border-wire p-4">
+			<button
+				onclick={() => showAddFriend = !showAddFriend}
+				class="w-full flex items-center justify-between text-sm font-semibold text-fg">
+				<span>👥 Ajouter un ami au groupe</span>
+				<span class="text-faint text-xs">{showAddFriend ? '▲' : '▼'}</span>
+			</button>
+
+			{#if showAddFriend}
+				<div class="mt-3 space-y-2">
+					{#if form?.error}
+						<p class="text-sm text-err">{form.error}</p>
+					{/if}
+					{#if form?.added}
+						<p class="text-sm text-accent">✓ Ami ajouté au groupe !</p>
+					{/if}
+					{#each data.friendsNotInGroup as friend}
+						<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">
+							{#if friend.avatar_url}
+								<img src={friend.avatar_url} alt="" class="w-7 h-7 rounded-full object-cover shrink-0" />
+							{:else}
+								<span class="w-7 h-7 rounded-full bg-wire flex items-center justify-center text-xs font-bold text-faint shrink-0">
+									{(friend.display_name ?? friend.username ?? '?')[0]?.toUpperCase()}
+								</span>
+							{/if}
+							<span class="flex-1 text-sm text-fg">{friend.display_name ?? friend.username}</span>
+							<form method="POST" action="?/addFriend" use:enhance={() => {
+								addingId = friend.id;
+								return async ({ update }) => { addingId = null; await update({ reset: false }); };
+							}}>
+								<input type="hidden" name="friend_id" value={friend.id} />
+								<button type="submit" disabled={addingId === friend.id}
+									class="rounded bg-accent hover:bg-accent-hi disabled:opacity-40 px-3 py-1 text-xs text-canvas transition-colors cursor-pointer">
+									{addingId === friend.id ? '...' : 'Ajouter'}
+								</button>
+							</form>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Scoreboard -->
 	<div class="rounded-xl bg-panel border border-wire overflow-hidden">
 		<div class="px-4 py-3 border-b border-wire">
@@ -61,14 +117,14 @@
 					<tr class="border-b border-wire/50 {isMe ? 'bg-accent-lo/60' : 'hover:bg-raised/30'} transition-colors">
 						<td class="px-4 py-3 text-sm text-faint">{i + 1}</td>
 						<td class="px-4 py-3">
-							<div class="flex items-center gap-2">
+							<a href="/profile/{(entry.profile as any)?.id}" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
 								<span class="{isMe ? 'text-accent font-semibold' : 'text-fg'} text-sm">
 									{(entry.profile as any)?.display_name ?? (entry.profile as any)?.username ?? '?'}
 								</span>
 								{#if entry.role === 'admin'}
 									<span class="text-xs text-accent">★</span>
 								{/if}
-							</div>
+							</a>
 						</td>
 						<td class="px-4 py-3 text-right font-bold text-accent">{entry.points.toFixed(2)}</td>
 					</tr>

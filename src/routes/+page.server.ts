@@ -47,15 +47,27 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			pronostics.map((p) => [p.match_id, { predicted_home: p.predicted_home, predicted_away: p.predicted_away }])
 		);
 
-		const totalPoints = pronostics.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
+		const pronoPoints = pronostics.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
+
+		// Fetch team bonus separately
+		const { data: profileData } = await supabase
+			.from('profiles')
+			.select('team_bonus_points')
+			.eq('id', user.id)
+			.single();
+
+		const teamBonus = profileData?.team_bonus_points ?? 0;
+		const totalPoints = pronoPoints + teamBonus;
 
 		const { count } = await supabase
 			.from('pronostics')
 			.select('user_id', { count: 'exact', head: true })
-			.gt('points_earned', totalPoints);
+			.gt('points_earned', pronoPoints);
 
 		stats = {
 			totalPoints,
+			pronoPoints,
+			teamBonus,
 			pronosticsCount: pronostics.length,
 			rank: (count ?? 0) + 1
 		};

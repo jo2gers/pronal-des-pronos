@@ -5,13 +5,23 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
 
-	const { data: profile } = await supabase
-		.from('profiles')
-		.select('*')
-		.eq('id', user.id)
-		.single();
+	const [{ data: profile }, { data: firstMatch }] = await Promise.all([
+		supabase.from('profiles').select('*').eq('id', user.id).single(),
+		supabase
+			.from('matches')
+			.select('match_datetime')
+			.eq('status', 'upcoming')
+			.order('match_datetime', { ascending: true })
+			.limit(1)
+			.maybeSingle()
+	]);
 
-	return { profile };
+	// Lock favorite_team 2 hours before the first match of the competition
+	const firstMatchTime = firstMatch?.match_datetime ? new Date(firstMatch.match_datetime) : null;
+	const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 60 * 60 * 1000) : null;
+	const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
+
+	return { profile, teamLocked, firstMatchTime: firstMatchTime?.toISOString() ?? null };
 };
 
 export const actions: Actions = {
@@ -24,9 +34,31 @@ export const actions: Actions = {
 		const favorite_team = form.get('favorite_team') as string;
 		const country = form.get('country') as string;
 
+		// Check lock status server-side
+		const { data: firstMatch } = await supabase
+			.from('matches')
+			.select('match_datetime')
+			.eq('status', 'upcoming')
+			.order('match_datetime', { ascending: true })
+			.limit(1)
+			.maybeSingle();
+
+		const firstMatchTime = firstMatch?.match_datetime ? new Date(firstMatch.match_datetime) : null;
+		const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 60 * 60 * 1000) : null;
+		const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
+
+		// Get current team to preserve if locked
+		const { data: currentProfile } = await supabase
+			.from('profiles')
+			.select('favorite_team')
+			.eq('id', user.id)
+			.single();
+
+		const finalTeam = teamLocked ? (currentProfile?.favorite_team ?? null) : (favorite_team || null);
+
 		const { error } = await supabase
 			.from('profiles')
-			.update({ display_name, favorite_team, country })
+			.update({ display_name, favorite_team: finalTeam, country })
 			.eq('id', user.id);
 
 		if (error) return fail(500, { error: error.message });

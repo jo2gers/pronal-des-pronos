@@ -21,6 +21,18 @@ function calculatePoints(
 	return 0;
 }
 
+// Bonus points awarded to supporters of the winning team, per stage
+// The idea: the further your team goes, the bigger the reward
+const STAGE_BONUS: Record<string, number> = {
+	group:       1,   // +1 pt per group stage win
+	round_of_32: 2,   // +2 pts
+	round_of_16: 4,   // +4 pts
+	quarters:    8,   // +8 pts
+	semis:       13,  // +13 pts
+	final:       21,  // +21 pts for winning the World Cup!
+	third:       5,   // +5 pts for winning 3rd place match
+};
+
 Deno.serve(async (req) => {
 	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -33,7 +45,7 @@ Deno.serve(async (req) => {
 
 	const { data: match } = await supabase
 		.from('matches')
-		.select('id, home_score, away_score, status')
+		.select('id, home_team, away_team, home_score, away_score, status, stage, bonus_calculated')
 		.eq('id', matchId)
 		.single();
 
@@ -41,6 +53,7 @@ Deno.serve(async (req) => {
 		return new Response(JSON.stringify({ error: 'Match not finished or scores not set' }), { status: 400 });
 	}
 
+	// ── 1. Score pronostics ──────────────────────────────────────────────────
 	const { data: pronostics } = await supabase
 		.from('pronostics')
 		.select('id, predicted_home, predicted_away, odds_used')
@@ -66,10 +79,50 @@ Deno.serve(async (req) => {
 		scored++;
 	}
 
-	// Mark match as finished if not already
-	await supabase.from('matches').update({ status: 'finished' }).eq('id', matchId);
+	// ── 2. Award favorite team bonus ─────────────────────────────────────────
+	let bonusAwarded = 0;
 
-	return new Response(JSON.stringify({ success: true, scored }), {
-		headers: { 'Content-Type': 'application/json' }
-	});
+	if (!match.bonus_calculated) {
+		const stageBonus = STAGE_BONUS[match.stage] ?? 0;
+
+		if (stageBonus > 0) {
+			// Determine match winner (no winner on draw in group stage)
+			let winnerTeam: string | null = null;
+			if (match.home_score > match.away_score) {
+				winnerTeam = match.home_team;
+			} else if (match.away_score > match.home_score) {
+				winnerTeam = match.away_team;
+			}
+			// Group stage draws: no bonus. Knockout draws resolved by penalties —
+			// we treat higher score as winner (admin sets final score incl. pens if needed)
+
+			if (winnerTeam) {
+				// Find all profiles whose favorite_team = winnerTeam
+				const { data: supporters } = await supabase
+					.from('profiles')
+					.select('id, team_bonus_points')
+					.eq('favorite_team', winnerTeam);
+
+				for (const profile of supporters ?? []) {
+					await supabase
+						.from('profiles')
+						.update({ team_bonus_points: (profile.team_bonus_points ?? 0) + stageBonus })
+						.eq('id', profile.id);
+
+					bonusAwarded++;
+				}
+			}
+		}
+
+		// Mark bonus as calculated so re-runs don't double-award
+		await supabase
+			.from('matches')
+			.update({ bonus_calculated: true })
+			.eq('id', matchId);
+	}
+
+	return new Response(
+		JSON.stringify({ success: true, scored, bonusAwarded }),
+		{ headers: { 'Content-Type': 'application/json' } }
+	);
 });

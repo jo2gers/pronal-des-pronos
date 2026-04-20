@@ -9,7 +9,7 @@
 </script>
 
 <div class="max-w-lg mx-auto space-y-6">
-	<h1 class="text-2xl font-bold text-fg">Mon profil</h1>
+	<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Mon profil</h1>
 
 	{#if form?.error}
 		<div class="rounded bg-err/10 border border-err/30 px-4 py-3 text-sm text-err">
@@ -69,16 +69,34 @@
 				/>
 			</div>
 			<div>
-				<label for="favorite_team" class="block text-sm text-muted mb-1">Équipe favorite</label>
-				<select id="favorite_team" name="favorite_team"
-					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg focus:border-accent focus:outline-none">
-					<option value="">Aucune préférence</option>
-					{#each WC2026_TEAMS as team}
-						<option value={team.name} selected={data.profile?.favorite_team === team.name}>
-							{isoToFlag(team.flag)} {team.name}
-						</option>
-					{/each}
-				</select>
+				<div class="flex items-center justify-between mb-1">
+					<label for="favorite_team" class="block text-sm text-muted">Équipe favorite</label>
+					{#if data.teamLocked}
+						<span class="text-xs text-err font-medium">🔒 Verrouillé</span>
+					{:else}
+						<span class="text-xs text-faint">Modifiable jusqu'à 2h avant le 1er match</span>
+					{/if}
+				</div>
+				{#if data.teamLocked}
+					<div class="w-full rounded-lg bg-raised border border-wire/50 px-3 py-2 text-muted text-sm opacity-70">
+						{#if data.profile?.favorite_team}
+							{isoToFlag(WC2026_TEAMS.find(t => t.name === data.profile?.favorite_team)?.flag ?? '')} {data.profile.favorite_team}
+						{:else}
+							Aucune équipe sélectionnée
+						{/if}
+					</div>
+					<input type="hidden" name="favorite_team" value={data.profile?.favorite_team ?? ''} />
+				{:else}
+					<select id="favorite_team" name="favorite_team"
+						class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg focus:border-accent focus:outline-none">
+						<option value="">Aucune préférence</option>
+						{#each WC2026_TEAMS as team}
+							<option value={team.name} selected={data.profile?.favorite_team === team.name}>
+								{isoToFlag(team.flag)} {team.name}
+							</option>
+						{/each}
+					</select>
+				{/if}
 			</div>
 			<div>
 				<label for="country" class="block text-sm text-muted mb-1">Pays</label>

@@ -30,6 +30,25 @@
 					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg placeholder:text-faint focus:border-accent focus:outline-none resize-none"
 					placeholder="Une description optionnelle..."></textarea>
 			</div>
+			<div>
+				<p class="block text-sm text-muted mb-2">Visibilité</p>
+				<div class="flex gap-3">
+					<label class="flex-1 cursor-pointer">
+						<input type="radio" name="is_public" value="true" class="sr-only peer" checked />
+						<div class="rounded-lg border border-wire peer-checked:border-accent peer-checked:bg-accent-lo px-4 py-3 text-center transition-colors">
+							<p class="text-sm font-semibold text-fg">Public</p>
+							<p class="text-xs text-faint mt-1">Tous les membres peuvent inviter</p>
+						</div>
+					</label>
+					<label class="flex-1 cursor-pointer">
+						<input type="radio" name="is_public" value="false" class="sr-only peer" />
+						<div class="rounded-lg border border-wire peer-checked:border-accent peer-checked:bg-accent-lo px-4 py-3 text-center transition-colors">
+							<p class="text-sm font-semibold text-fg">Privé</p>
+							<p class="text-xs text-faint mt-1">Seul l'admin peut inviter</p>
+						</div>
+					</label>
+				</div>
+			</div>
 			<div class="flex gap-3 pt-2">
 				<a href="/groups" class="flex-1 rounded-lg border border-wire px-4 py-2.5 text-center text-sm text-muted hover:border-wire-hi transition-colors">
 					Annuler

@@ -15,6 +15,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = (form.get('name') as string).trim();
 		const description = (form.get('description') as string).trim();
+		const is_public = form.get('is_public') !== 'false';
 
 		if (!name) return fail(400, { error: 'Le nom est obligatoire' });
 
@@ -24,7 +25,7 @@ export const actions: Actions = {
 
 		const { error: groupError } = await supabase
 			.from('groups')
-			.insert({ id: groupId, name, description: description || null, creator_id: user.id });
+			.insert({ id: groupId, name, description: description || null, creator_id: user.id, is_public });
 
 		if (groupError) return fail(500, { error: groupError.message });
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
-	let { form } = $props();
+	let { data, form } = $props();
 	let loading = $state(false);
 </script>
 
@@ -20,6 +20,7 @@
 			loading = true;
 			return async ({ update }) => { loading = false; await update(); };
 		}} class="space-y-4">
+			<input type="hidden" name="next" value={form?.next ?? data.next ?? '/'} />
 			<div>
 				<label for="email" class="block text-sm text-muted mb-1">Email</label>
 				<input

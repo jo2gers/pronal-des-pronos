@@ -29,7 +29,7 @@
 
 <div class="space-y-6">
 	<div class="flex items-center gap-3">
-		<h1 class="text-2xl font-bold text-fg">Simulateur de matchs</h1>
+		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Simulateur de matchs</h1>
 		<span class="rounded bg-live/10 border border-live/30 px-2 py-0.5 text-xs text-live">ADMIN</span>
 	</div>
 

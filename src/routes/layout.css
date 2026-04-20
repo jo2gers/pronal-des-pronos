@@ -1,24 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,600&family=Figtree:wght@400;500;600&display=swap');
 @import 'tailwindcss';
 
 @theme {
-  /* ── Surfaces (warm near-black, subtle amber undertone) ── */
-  --color-canvas:   oklch(0.11 0.010 48);   /* page background  */
-  --color-panel:    oklch(0.15 0.010 48);   /* cards, nav       */
-  --color-raised:   oklch(0.20 0.010 48);   /* inputs, buttons  */
-  --color-wire:     oklch(0.25 0.010 48);   /* borders          */
-  --color-wire-hi:  oklch(0.33 0.010 48);   /* strong borders, hover */
+  /* ── Fonts ── */
+  --font-display: 'Barlow Condensed', ui-sans-serif, system-ui, sans-serif;
+  --font-body:    'Figtree', ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Surfaces (warm near-black, amber undertone) ── */
+  --color-canvas:   oklch(0.10 0.010 48);
+  --color-panel:    oklch(0.14 0.010 48);
+  --color-raised:   oklch(0.19 0.010 48);
+  --color-wire:     oklch(0.24 0.010 48);
+  --color-wire-hi:  oklch(0.32 0.010 48);
 
   /* ── Text ── */
-  --color-fg:    oklch(0.96 0.005 60);      /* primary text     */
-  --color-muted: oklch(0.55 0.010 60);      /* secondary text   */
-  --color-faint: oklch(0.38 0.010 60);      /* disabled / hint  */
+  --color-fg:    oklch(0.95 0.006 60);
+  --color-muted: oklch(0.54 0.010 60);
+  --color-faint: oklch(0.37 0.010 60);
 
   /* ── Brand accent: electric orange ── */
-  --color-accent:    oklch(0.68 0.19 51);   /* CTAs, highlights */
-  --color-accent-hi: oklch(0.73 0.18 51);   /* hover            */
-  --color-accent-lo: oklch(0.18 0.07 51);   /* subtle tint      */
+  --color-accent:    oklch(0.68 0.19 51);
+  --color-accent-hi: oklch(0.74 0.18 51);
+  --color-accent-lo: oklch(0.17 0.07 51);
 
   /* ── Status ── */
-  --color-live: oklch(0.58 0.22 22);        /* red – live badge */
-  --color-err:  oklch(0.55 0.18 22);        /* errors           */
+  --color-live:    oklch(0.58 0.22 22);
+  --color-err:     oklch(0.55 0.18 22);
+  --color-warn:    oklch(0.70 0.16 58);
+  --color-bonus:   oklch(0.78 0.14 85);  /* gold — team bonus */
+  --color-success: oklch(0.62 0.14 155); /* green — confirmed */
+}
+
+@layer base {
+  html {
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Display font for headings */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+  }
+
+  /* Tabular numbers everywhere they matter */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
 }

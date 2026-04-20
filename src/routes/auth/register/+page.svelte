@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { WC2026_TEAMS } from '$lib/wc2026';
+	import { isoToFlag } from '$lib/utils';
 
-	let { form } = $props();
+	let { data, form } = $props();
 	let loading = $state(false);
 </script>
 
@@ -20,6 +22,8 @@
 			loading = true;
 			return async ({ update }) => { loading = false; await update(); };
 		}} class="space-y-4">
+			<input type="hidden" name="next" value={form?.next ?? data.next ?? '/'} />
+
 			<div>
 				<label for="username" class="block text-sm text-muted mb-1">Nom d'utilisateur</label>
 				<input
@@ -45,6 +49,21 @@
 					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg placeholder:text-faint focus:border-accent focus:outline-none"
 					placeholder="••••••••"
 				/>
+			</div>
+			<div>
+				<label for="favorite_team" class="block text-sm text-muted mb-1">
+					Équipe favorite <span class="text-accent">*</span>
+				</label>
+				<select id="favorite_team" name="favorite_team" required
+					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg focus:border-accent focus:outline-none">
+					<option value="">— Choisis ton équipe —</option>
+					{#each WC2026_TEAMS as team}
+						<option value={team.name} selected={form?.favorite_team === team.name}>
+							{isoToFlag(team.flag)} {team.name}
+						</option>
+					{/each}
+				</select>
+				<p class="text-xs text-faint mt-1">Obligatoire · modifiable jusqu'à 2h avant le premier match</p>
 			</div>
 			<button
 				type="submit" disabled={loading}

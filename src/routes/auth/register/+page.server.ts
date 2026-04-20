@@ -1,10 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
+export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) => {
 	const { user } = await safeGetSession();
-	if (user) redirect(303, '/');
-	return {};
+	const next = url.searchParams.get('next') ?? '/';
+	if (user) redirect(303, next);
+	return { next };
 };
 
 export const actions: Actions = {
@@ -13,12 +14,24 @@ export const actions: Actions = {
 		const email = form.get('email') as string;
 		const password = form.get('password') as string;
 		const username = (form.get('username') as string).trim().toLowerCase();
+		const favorite_team = (form.get('favorite_team') as string).trim();
+		const next = (form.get('next') as string) || '/';
 
 		if (!/^[a-z0-9_]{3,30}$/.test(username)) {
 			return fail(400, {
 				error: 'Nom d\'utilisateur invalide (3-30 caractères, lettres, chiffres, _)',
 				email,
-				username
+				username,
+				next
+			});
+		}
+
+		if (!favorite_team) {
+			return fail(400, {
+				error: 'Tu dois choisir une équipe favorite pour participer.',
+				email,
+				username,
+				next
 			});
 		}
 
@@ -28,15 +41,15 @@ export const actions: Actions = {
 			options: { data: { username } }
 		});
 
-		if (error) return fail(400, { error: error.message, email, username });
-		if (!data.user) return fail(400, { error: 'Erreur lors de la création du compte', email, username });
+		if (error) return fail(400, { error: error.message, email, username, next });
+		if (!data.user) return fail(400, { error: 'Erreur lors de la création du compte', email, username, next });
 
-		// Update the profile username (trigger may use email prefix; overwrite with chosen username)
+		// Update the profile username and favorite team
 		await supabase
 			.from('profiles')
-			.update({ username })
+			.update({ username, favorite_team })
 			.eq('id', data.user.id);
 
-		redirect(303, '/');
+		redirect(303, next);
 	}
 };

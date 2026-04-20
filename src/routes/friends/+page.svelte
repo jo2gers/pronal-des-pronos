@@ -6,7 +6,7 @@
 </script>
 
 <div class="space-y-6">
-	<h1 class="text-2xl font-bold text-fg">Amis</h1>
+	<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Amis</h1>
 
 	<!-- Search -->
 	<div class="rounded-xl bg-panel border border-wire p-4">

@@ -41,7 +41,7 @@ export const actions: Actions = {
 		const { data: results } = await supabase
 			.from('profiles')
 			.select('id, username, display_name, avatar_url')
-			.ilike('username', `%${query}%`)
+			.or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
 			.neq('id', user.id)
 			.limit(10);
 
