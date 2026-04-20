@@ -3,19 +3,63 @@
 	import { STAGE_LABELS } from '$lib/wc2026';
 
 	let { data } = $props();
+
+	// First match: Mexico vs Uruguay, June 11 2026 20:00 UTC
+	const KICKOFF = new Date('2026-06-11T20:00:00Z');
+
+	function getCountdown() {
+		const diff = KICKOFF.getTime() - Date.now();
+		if (diff <= 0) return null;
+		const days = Math.floor(diff / 86400000);
+		const hours = Math.floor((diff % 86400000) / 3600000);
+		const mins = Math.floor((diff % 3600000) / 60000);
+		const secs = Math.floor((diff % 60000) / 1000);
+		return { days, hours, mins, secs };
+	}
+
+	let countdown = $state(getCountdown());
+
+	$effect(() => {
+		const interval = setInterval(() => {
+			countdown = getCountdown();
+		}, 1000);
+		return () => clearInterval(interval);
+	});
 </script>
 
 <div class="space-y-8">
-	<!-- Hero -->
-	<div class="rounded-xl bg-gradient-to-br from-green-900 to-green-950 border border-green-800 p-8 text-center">
-		<h1 class="text-4xl font-bold text-yellow-400 mb-2">⚽ Coupe du Monde 2026</h1>
-		<p class="text-green-300 text-lg">Pronostique, score des points, grimpe au classement !</p>
+	<!-- Countdown hero -->
+	<div class="rounded-xl bg-gradient-to-br from-green-900 to-green-950 border border-green-800 p-6 sm:p-8 text-center">
+		<p class="text-green-400 text-sm font-semibold uppercase tracking-widest mb-3">Coup d'envoi dans</p>
+
+		{#if countdown}
+			<div class="flex justify-center gap-3 sm:gap-6 mb-4">
+				{#each [
+					{ v: countdown.days, label: 'Jours' },
+					{ v: countdown.hours, label: 'Heures' },
+					{ v: countdown.mins, label: 'Minutes' },
+					{ v: countdown.secs, label: 'Secondes' }
+				] as unit}
+					<div class="flex flex-col items-center">
+						<span class="text-3xl sm:text-5xl font-bold text-yellow-400 tabular-nums w-14 sm:w-20 text-center">
+							{String(unit.v).padStart(2, '0')}
+						</span>
+						<span class="text-xs text-green-400 mt-1 uppercase tracking-wide">{unit.label}</span>
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<p class="text-2xl font-bold text-yellow-400 mb-4">⚽ C'est parti !</p>
+		{/if}
+
+		<p class="text-green-300 text-sm">🇲🇽 Mexique – Uruguay 🇺🇾 · 11 juin 2026 · Estadio Azteca</p>
+
 		{#if !data.user}
-			<div class="mt-6 flex gap-4 justify-center">
-				<a href="/auth/register" class="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-6 py-3 rounded-lg transition-colors">
+			<div class="mt-5 flex gap-3 justify-center flex-wrap">
+				<a href="/auth/register" class="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-5 py-2.5 rounded-lg transition-colors text-sm">
 					Commencer gratuitement
 				</a>
-				<a href="/auth/login" class="border border-green-600 text-green-300 hover:text-white px-6 py-3 rounded-lg transition-colors">
+				<a href="/auth/login" class="border border-green-600 text-green-300 hover:text-white px-5 py-2.5 rounded-lg transition-colors text-sm">
 					Se connecter
 				</a>
 			</div>
