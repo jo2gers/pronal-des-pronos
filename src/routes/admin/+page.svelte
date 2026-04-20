@@ -17,9 +17,9 @@
 	);
 
 	const statusColors: Record<string, string> = {
-		upcoming: 'text-gray-400',
-		live: 'text-red-400 font-bold',
-		finished: 'text-green-400'
+		upcoming: 'text-faint',
+		live: 'text-live font-bold',
+		finished: 'text-accent'
 	};
 
 	let loadingId = $state<string | null>(null);
@@ -29,35 +29,35 @@
 
 <div class="space-y-6">
 	<div class="flex items-center gap-3">
-		<h1 class="text-2xl font-bold text-white">⚙️ Simulateur de matchs</h1>
-		<span class="rounded bg-red-900/50 border border-red-700 px-2 py-0.5 text-xs text-red-300">ADMIN</span>
+		<h1 class="text-2xl font-bold text-fg">Simulateur de matchs</h1>
+		<span class="rounded bg-live/10 border border-live/30 px-2 py-0.5 text-xs text-live">ADMIN</span>
 	</div>
 
 	{#if form?.error}
-		<div class="rounded bg-red-900/50 border border-red-700 px-4 py-3 text-sm text-red-300">{form.error}</div>
+		<div class="rounded bg-err/10 border border-err/30 px-4 py-3 text-sm text-err">{form.error}</div>
 	{/if}
 	{#if feedback}
-		<div class="rounded bg-green-900/50 border border-green-700 px-4 py-3 text-sm text-green-300">{feedback.msg}</div>
+		<div class="rounded bg-accent-lo border border-accent/30 px-4 py-3 text-sm text-accent">{feedback.msg}</div>
 	{/if}
 
 	{#each grouped as { stage, matches }}
 		<section>
-			<h2 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-3">
+			<h2 class="text-sm font-bold text-accent uppercase tracking-wider mb-3">
 				{STAGE_LABELS[stage] ?? stage}
 			</h2>
 
-			<div class="rounded-xl bg-gray-900 border border-gray-800 overflow-hidden">
+			<div class="rounded-xl bg-panel border border-wire overflow-hidden">
 				{#each matches as match, i}
-					<div class="border-b border-gray-800 last:border-0 p-4">
+					<div class="border-b border-wire last:border-0 p-4">
 						<!-- Match header -->
 						<div class="flex items-center gap-2 mb-3">
 							<span class="text-base">{isoToFlag(match.home_flag)}</span>
-							<span class="font-semibold text-white text-sm">{match.home_team}</span>
-							<span class="text-gray-500 text-xs mx-1">vs</span>
-							<span class="font-semibold text-white text-sm">{match.away_team}</span>
+							<span class="font-semibold text-fg text-sm">{match.home_team}</span>
+							<span class="text-faint text-xs mx-1">vs</span>
+							<span class="font-semibold text-fg text-sm">{match.away_team}</span>
 							<span class="text-base">{isoToFlag(match.away_flag)}</span>
-							<span class="ml-auto text-xs text-gray-500">{formatDate(match.match_datetime)}</span>
-							<span class="text-xs {statusColors[match.status] ?? 'text-gray-400'} uppercase">
+							<span class="ml-auto text-xs text-faint">{formatDate(match.match_datetime)}</span>
+							<span class="text-xs {statusColors[match.status] ?? 'text-faint'} uppercase">
 								{match.status}
 							</span>
 						</div>
@@ -78,9 +78,9 @@
 
 							<!-- Status -->
 							<div>
-								<label for="status-{match.id}" class="block text-xs text-gray-400 mb-1">Statut</label>
+								<label for="status-{match.id}" class="block text-xs text-muted mb-1">Statut</label>
 								<select id="status-{match.id}" name="status"
-									class="rounded bg-gray-800 border border-gray-700 px-2 py-1.5 text-sm text-white focus:border-green-500 focus:outline-none">
+									class="rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none">
 									{#each ['upcoming', 'live', 'finished'] as s}
 										<option value={s} selected={match.status === s}>{s}</option>
 									{/each}
@@ -89,25 +89,25 @@
 
 							<!-- Scores -->
 							<div>
-								<label for="hs-{match.id}" class="block text-xs text-gray-400 mb-1">{match.home_team}</label>
+								<label for="hs-{match.id}" class="block text-xs text-muted mb-1">{match.home_team}</label>
 								<input id="hs-{match.id}" name="home_score" type="number" min="0" max="20"
 									value={match.home_score ?? ''}
-									class="w-16 rounded bg-gray-800 border border-gray-700 px-2 py-1.5 text-sm text-white text-center focus:border-green-500 focus:outline-none"
+									class="w-16 rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg text-center focus:border-accent focus:outline-none"
 									placeholder="–" />
 							</div>
 
-							<span class="text-gray-500 font-bold pb-1.5">–</span>
+							<span class="text-faint font-bold pb-1.5">–</span>
 
 							<div>
-								<label for="as-{match.id}" class="block text-xs text-gray-400 mb-1">{match.away_team}</label>
+								<label for="as-{match.id}" class="block text-xs text-muted mb-1">{match.away_team}</label>
 								<input id="as-{match.id}" name="away_score" type="number" min="0" max="20"
 									value={match.away_score ?? ''}
-									class="w-16 rounded bg-gray-800 border border-gray-700 px-2 py-1.5 text-sm text-white text-center focus:border-green-500 focus:outline-none"
+									class="w-16 rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg text-center focus:border-accent focus:outline-none"
 									placeholder="–" />
 							</div>
 
 							<button type="submit" disabled={loadingId === match.id}
-								class="rounded bg-green-700 hover:bg-green-600 disabled:opacity-40 px-3 py-1.5 text-sm text-white transition-colors cursor-pointer">
+								class="rounded bg-accent hover:bg-accent-hi disabled:opacity-40 px-3 py-1.5 text-sm text-canvas transition-colors cursor-pointer">
 								{loadingId === match.id ? '...' : 'Appliquer'}
 							</button>
 
@@ -126,8 +126,8 @@
 								}}>
 									<input type="hidden" name="match_id" value={match.id} />
 									<button type="submit" disabled={calcLoadingId === match.id}
-										class="rounded bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 px-3 py-1.5 text-sm text-white transition-colors cursor-pointer whitespace-nowrap">
-										{calcLoadingId === match.id ? '...' : '🧮 Calculer scores'}
+										class="rounded bg-accent-lo border border-accent/40 hover:bg-accent/20 disabled:opacity-40 px-3 py-1.5 text-sm text-accent transition-colors cursor-pointer whitespace-nowrap">
+										{calcLoadingId === match.id ? '...' : 'Calculer scores'}
 									</button>
 								</form>
 							{/if}

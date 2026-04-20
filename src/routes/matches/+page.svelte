@@ -23,9 +23,9 @@
 
 <div class="space-y-8">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-white">Tous les matchs</h1>
+		<h1 class="text-2xl font-bold text-fg">Tous les matchs</h1>
 		{#if !data.user}
-			<a href="/auth/login" class="text-sm text-green-400 hover:text-green-300">
+			<a href="/auth/login" class="text-sm text-accent hover:text-accent-hi">
 				Connecte-toi pour pronostiquer →
 			</a>
 		{/if}
@@ -33,8 +33,7 @@
 
 	{#each grouped() as { stage, matches }}
 		<section>
-			<h2 class="text-lg font-semibold text-yellow-400 mb-3 flex items-center gap-2">
-				{#if stage === 'final'}🏆{:else if stage === 'semis'}⚡{:else if stage === 'group'}📋{:else}🥊{/if}
+			<h2 class="text-sm font-bold text-accent uppercase tracking-wider mb-3">
 				{STAGE_LABELS[stage] ?? stage}
 			</h2>
 
@@ -47,10 +46,10 @@
 				}, {})}
 				{#each Object.entries(byGroup).sort() as [group, gMatches]}
 					<div class="mb-4">
-						<h3 class="text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Groupe {group}</h3>
+						<h3 class="text-xs font-semibold text-faint mb-2 uppercase tracking-wider">Groupe {group}</h3>
 						<div class="space-y-2">
 							{#each gMatches as match}
-								<a href="/matches/{match.id}" class="block rounded-lg bg-gray-900 border border-gray-800 hover:border-green-700 transition-colors p-3">
+								<a href="/matches/{match.id}" class="block rounded-lg bg-panel border border-wire hover:border-accent transition-colors p-3">
 									{@render matchRow(match)}
 								</a>
 							{/each}
@@ -60,7 +59,7 @@
 			{:else}
 				<div class="space-y-2">
 					{#each matches as match}
-						<a href="/matches/{match.id}" class="block rounded-lg bg-gray-900 border border-gray-800 hover:border-green-700 transition-colors p-3">
+						<a href="/matches/{match.id}" class="block rounded-lg bg-panel border border-wire hover:border-accent transition-colors p-3">
 							{@render matchRow(match)}
 						</a>
 					{/each}
@@ -74,23 +73,23 @@
 	<div class="flex items-center gap-3">
 		<div class="flex items-center gap-2 flex-1">
 			<span class="text-xl">{isoToFlag(match.home_flag)}</span>
-			<span class="text-sm font-medium truncate">{match.home_team}</span>
+			<span class="text-sm font-medium text-fg truncate">{match.home_team}</span>
 		</div>
 		<div class="text-center min-w-[100px]">
 			{#if match.status === 'finished' && match.home_score != null}
-				<span class="font-bold text-white">{match.home_score} – {match.away_score}</span>
+				<span class="font-bold text-fg">{match.home_score} – {match.away_score}</span>
 			{:else}
-				<span class="text-xs text-gray-400">{formatDate(match.match_datetime)}</span>
-				<div class="text-xs text-green-400">{timeUntilMatch(match.match_datetime)}</div>
+				<span class="text-xs text-muted">{formatDate(match.match_datetime)}</span>
+				<div class="text-xs text-accent">{timeUntilMatch(match.match_datetime)}</div>
 			{/if}
 		</div>
 		<div class="flex items-center gap-2 flex-1 justify-end">
-			<span class="text-sm font-medium truncate">{match.away_team}</span>
+			<span class="text-sm font-medium text-fg truncate">{match.away_team}</span>
 			<span class="text-xl">{isoToFlag(match.away_flag)}</span>
 		</div>
 		{#if data.pronosticsMap?.[match.id]}
 			{@const p = data.pronosticsMap[match.id]}
-			<span class="text-xs text-green-400 bg-green-900/30 rounded px-2 py-0.5 ml-2 whitespace-nowrap">
+			<span class="text-xs text-accent bg-accent-lo rounded px-2 py-0.5 ml-2 whitespace-nowrap">
 				{p.predicted_home}–{p.predicted_away}
 			</span>
 		{/if}

@@ -1,1 +1,24 @@
 @import 'tailwindcss';
+
+@theme {
+  /* ── Surfaces (warm near-black, subtle amber undertone) ── */
+  --color-canvas:   oklch(0.11 0.010 48);   /* page background  */
+  --color-panel:    oklch(0.15 0.010 48);   /* cards, nav       */
+  --color-raised:   oklch(0.20 0.010 48);   /* inputs, buttons  */
+  --color-wire:     oklch(0.25 0.010 48);   /* borders          */
+  --color-wire-hi:  oklch(0.33 0.010 48);   /* strong borders, hover */
+
+  /* ── Text ── */
+  --color-fg:    oklch(0.96 0.005 60);      /* primary text     */
+  --color-muted: oklch(0.55 0.010 60);      /* secondary text   */
+  --color-faint: oklch(0.38 0.010 60);      /* disabled / hint  */
+
+  /* ── Brand accent: electric orange ── */
+  --color-accent:    oklch(0.68 0.19 51);   /* CTAs, highlights */
+  --color-accent-hi: oklch(0.73 0.18 51);   /* hover            */
+  --color-accent-lo: oklch(0.18 0.07 51);   /* subtle tint      */
+
+  /* ── Status ── */
+  --color-live: oklch(0.58 0.22 22);        /* red – live badge */
+  --color-err:  oklch(0.55 0.18 22);        /* errors           */
+}

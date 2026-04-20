@@ -29,20 +29,20 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<div class="min-h-screen bg-gray-950 text-white">
-	<nav class="sticky top-0 z-50 border-b border-green-800 bg-green-950">
+<div class="min-h-screen bg-canvas text-fg">
+	<nav class="sticky top-0 z-50 border-b border-wire bg-canvas">
 		<div class="mx-auto flex h-14 max-w-6xl items-center px-4">
 			<!-- Logo -->
-			<a href="/" onclick={closeMenu} class="text-lg font-bold text-yellow-400 mr-4 shrink-0">⚽ Pronal</a>
+			<a href="/" onclick={closeMenu} class="text-lg font-bold text-accent mr-4 shrink-0 tracking-tight">⚽ Pronal</a>
 
 			<!-- Desktop nav links -->
 			<div class="hidden sm:flex flex-1 items-center gap-5">
 				{#each navLinks as link}
 					<a
 						href={link.href}
-						class="text-sm transition-colors hover:text-yellow-400 {page.url.pathname === link.href
-							? 'font-semibold text-yellow-400'
-							: 'text-green-200'}">{link.label}</a
+						class="text-sm transition-colors hover:text-accent {page.url.pathname === link.href
+							? 'font-semibold text-accent'
+							: 'text-muted'}">{link.label}</a
 					>
 				{/each}
 			</div>
@@ -50,13 +50,13 @@
 			<!-- Desktop auth -->
 			<div class="hidden sm:flex items-center gap-4 ml-auto">
 				{#if data.user}
-					<a href="/profile" class="text-sm text-green-200 hover:text-yellow-400 transition-colors">Mon profil</a>
-					<button onclick={logout} class="text-sm text-red-400 hover:text-red-300 transition-colors cursor-pointer">
+					<a href="/profile" class="text-sm text-muted hover:text-accent transition-colors">Mon profil</a>
+					<button onclick={logout} class="text-sm text-err hover:opacity-80 transition-opacity cursor-pointer">
 						Déconnexion
 					</button>
 				{:else}
-					<a href="/auth/login" class="text-sm text-green-200 hover:text-yellow-400 transition-colors">Connexion</a>
-					<a href="/auth/register" class="rounded bg-yellow-500 px-3 py-1 text-sm font-semibold text-black hover:bg-yellow-400 transition-colors">
+					<a href="/auth/login" class="text-sm text-muted hover:text-accent transition-colors">Connexion</a>
+					<a href="/auth/register" class="rounded bg-accent px-3 py-1 text-sm font-semibold text-canvas hover:bg-accent-hi transition-colors">
 						S'inscrire
 					</a>
 				{/if}
@@ -64,7 +64,7 @@
 
 			<!-- Mobile hamburger -->
 			<button
-				class="sm:hidden ml-auto p-2 text-green-200 hover:text-white transition-colors cursor-pointer"
+				class="sm:hidden ml-auto p-2 text-muted hover:text-fg transition-colors cursor-pointer"
 				onclick={() => (menuOpen = !menuOpen)}
 				aria-label="Menu"
 			>
@@ -82,29 +82,29 @@
 
 		<!-- Mobile dropdown -->
 		{#if menuOpen}
-			<div class="sm:hidden border-t border-green-800 bg-green-950 px-4 py-3 space-y-1">
+			<div class="sm:hidden border-t border-wire bg-canvas px-4 py-3 space-y-1">
 				{#each navLinks as link}
 					<a
 						href={link.href}
 						onclick={closeMenu}
-						class="block py-2 text-sm transition-colors hover:text-yellow-400 {page.url.pathname === link.href
-							? 'font-semibold text-yellow-400'
-							: 'text-green-200'}">{link.label}</a
+						class="block py-2 text-sm transition-colors hover:text-accent {page.url.pathname === link.href
+							? 'font-semibold text-accent'
+							: 'text-muted'}">{link.label}</a
 					>
 				{/each}
-				<div class="border-t border-green-800 pt-2 mt-2">
+				<div class="border-t border-wire pt-2 mt-2">
 					{#if data.user}
-						<a href="/profile" onclick={closeMenu} class="block py-2 text-sm text-green-200 hover:text-yellow-400 transition-colors">
+						<a href="/profile" onclick={closeMenu} class="block py-2 text-sm text-muted hover:text-accent transition-colors">
 							Mon profil
 						</a>
-						<button onclick={logout} class="block py-2 text-sm text-red-400 hover:text-red-300 transition-colors cursor-pointer w-full text-left">
+						<button onclick={logout} class="block py-2 text-sm text-err hover:opacity-80 transition-opacity cursor-pointer w-full text-left">
 							Déconnexion
 						</button>
 					{:else}
-						<a href="/auth/login" onclick={closeMenu} class="block py-2 text-sm text-green-200 hover:text-yellow-400 transition-colors">
+						<a href="/auth/login" onclick={closeMenu} class="block py-2 text-sm text-muted hover:text-accent transition-colors">
 							Connexion
 						</a>
-						<a href="/auth/register" onclick={closeMenu} class="block py-2 text-sm text-yellow-400 font-semibold hover:text-yellow-300 transition-colors">
+						<a href="/auth/register" onclick={closeMenu} class="block py-2 text-sm text-accent font-semibold hover:text-accent-hi transition-colors">
 							S'inscrire
 						</a>
 					{/if}

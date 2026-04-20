@@ -16,7 +16,14 @@
       "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__apply_migration",
       "mcp__97eec0e1-e856-4ca9-9555-08f3c5d85784__list_teams",
       "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__execute_sql",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "mcp__97eec0e1-e856-4ca9-9555-08f3c5d85784__deploy_to_vercel",
+      "Bash(npx vercel *)",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__deploy_edge_function",
+      "Bash(npx skills *)",
+      "Bash(node .agents/skills/impeccable/scripts/cleanup-deprecated.mjs)",
+      "Bash(npx impeccable *)",
+      "Bash(node .agents/skills/impeccable/bin/impeccable.mjs --json --fast src/routes/+layout.svelte src/routes/+page.svelte src/routes/matches/+page.svelte \"src/routes/matches/[id]/+page.svelte\" src/routes/leaderboard/+page.svelte src/routes/groups/+page.svelte src/routes/profile/+page.svelte)"
     ]
   }
 }

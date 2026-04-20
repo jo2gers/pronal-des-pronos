@@ -1,1 +1,1 @@
-<p class="text-gray-400">Redirection en cours...</p>
+<p class="text-muted">Redirection en cours...</p>
