@@ -35,8 +35,7 @@
 	$effect(() => {
 		if (form?.success && form?.match_id) {
 			const id = form.match_id as string;
-			savedIds = new Set([...savedIds, id]);
-			// Also update the pronosticsMap-derived score in case the server returned new values
+			savedIds.add(id);
 			if (form.predicted_home != null && form.predicted_away != null) {
 				scores[id] = {
 					home: form.predicted_home as number,
@@ -44,9 +43,7 @@
 				};
 			}
 			if (openId === id) openId = null;
-			setTimeout(() => {
-				savedIds = new Set([...savedIds].filter((x) => x !== id));
-			}, 3000);
+			setTimeout(() => { savedIds.delete(id); }, 3000);
 		}
 	});
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { isoToFlag } from '$lib/utils';
 	import { WC2026_TEAMS } from '$lib/wc2026';
 	import { t } from '$lib/i18n.svelte';
 

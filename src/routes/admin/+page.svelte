@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { isoToFlag, formatDate } from '$lib/utils';
-	import { STAGE_LABELS } from '$lib/wc2026';
+	import { formatDate } from '$lib/utils';
+	import { STAGE_LABELS_FR } from '$lib/wc2026';
 
 	let { data, form } = $props();
 
@@ -147,7 +147,7 @@
 	{#each grouped as { stage, matches }}
 		<section>
 			<h2 class="text-sm font-bold text-accent uppercase tracking-wider mb-3">
-				{STAGE_LABELS[stage] ?? stage}
+				{STAGE_LABELS_FR[stage] ?? stage}
 			</h2>
 
 			<div class="rounded-xl bg-panel border border-wire overflow-hidden">
@@ -155,11 +155,11 @@
 					<div class="border-b border-wire last:border-0 p-4">
 						<!-- Match header -->
 						<div class="flex items-center gap-2 mb-3">
-							<span class="text-base">{isoToFlag(match.home_flag)}</span>
+							{#if match.home_flag}<img src="https://flagcdn.com/w20/{match.home_flag.toLowerCase()}.png" alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />{/if}
 							<span class="font-semibold text-fg text-sm">{match.home_team}</span>
 							<span class="text-faint text-xs mx-1">vs</span>
 							<span class="font-semibold text-fg text-sm">{match.away_team}</span>
-							<span class="text-base">{isoToFlag(match.away_flag)}</span>
+							{#if match.away_flag}<img src="https://flagcdn.com/w20/{match.away_flag.toLowerCase()}.png" alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />{/if}
 							<span class="ml-auto text-xs text-faint">{formatDate(match.match_datetime)}</span>
 							<span class="text-xs {statusColors[match.status] ?? 'text-faint'} uppercase">
 								{match.status === 'upcoming' ? 'À venir' : match.status === 'live' ? 'En cours' : match.status === 'finished' ? 'Terminé' : match.status}

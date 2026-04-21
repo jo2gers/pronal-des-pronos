@@ -82,9 +82,6 @@ export const STAGE_LABELS_EN: Record<string, string> = {
 	final: 'Final'
 };
 
-// kept for any callers that haven't migrated yet
-export const STAGE_LABELS = STAGE_LABELS_FR;
-
 export const COUNTRIES = [
 	'Afrique du Sud', 'Algérie', 'Allemagne', 'Angleterre', 'Arabie Saoudite', 'Argentine',
 	'Australie', 'Autriche', 'Belgique', 'Bosnie-Herzégovine', 'Brésil',

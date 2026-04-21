@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { WC2026_TEAMS } from '$lib/wc2026';
-	import { isoToFlag } from '$lib/utils';
 
 	let { data, form } = $props();
 	let loading = $state(false);
@@ -59,7 +58,7 @@
 					<option value="">— Choisis ton équipe —</option>
 					{#each WC2026_TEAMS as team}
 						<option value={team.name} selected={form?.favorite_team === team.name}>
-							{isoToFlag(team.flag)} {team.name}
+							{team.name}
 						</option>
 					{/each}
 				</select>

@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { isoToFlag, formatDate, isMatchLocked } from '$lib/utils';
-	import { STAGE_LABELS } from '$lib/wc2026';
+	import { formatDate, isMatchLocked } from '$lib/utils';
+	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
+	import { t, getLang } from '$lib/i18n.svelte';
+
+	function flagSrc(iso: string | null | undefined) {
+		return iso ? `https://flagcdn.com/w80/${iso.toLowerCase()}.png` : '';
+	}
 
 	let { data, form } = $props();
 
@@ -80,8 +85,8 @@
 	<div class="rounded-xl bg-panel border border-wire p-6">
 		<div class="flex items-center justify-between mb-5 text-xs text-faint">
 			<span class="uppercase tracking-wide">
-				{STAGE_LABELS[data.match.stage] ?? data.match.stage}
-				{data.match.group_label ? ` · Gr. ${data.match.group_label}` : ''}
+				{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[data.match.stage] ?? data.match.stage}
+				{data.match.group_label ? ` · ${t('group_short')} ${data.match.group_label}` : ''}
 			</span>
 			{#if data.match.venue}
 				<span class="hidden sm:block truncate ml-4 max-w-[200px]">{data.match.venue}</span>
@@ -91,7 +96,10 @@
 		<!-- Teams + score -->
 		<div class="flex items-center justify-center gap-6 sm:gap-10">
 			<div class="text-center flex-1">
-				<div class="text-5xl mb-2">{isoToFlag(data.match.home_flag)}</div>
+				{#if flagSrc(data.match.home_flag)}
+					<img src={flagSrc(data.match.home_flag)} alt={data.match.home_team}
+						class="w-16 h-11 object-cover rounded mx-auto mb-2" />
+				{/if}
 				<p class="font-bold text-base text-fg leading-tight">{data.match.home_team}</p>
 			</div>
 
@@ -101,7 +109,7 @@
 						style="font-family: var(--font-display)">
 						{data.match.home_score}<span class="text-wire-hi mx-2">–</span>{data.match.away_score}
 					</p>
-					<p class="text-xs text-faint mt-2 uppercase tracking-wider">Terminé</p>
+					<p class="text-xs text-faint mt-2 uppercase tracking-wider">{t('ended')}</p>
 				{:else if data.match.status === 'live'}
 					<p class="text-5xl font-bold text-live tabular-nums leading-none"
 						style="font-family: var(--font-display)">
@@ -137,7 +145,10 @@
 			</div>
 
 			<div class="text-center flex-1">
-				<div class="text-5xl mb-2">{isoToFlag(data.match.away_flag)}</div>
+				{#if flagSrc(data.match.away_flag)}
+					<img src={flagSrc(data.match.away_flag)} alt={data.match.away_team}
+						class="w-16 h-11 object-cover rounded mx-auto mb-2" />
+				{/if}
 				<p class="font-bold text-base text-fg leading-tight">{data.match.away_team}</p>
 			</div>
 		</div>

@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { isoToFlag, formatDate, timeUntilMatch } from '$lib/utils';
-	import { STAGE_LABELS } from '$lib/wc2026';
-	import { supabase } from '$lib/supabase';
-	import { t } from '$lib/i18n.svelte';
+	import { formatDate, timeUntilMatch } from '$lib/utils';
+	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
+	import { t, getLang } from '$lib/i18n.svelte';
 
 	let { data, form } = $props();
 
@@ -32,12 +31,12 @@
 	$effect(() => {
 		if (form?.success && form?.match_id) {
 			const id = form.match_id as string;
-			savedIds = new Set([...savedIds, id]);
+			savedIds.add(id);
 			if (form.predicted_home != null && form.predicted_away != null) {
 				scores[id] = { home: form.predicted_home as number, away: form.predicted_away as number };
 			}
 			if (openId === id) openId = null;
-			setTimeout(() => { savedIds = new Set([...savedIds].filter((x) => x !== id)); }, 3000);
+			setTimeout(() => { savedIds.delete(id); }, 3000);
 		}
 	});
 
@@ -58,24 +57,6 @@
 			countdown = nextMatch ? getCountdown(nextMatch.match_datetime) : null;
 		}, 1000);
 		return () => clearInterval(interval);
-	});
-
-	// ── Realtime ─────────────────────────────────────────────────────────────────
-	$effect(() => {
-		const channel = supabase
-			.channel('homepage-matches')
-			.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches' }, (payload) => {
-				const m = payload.new as typeof liveMatches[number];
-				if (m.status === 'live') {
-					const idx = liveMatches.findIndex((x) => x.id === m.id);
-					if (idx >= 0) liveMatches[idx] = m; else liveMatches = [...liveMatches, m];
-					if (nextMatch?.id === m.id) nextMatch = null;
-				} else if (m.status === 'finished') {
-					liveMatches = liveMatches.filter((x) => x.id !== m.id);
-				}
-			})
-			.subscribe();
-		return () => { supabase.removeChannel(channel); };
 	});
 
 	// ── Urgency + pickability ────────────────────────────────────────────────────
@@ -111,10 +92,13 @@
 				{#each liveMatches as match}
 					<a href="/matches/{match.id}"
 						class="rounded-lg bg-canvas border border-live/30 hover:border-live transition-colors px-4 py-5 text-center block">
-						<p class="text-xs text-muted mb-3 uppercase tracking-wide">{STAGE_LABELS[match.stage] ?? match.stage}</p>
+						<p class="text-xs text-muted mb-3 uppercase tracking-wide">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
 						<div class="flex items-center justify-between gap-3">
 							<div class="flex-1 text-center">
-								<div class="text-3xl mb-1">{isoToFlag(match.home_flag)}</div>
+								{#if match.home_flag}
+									<img src="https://flagcdn.com/w40/{match.home_flag.toLowerCase()}.png"
+										alt={match.home_team} class="w-10 h-7 object-cover rounded mx-auto mb-1" />
+								{/if}
 								<p class="text-sm font-semibold text-fg leading-tight">{match.home_team}</p>
 							</div>
 							<div class="text-center shrink-0 px-3">
@@ -125,7 +109,10 @@
 								<span class="inline-block mt-2 rounded bg-live px-2 py-0.5 text-xs font-bold text-fg tracking-wider">LIVE</span>
 							</div>
 							<div class="flex-1 text-center">
-								<div class="text-3xl mb-1">{isoToFlag(match.away_flag)}</div>
+								{#if match.away_flag}
+									<img src="https://flagcdn.com/w40/{match.away_flag.toLowerCase()}.png"
+										alt={match.away_team} class="w-10 h-7 object-cover rounded mx-auto mb-1" />
+								{/if}
 								<p class="text-sm font-semibold text-fg leading-tight">{match.away_team}</p>
 							</div>
 						</div>
