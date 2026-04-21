@@ -76,7 +76,7 @@ export const actions: Actions = {
 		const supabase = adminClient();
 
 		// 1. Delete all pronostics
-		const { error: e1 } = await supabase.from('pronostics').delete().neq('id', '');
+		const { error: e1 } = await supabase.from('pronostics').delete().not('id', 'is', null);
 		if (e1) return fail(500, { error: `Pronostics: ${e1.message}` });
 
 		// 2. Reset all match results
@@ -85,11 +85,11 @@ export const actions: Actions = {
 			home_score: null,
 			away_score: null,
 			bonus_calculated: false
-		}).neq('id', '');
+		}).not('id', 'is', null);
 		if (e2) return fail(500, { error: `Matchs: ${e2.message}` });
 
 		// 3. Reset all team bonus points
-		const { error: e3 } = await supabase.from('profiles').update({ team_bonus_points: 0 }).neq('id', '');
+		const { error: e3 } = await supabase.from('profiles').update({ team_bonus_points: 0 }).not('id', 'is', null);
 		if (e3) return fail(500, { error: `Profils: ${e3.message}` });
 
 		return { reset: true };
