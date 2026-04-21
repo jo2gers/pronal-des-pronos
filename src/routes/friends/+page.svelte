@@ -33,7 +33,14 @@
 			<div class="mt-3 space-y-2">
 				{#each form.searchResults as profile}
 					<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">
-						<span class="flex-1 text-sm text-fg">@{profile.username}</span>
+						<div class="flex-1 min-w-0">
+							{#if profile.display_name}
+								<p class="text-sm text-fg truncate">{profile.display_name}</p>
+								<p class="text-xs text-faint">@{profile.username}</p>
+							{:else}
+								<p class="text-sm text-fg truncate">@{profile.username}</p>
+							{/if}
+						</div>
 						<form method="POST" action="?/request" use:enhance>
 							<input type="hidden" name="addressee_id" value={profile.id} />
 							<button type="submit"

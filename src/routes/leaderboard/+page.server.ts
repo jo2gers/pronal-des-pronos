@@ -3,65 +3,59 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 
-	// Aggregate pronostic points per user
-	const { data: rankings } = await supabase
+	// Fetch scored pronostics (no join — avoids FK ambiguity)
+	const { data: pronostics } = await supabase
 		.from('pronostics')
-		.select('user_id, points_earned, profiles(id, username, display_name, avatar_url, favorite_team, team_bonus_points)')
+		.select('user_id, points_earned')
 		.eq('is_scored', true);
 
-	// Group by user
-	const userMap = new Map<string, {
-		user: unknown;
-		pronoPoints: number;
-		teamBonus: number;
-		count: number;
-	}>();
-
-	for (const row of rankings ?? []) {
-		if (!userMap.has(row.user_id)) {
-			const profile = row.profiles as any;
-			userMap.set(row.user_id, {
-				user: profile,
-				pronoPoints: 0,
-				teamBonus: profile?.team_bonus_points ?? 0,
-				count: 0
-			});
-		}
-		const entry = userMap.get(row.user_id)!;
-		entry.pronoPoints += row.points_earned ?? 0;
-		entry.count += 1;
+	// Aggregate prono points per user
+	const pronoMap = new Map<string, number>();
+	for (const p of pronostics ?? []) {
+		pronoMap.set(p.user_id, (pronoMap.get(p.user_id) ?? 0) + (p.points_earned ?? 0));
 	}
 
-	// Also include users who have team bonus but zero pronostics scored yet
-	const { data: bonusProfiles } = await supabase
+	// Fetch all profiles that appear in pronostics OR have a team bonus
+	const profileIds = [...pronoMap.keys()];
+
+	const { data: profiles } = await supabase
 		.from('profiles')
 		.select('id, username, display_name, avatar_url, favorite_team, team_bonus_points')
-		.gt('team_bonus_points', 0);
+		.or(
+			profileIds.length > 0
+				? `id.in.(${profileIds.join(',')}),team_bonus_points.gt.0`
+				: 'team_bonus_points.gt.0'
+		);
 
-	for (const profile of bonusProfiles ?? []) {
-		if (!userMap.has(profile.id)) {
-			userMap.set(profile.id, {
-				user: profile,
-				pronoPoints: 0,
-				teamBonus: profile.team_bonus_points ?? 0,
-				count: 0
-			});
-		}
-	}
-
-	const leaderboard = Array.from(userMap.entries())
-		.map(([userId, { user, pronoPoints, teamBonus, count }]) => ({
-			userId,
-			user,
-			pronoPoints,
-			teamBonus,
-			total: pronoPoints + teamBonus,
-			count
-		}))
+	// Build leaderboard
+	const leaderboard = (profiles ?? [])
+		.map((profile) => {
+			const pronoPoints = pronoMap.get(profile.id) ?? 0;
+			const teamBonus   = profile.team_bonus_points ?? 0;
+			const total       = pronoPoints + teamBonus;
+			const count       = pronostics?.filter((p) => p.user_id === profile.id).length ?? 0;
+			return { userId: profile.id, user: profile, pronoPoints, teamBonus, total, count };
+		})
+		.filter((e) => e.total > 0)
 		.sort((a, b) => b.total - a.total)
 		.map((entry, i) => ({ ...entry, rank: i + 1 }));
 
-	const userRank = user ? (leaderboard.findIndex((r) => r.userId === user.id) + 1) || null : null;
+	const userRank = user
+		? (leaderboard.findIndex((r) => r.userId === user.id) + 1) || null
+		: null;
 
-	return { leaderboard, userRank, currentUser: user };
+	// Friend IDs for "friends" filter
+	let friendIds: string[] = [];
+	if (user) {
+		const { data: friendships } = await supabase
+			.from('friendships')
+			.select('requester_id, addressee_id')
+			.eq('status', 'accepted')
+			.or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+		friendIds = (friendships ?? []).map((f) =>
+			f.requester_id === user.id ? f.addressee_id : f.requester_id
+		);
+	}
+
+	return { leaderboard, userRank, currentUser: user, friendIds };
 };

@@ -1,68 +1,68 @@
-// Real 2026 FIFA World Cup groups — draw held December 5, 2024, Miami
+// Real 2026 FIFA World Cup groups — official draw
 export const WC2026_TEAMS = [
 	// Group A
-	{ name: 'Argentina', flag: 'AR', group: 'A' },
-	{ name: 'Canada', flag: 'CA', group: 'A' },
-	{ name: 'Chile', flag: 'CL', group: 'A' },
-	{ name: 'Peru', flag: 'PE', group: 'A' },
+	{ name: 'Mexico', flag: 'MX', group: 'A' },
+	{ name: 'South Africa', flag: 'ZA', group: 'A' },
+	{ name: 'South Korea', flag: 'KR', group: 'A' },
+	{ name: 'Czech Republic', flag: 'CZ', group: 'A' },
 	// Group B
-	{ name: 'Spain', flag: 'ES', group: 'B' },
-	{ name: 'Morocco', flag: 'MA', group: 'B' },
-	{ name: 'Croatia', flag: 'HR', group: 'B' },
-	{ name: 'Bahrain', flag: 'BH', group: 'B' },
+	{ name: 'Canada', flag: 'CA', group: 'B' },
+	{ name: 'Bosnia and Herzegovina', flag: 'BA', group: 'B' },
+	{ name: 'Qatar', flag: 'QA', group: 'B' },
+	{ name: 'Switzerland', flag: 'CH', group: 'B' },
 	// Group C
 	{ name: 'USA', flag: 'US', group: 'C' },
-	{ name: 'Panama', flag: 'PA', group: 'C' },
-	{ name: 'Venezuela', flag: 'VE', group: 'C' },
-	{ name: 'New Zealand', flag: 'NZ', group: 'C' },
+	{ name: 'Paraguay', flag: 'PY', group: 'C' },
+	{ name: 'Australia', flag: 'AU', group: 'C' },
+	{ name: 'Turkey', flag: 'TR', group: 'C' },
 	// Group D
-	{ name: 'France', flag: 'FR', group: 'D' },
-	{ name: 'Mexico', flag: 'MX', group: 'D' },
-	{ name: 'Saudi Arabia', flag: 'SA', group: 'D' },
-	{ name: 'Dominican Republic', flag: 'DO', group: 'D' },
+	{ name: 'Brazil', flag: 'BR', group: 'D' },
+	{ name: 'Morocco', flag: 'MA', group: 'D' },
+	{ name: 'Haiti', flag: 'HT', group: 'D' },
+	{ name: 'Scotland', flag: 'GB-SCT', group: 'D' },
 	// Group E
-	{ name: 'Portugal', flag: 'PT', group: 'E' },
-	{ name: 'Czech Republic', flag: 'CZ', group: 'E' },
-	{ name: 'Cameroon', flag: 'CM', group: 'E' },
-	{ name: 'Jamaica', flag: 'JM', group: 'E' },
+	{ name: 'Germany', flag: 'DE', group: 'E' },
+	{ name: 'Curaçao', flag: 'CW', group: 'E' },
+	{ name: 'Ecuador', flag: 'EC', group: 'E' },
+	{ name: 'Ivory Coast', flag: 'CI', group: 'E' },
 	// Group F
-	{ name: 'Brazil', flag: 'BR', group: 'F' },
+	{ name: 'Netherlands', flag: 'NL', group: 'F' },
 	{ name: 'Japan', flag: 'JP', group: 'F' },
-	{ name: 'Ecuador', flag: 'EC', group: 'F' },
-	{ name: 'Australia', flag: 'AU', group: 'F' },
+	{ name: 'Sweden', flag: 'SE', group: 'F' },
+	{ name: 'Tunisia', flag: 'TN', group: 'F' },
 	// Group G
-	{ name: 'England', flag: 'GB', group: 'G' },
-	{ name: 'Senegal', flag: 'SN', group: 'G' },
-	{ name: 'IR Iran', flag: 'IR', group: 'G' },
-	{ name: 'Slovakia', flag: 'SK', group: 'G' },
+	{ name: 'Spain', flag: 'ES', group: 'G' },
+	{ name: 'Cape Verde', flag: 'CV', group: 'G' },
+	{ name: 'Saudi Arabia', flag: 'SA', group: 'G' },
+	{ name: 'Uruguay', flag: 'UY', group: 'G' },
 	// Group H
-	{ name: 'Germany', flag: 'DE', group: 'H' },
-	{ name: 'Colombia', flag: 'CO', group: 'H' },
-	{ name: 'Costa Rica', flag: 'CR', group: 'H' },
-	{ name: 'Ukraine', flag: 'UA', group: 'H' },
+	{ name: 'Belgium', flag: 'BE', group: 'H' },
+	{ name: 'Egypt', flag: 'EG', group: 'H' },
+	{ name: 'Iran', flag: 'IR', group: 'H' },
+	{ name: 'New Zealand', flag: 'NZ', group: 'H' },
 	// Group I
-	{ name: 'Netherlands', flag: 'NL', group: 'I' },
-	{ name: 'Uruguay', flag: 'UY', group: 'I' },
+	{ name: 'France', flag: 'FR', group: 'I' },
+	{ name: 'Senegal', flag: 'SN', group: 'I' },
 	{ name: 'Iraq', flag: 'IQ', group: 'I' },
-	{ name: 'Bolivia', flag: 'BO', group: 'I' },
+	{ name: 'Norway', flag: 'NO', group: 'I' },
 	// Group J
-	{ name: 'Belgium', flag: 'BE', group: 'J' },
-	{ name: 'Italy', flag: 'IT', group: 'J' },
-	{ name: 'Egypt', flag: 'EG', group: 'J' },
-	{ name: 'Indonesia', flag: 'ID', group: 'J' },
+	{ name: 'Argentina', flag: 'AR', group: 'J' },
+	{ name: 'Algeria', flag: 'DZ', group: 'J' },
+	{ name: 'Austria', flag: 'AT', group: 'J' },
+	{ name: 'Jordan', flag: 'JO', group: 'J' },
 	// Group K
-	{ name: 'Turkey', flag: 'TR', group: 'K' },
-	{ name: 'South Korea', flag: 'KR', group: 'K' },
-	{ name: 'Nigeria', flag: 'NG', group: 'K' },
-	{ name: 'Honduras', flag: 'HN', group: 'K' },
+	{ name: 'England', flag: 'GB-ENG', group: 'K' },
+	{ name: 'Croatia', flag: 'HR', group: 'K' },
+	{ name: 'Ghana', flag: 'GH', group: 'K' },
+	{ name: 'Panama', flag: 'PA', group: 'K' },
 	// Group L
-	{ name: 'Switzerland', flag: 'CH', group: 'L' },
-	{ name: 'Norway', flag: 'NO', group: 'L' },
+	{ name: 'Portugal', flag: 'PT', group: 'L' },
+	{ name: 'Uzbekistan', flag: 'UZ', group: 'L' },
+	{ name: 'Colombia', flag: 'CO', group: 'L' },
 	{ name: 'DR Congo', flag: 'CD', group: 'L' },
-	{ name: 'Paraguay', flag: 'PY', group: 'L' },
 ] as const;
 
-export const STAGE_LABELS: Record<string, string> = {
+export const STAGE_LABELS_FR: Record<string, string> = {
 	group: 'Phase de groupes',
 	round_of_32: 'Huitièmes de finale',
 	round_of_16: 'Seizièmes de finale',
@@ -72,13 +72,27 @@ export const STAGE_LABELS: Record<string, string> = {
 	final: 'Finale'
 };
 
+export const STAGE_LABELS_EN: Record<string, string> = {
+	group: 'Group stage',
+	round_of_32: 'Round of 32',
+	round_of_16: 'Round of 16',
+	quarters: 'Quarter-finals',
+	semis: 'Semi-finals',
+	third: 'Third place match',
+	final: 'Final'
+};
+
+// kept for any callers that haven't migrated yet
+export const STAGE_LABELS = STAGE_LABELS_FR;
+
 export const COUNTRIES = [
-	'Algérie', 'Argentine', 'Australie', 'Autriche', 'Bahreïn', 'Belgique', 'Bolivie', 'Brésil',
-	'Cameroun', 'Canada', 'Chili', 'Colombie', 'Congo RD', 'Costa Rica', 'Côte d\'Ivoire',
-	'Croatie', 'République dominicaine', 'Equateur', 'Egypte', 'Espagne', 'Etats-Unis', 'France',
-	'Allemagne', 'Angleterre', 'Honduras', 'Indonésie', 'Irak', 'Iran', 'Italie',
-	'Jamaïque', 'Japon', 'Maroc', 'Mexique', 'Pays-Bas', 'Nouvelle-Zélande',
-	'Nigéria', 'Norvège', 'Panama', 'Paraguay', 'Pérou', 'Portugal',
-	'République tchèque', 'Arabie Saoudite', 'Sénégal', 'Slovaquie',
-	'Corée du Sud', 'Suisse', 'Turquie', 'Ukraine', 'Uruguay', 'Venezuela', 'Autre'
+	'Afrique du Sud', 'Algérie', 'Allemagne', 'Angleterre', 'Arabie Saoudite', 'Argentine',
+	'Australie', 'Autriche', 'Belgique', 'Bosnie-Herzégovine', 'Brésil',
+	'Canada', 'Cap-Vert', 'Colombie', 'Congo RD', 'Corée du Sud', 'Côte d\'Ivoire',
+	'Croatie', 'Curaçao', 'Ecosse', 'Egypte', 'Equateur', 'Espagne', 'Etats-Unis',
+	'France', 'Ghana', 'Haïti', 'Irak', 'Iran', 'Japon', 'Jordanie',
+	'Maroc', 'Maurice', 'Mexique', 'Norvège', 'Nouvelle-Zélande',
+	'Ouzbékistan', 'Panama', 'Paraguay', 'Pays-Bas', 'Portugal',
+	'Qatar', 'République tchèque', 'Sénégal', 'Suède', 'Suisse',
+	'Tunisie', 'Turquie', 'Uruguay', 'Autre'
 ].sort();
