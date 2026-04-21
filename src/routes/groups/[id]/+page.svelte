@@ -83,8 +83,8 @@
 					{#if form?.error}
 						<p class="text-sm text-err">{form.error}</p>
 					{/if}
-					{#if form?.added}
-						<p class="text-sm text-accent">✓ Ami ajouté au groupe !</p>
+					{#if form?.inviteSent}
+						<p class="text-sm text-accent">✓ Invitation envoyée !</p>
 					{/if}
 					{#each data.friendsNotInGroup as friend}
 						<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">

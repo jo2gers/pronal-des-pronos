@@ -127,6 +127,43 @@
 		</div>
 	{/if}
 
+	<!-- User's pending group invites -->
+	{#if data.myPendingInvites.length > 0}
+		<div class="rounded-xl bg-panel border border-wire/60 p-4">
+			<h2 class="text-sm font-semibold text-muted mb-3">
+				Invitations aux groupes ({data.myPendingInvites.length})
+			</h2>
+			<div class="space-y-2">
+				{#each data.myPendingInvites as invite}
+					<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">
+						<div class="flex-1 min-w-0">
+							<p class="text-sm text-fg font-medium">{invite.group_name}</p>
+							<p class="text-xs text-faint">
+								Invité par {invite.invited_by?.display_name ?? invite.invited_by?.username ?? '?'}
+							</p>
+						</div>
+						<div class="flex gap-2 shrink-0">
+							<form method="POST" action="?/respondToInvite" use:enhance>
+								<input type="hidden" name="invite_id" value={invite.id} />
+								<button name="action" value="accepted" type="submit"
+									class="rounded bg-accent hover:bg-accent-hi px-3 py-1 text-xs text-canvas transition-colors cursor-pointer">
+									Accepter
+								</button>
+							</form>
+							<form method="POST" action="?/respondToInvite" use:enhance>
+								<input type="hidden" name="invite_id" value={invite.id} />
+								<button name="action" value="declined" type="submit"
+									class="rounded bg-raised hover:bg-wire border border-wire px-3 py-1 text-xs text-muted transition-colors cursor-pointer">
+									Refuser
+								</button>
+							</form>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	<!-- Groups list -->
 	{#if data.groups.length === 0}
 		<div class="rounded-xl bg-panel border border-wire p-8 text-center">

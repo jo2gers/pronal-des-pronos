@@ -57,7 +57,22 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		created_at: r.created_at
 	}));
 
-	return { groups, pendingRequests, myPendingRequests };
+	// Current user's pending group invites
+	const { data: myInvites } = await supabase
+		.from('group_invites')
+		.select('id, group_id, created_at, groups(id, name), invited_by, profiles!group_invites_invited_by_fkey(username, display_name)')
+		.eq('user_id', user.id)
+		.eq('status', 'pending');
+
+	const myPendingInvites = (myInvites ?? []).map((inv) => ({
+		id: inv.id,
+		group_id: inv.group_id,
+		group_name: (inv.groups as { name: string } | null)?.name ?? '',
+		invited_by: inv.profiles as { username: string; display_name: string | null } | null,
+		created_at: inv.created_at
+	}));
+
+	return { groups, pendingRequests, myPendingRequests, myPendingInvites };
 };
 
 export const actions: Actions = {
@@ -173,5 +188,48 @@ export const actions: Actions = {
 		await supabase.from('group_join_requests').update({ status: 'declined' }).eq('id', requestId);
 
 		return { declined: true };
+	},
+
+	respondToInvite: async ({ request, locals: { supabase, safeGetSession } }) => {
+		const { user } = await safeGetSession();
+		if (!user) return fail(401, { error: 'Non authentifié' });
+
+		const form = await request.formData();
+		const inviteId = form.get('invite_id') as string;
+		const action = form.get('action') as 'accepted' | 'declined';
+
+		if (!inviteId || !action) return fail(400, { error: 'Données invalides' });
+
+		// Get the invite
+		const { data: invite } = await supabase
+			.from('group_invites')
+			.select('id, group_id, user_id, status')
+			.eq('id', inviteId)
+			.maybeSingle();
+
+		if (!invite || invite.user_id !== user.id || invite.status !== 'pending') {
+			return fail(403, { error: 'Invitation invalide' });
+		}
+
+		if (action === 'accepted') {
+			// Add user to group and mark invite as accepted
+			await Promise.all([
+				supabase
+					.from('group_members')
+					.insert({ group_id: invite.group_id, user_id: user.id, role: 'member' }),
+				supabase
+					.from('group_invites')
+					.update({ status: 'accepted' })
+					.eq('id', inviteId)
+			]);
+		} else {
+			// Just mark as declined
+			await supabase
+				.from('group_invites')
+				.update({ status: 'declined' })
+				.eq('id', inviteId);
+		}
+
+		return { responded: true };
 	}
 };

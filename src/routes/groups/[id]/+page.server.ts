@@ -132,12 +132,23 @@ export const actions: Actions = {
 
 		if (existing) return fail(400, { error: 'Cet ami est déjà dans le groupe' });
 
+		// Check not already invited
+		const { data: existingInvite } = await supabase
+			.from('group_invites')
+			.select('id')
+			.eq('group_id', params.id)
+			.eq('user_id', friendId)
+			.eq('status', 'pending')
+			.maybeSingle();
+
+		if (existingInvite) return fail(400, { error: 'Cet ami a déjà une invitation en attente' });
+
 		const { error: insertError } = await supabase
-			.from('group_members')
-			.insert({ group_id: params.id, user_id: friendId, role: 'member' });
+			.from('group_invites')
+			.insert({ group_id: params.id, user_id: friendId, invited_by: user.id, status: 'pending' });
 
 		if (insertError) return fail(500, { error: insertError.message });
 
-		return { added: true };
+		return { inviteSent: true };
 	}
 };

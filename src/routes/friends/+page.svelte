@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 
 	let { data, form } = $props();
 	let searching = $state(false);
+
+	function viewProfile(friendId: string) {
+		goto(`/profile/${friendId}`);
+	}
 </script>
 
 <div class="space-y-6">
@@ -93,7 +98,10 @@
 		{:else}
 			<div class="space-y-2">
 				{#each data.accepted as friend}
-					<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">
+					<button
+						type="button"
+						on:click={() => viewProfile((friend as any).id)}
+						class="w-full text-left flex items-center gap-3 rounded-lg bg-raised px-3 py-2 hover:bg-wire transition-colors cursor-pointer">
 						{#if (friend as any)?.avatar_url}
 							<img src={(friend as any).avatar_url} alt="" class="w-8 h-8 rounded-full object-cover" />
 						{:else}
@@ -105,7 +113,7 @@
 							<p class="text-sm text-fg">{(friend as any)?.display_name ?? (friend as any)?.username}</p>
 							<p class="text-xs text-faint">@{(friend as any)?.username}</p>
 						</div>
-					</div>
+					</button>
 				{/each}
 			</div>
 		{/if}

@@ -21,7 +21,11 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		`)
 		.eq('user_id', params.id);
 
-	const scored    = (pronostics ?? []).filter((p) => p.is_scored);
+	const scored    = (pronostics ?? []).filter((p) => p.is_scored).sort((a, b) => {
+		const dateA = new Date((a.match as any)?.match_datetime ?? 0).getTime();
+		const dateB = new Date((b.match as any)?.match_datetime ?? 0).getTime();
+		return dateB - dateA; // Newest first
+	});
 	const pronoPoints = scored.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
 	const teamBonus   = profile.team_bonus_points ?? 0;
 	const totalPoints = pronoPoints + teamBonus;
