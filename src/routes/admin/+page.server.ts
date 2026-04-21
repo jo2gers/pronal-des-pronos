@@ -72,48 +72,26 @@ export const actions: Actions = {
 		return { calculated: true, scored: data.scored };
 	},
 
-	syncEvents: async () => {
-		const supabaseUrl = PUBLIC_SUPABASE_URL;
+	resetAll: async () => {
+		const supabase = adminClient();
 
-		const res = await fetch(`${supabaseUrl}/functions/v1/sync-events`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
-			}
-		});
+		// 1. Delete all pronostics
+		const { error: e1 } = await supabase.from('pronostics').delete().neq('id', '');
+		if (e1) return fail(500, { error: `Pronostics: ${e1.message}` });
 
-		const data = await res.json();
-		if (!res.ok) return fail(502, { error: data.error ?? 'Erreur sync API' });
+		// 2. Reset all match results
+		const { error: e2 } = await supabase.from('matches').update({
+			status: 'upcoming',
+			home_score: null,
+			away_score: null,
+			bonus_calculated: false
+		}).neq('id', '');
+		if (e2) return fail(500, { error: `Matchs: ${e2.message}` });
 
-		return {
-			synced: true,
-			matched: data.matched,
-			updated: data.updated,
-			unmatched: data.unmatched ?? [],
-			quota: data.api_quota_remaining
-		};
-	},
+		// 3. Reset all team bonus points
+		const { error: e3 } = await supabase.from('profiles').update({ team_bonus_points: 0 }).neq('id', '');
+		if (e3) return fail(500, { error: `Profils: ${e3.message}` });
 
-	reseedFromApi: async () => {
-		const supabaseUrl = PUBLIC_SUPABASE_URL;
-
-		const res = await fetch(`${supabaseUrl}/functions/v1/reseed-from-api`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
-			}
-		});
-
-		const data = await res.json();
-		if (!res.ok) return fail(502, { error: data.error ?? 'Erreur reseed API' });
-
-		return {
-			reseeded: true,
-			inserted: data.inserted,
-			unmatched: data.unmatched ?? [],
-			quota: data.api_quota_remaining
-		};
+		return { reset: true };
 	}
 };
