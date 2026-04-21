@@ -5,6 +5,7 @@
 	let copied = $state(false);
 	let showAddFriend = $state(false);
 	let addingId = $state<string | null>(null);
+	let confirmLeave = $state(false);
 
 	const inviteUrl = $derived(`${typeof window !== 'undefined' ? window.location.origin : ''}/groups/join/${data.group.invite_code}`);
 
@@ -32,11 +33,25 @@
 				<p class="text-muted text-sm mt-1">{data.group.description}</p>
 			{/if}
 		</div>
-		<form method="POST" action="?/leave" use:enhance>
-			<button type="submit" class="text-sm text-err hover:opacity-80 transition-opacity cursor-pointer">
+		{#if confirmLeave}
+			<div class="flex items-center gap-2">
+				<span class="text-xs text-faint">Confirmer ?</span>
+				<form method="POST" action="?/leave" use:enhance>
+					<button type="submit" class="text-xs text-err font-semibold hover:opacity-80 transition-opacity cursor-pointer">
+						Oui, quitter
+					</button>
+				</form>
+				<button onclick={() => confirmLeave = false}
+					class="text-xs text-muted hover:text-fg transition-colors cursor-pointer">
+					Annuler
+				</button>
+			</div>
+		{:else}
+			<button onclick={() => confirmLeave = true}
+				class="text-sm text-faint hover:text-err transition-colors cursor-pointer">
 				Quitter
 			</button>
-		</form>
+		{/if}
 	</div>
 
 	<!-- Invite link -->
@@ -59,7 +74,7 @@
 			<button
 				onclick={() => showAddFriend = !showAddFriend}
 				class="w-full flex items-center justify-between text-sm font-semibold text-fg">
-				<span>👥 Ajouter un ami au groupe</span>
+				<span>Ajouter un ami au groupe</span>
 				<span class="text-faint text-xs">{showAddFriend ? '▲' : '▼'}</span>
 			</button>
 

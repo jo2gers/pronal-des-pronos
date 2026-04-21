@@ -38,6 +38,19 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* ── Light theme overrides ── */
+  html.light {
+    --color-canvas:   oklch(0.97 0.006 55);
+    --color-panel:    oklch(0.93 0.006 55);
+    --color-raised:   oklch(0.87 0.007 55);
+    --color-wire:     oklch(0.79 0.007 55);
+    --color-wire-hi:  oklch(0.66 0.007 55);
+    --color-fg:       oklch(0.14 0.012 48);
+    --color-muted:    oklch(0.38 0.010 48);
+    --color-faint:    oklch(0.55 0.008 48);
+    --color-accent-lo: oklch(0.91 0.07 51);
+  }
+
   /* Display font for headings */
   h1, h2, h3 {
     font-family: var(--font-display);

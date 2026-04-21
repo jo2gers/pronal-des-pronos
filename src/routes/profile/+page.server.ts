@@ -5,7 +5,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
 
-	const [{ data: profile }, { data: firstMatch }] = await Promise.all([
+	const [{ data: profile }, { data: firstMatch }, { data: oddsData }] = await Promise.all([
 		supabase.from('profiles').select('*').eq('id', user.id).single(),
 		supabase
 			.from('matches')
@@ -13,7 +13,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			.eq('status', 'upcoming')
 			.order('match_datetime', { ascending: true })
 			.limit(1)
-			.maybeSingle()
+			.maybeSingle(),
+		supabase.from('wc_winner_odds').select('team_name_en, multiplier')
 	]);
 
 	// Lock favorite_team 2 hours before the first match of the competition
@@ -21,7 +22,11 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 60 * 60 * 1000) : null;
 	const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
 
-	return { profile, teamLocked, firstMatchTime: firstMatchTime?.toISOString() ?? null };
+	const oddsMap = Object.fromEntries(
+		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.multiplier))])
+	);
+
+	return { profile, teamLocked, firstMatchTime: firstMatchTime?.toISOString() ?? null, oddsMap };
 };
 
 export const actions: Actions = {

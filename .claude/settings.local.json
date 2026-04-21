@@ -23,7 +23,23 @@
       "Bash(npx skills *)",
       "Bash(node .agents/skills/impeccable/scripts/cleanup-deprecated.mjs)",
       "Bash(npx impeccable *)",
-      "Bash(node .agents/skills/impeccable/bin/impeccable.mjs --json --fast src/routes/+layout.svelte src/routes/+page.svelte src/routes/matches/+page.svelte \"src/routes/matches/[id]/+page.svelte\" src/routes/leaderboard/+page.svelte src/routes/groups/+page.svelte src/routes/profile/+page.svelte)"
+      "Bash(node .agents/skills/impeccable/bin/impeccable.mjs --json --fast src/routes/+layout.svelte src/routes/+page.svelte src/routes/matches/+page.svelte \"src/routes/matches/[id]/+page.svelte\" src/routes/leaderboard/+page.svelte src/routes/groups/+page.svelte src/routes/profile/+page.svelte)",
+      "Bash(npx tsc *)",
+      "Bash(grep -v 'Cannot find module '\\\\''\\\\./$types'\\\\''')",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__list_migrations",
+      "Bash(gh pr *)",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__list_projects",
+      "Bash(curl -s 'https://v3.football.api-sports.io/fixtures?league=1&season=2026&from=2026-04-01&to=2026-07-20' -H 'x-apisports-key: 313999a2664159477a4e6bf072c0511b' -H 'Accept: application/json')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"https://v3.football.api-sports.io/fixtures?league=1&season=2026&from=2026-04-01&to=2026-07-20\" -H \"x-apisports-key: 313999a2664159477a4e6bf072c0511b\" -H \"Accept: application/json\")",
+      "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__list_tables",
+      "Bash(npx supabase *)",
+      "Bash(supabase functions *)",
+      "Bash(where supabase *)",
+      "Bash(supabase --version)",
+      "PowerShell(Get-Command supabase -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command npx -ErrorAction SilentlyContinue)",
+      "WebFetch(domain:api.openligadb.de)"
     ]
   }
 }

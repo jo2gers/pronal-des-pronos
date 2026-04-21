@@ -70,5 +70,50 @@ export const actions: Actions = {
 		if (!res.ok) return fail(500, { error: data.error ?? 'Erreur calcul' });
 
 		return { calculated: true, scored: data.scored };
+	},
+
+	syncEvents: async () => {
+		const supabaseUrl = PUBLIC_SUPABASE_URL;
+
+		const res = await fetch(`${supabaseUrl}/functions/v1/sync-events`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+			}
+		});
+
+		const data = await res.json();
+		if (!res.ok) return fail(502, { error: data.error ?? 'Erreur sync API' });
+
+		return {
+			synced: true,
+			matched: data.matched,
+			updated: data.updated,
+			unmatched: data.unmatched ?? [],
+			quota: data.api_quota_remaining
+		};
+	},
+
+	reseedFromApi: async () => {
+		const supabaseUrl = PUBLIC_SUPABASE_URL;
+
+		const res = await fetch(`${supabaseUrl}/functions/v1/reseed-from-api`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+			}
+		});
+
+		const data = await res.json();
+		if (!res.ok) return fail(502, { error: data.error ?? 'Erreur reseed API' });
+
+		return {
+			reseeded: true,
+			inserted: data.inserted,
+			unmatched: data.unmatched ?? [],
+			quota: data.api_quota_remaining
+		};
 	}
 };

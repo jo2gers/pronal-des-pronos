@@ -24,7 +24,12 @@
 
 	let loadingId = $state<string | null>(null);
 	let calcLoadingId = $state<string | null>(null);
+	let syncLoading = $state(false);
+	let reseedLoading = $state(false);
+	let confirmReseed = $state(false);
 	let feedback = $state<{ id: string; msg: string } | null>(null);
+	let syncFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
+	let reseedFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 </script>
 
 <div class="space-y-6">
@@ -32,6 +37,105 @@
 		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Simulateur de matchs</h1>
 		<span class="rounded bg-live/10 border border-live/30 px-2 py-0.5 text-xs text-live">ADMIN</span>
 	</div>
+
+	<!-- Sync from Odds API -->
+	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
+		<div class="flex-1 min-w-0">
+			<p class="text-sm font-semibold text-fg">Synchroniser depuis l'API</p>
+			<p class="text-xs text-faint mt-0.5">Met à jour les horaires et IDs des matchs depuis The Odds API.</p>
+		</div>
+		<form method="POST" action="?/syncEvents" use:enhance={() => {
+			syncLoading = true;
+			syncFeedback = null;
+			return async ({ result, update }) => {
+				syncLoading = false;
+				if (result.type === 'success' && result.data) {
+					const d = result.data as any;
+					const detail = d.unmatched?.length
+						? `Non trouvés : ${d.unmatched.join(', ')}`
+						: undefined;
+					syncFeedback = {
+						ok: true,
+						msg: `✓ ${d.updated} match(s) mis à jour sur ${d.matched} trouvés`,
+						detail
+					};
+					setTimeout(() => syncFeedback = null, 8000);
+				} else if (result.type === 'failure') {
+					syncFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+				}
+				await update({ reset: false });
+			};
+		}}>
+			<button type="submit" disabled={syncLoading}
+				class="rounded-lg bg-raised border border-wire hover:border-wire-hi disabled:opacity-40 px-4 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
+				{syncLoading ? 'Synchronisation...' : 'Sync API'}
+			</button>
+		</form>
+	</div>
+
+	{#if syncFeedback}
+		<div class="rounded px-4 py-3 text-sm {syncFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+			{syncFeedback.msg}
+			{#if syncFeedback.detail}
+				<p class="text-xs mt-1 opacity-70">{syncFeedback.detail}</p>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Reseed group stage from API (destructive) -->
+	<div class="rounded-xl bg-panel border border-err/20 p-4 flex items-center gap-4 flex-wrap">
+		<div class="flex-1 min-w-0">
+			<p class="text-sm font-semibold text-fg">Reconstruire depuis l'API <span class="text-xs text-err font-normal ml-1">Destructif</span></p>
+			<p class="text-xs text-faint mt-0.5">Supprime tous les matchs de groupe + pronostics et les recrée depuis The Odds API. Les phases éliminatoires (TBD) restent intactes.</p>
+		</div>
+		{#if confirmReseed}
+			<div class="flex items-center gap-2 shrink-0">
+				<span class="text-xs text-faint">Confirmer ?</span>
+				<form method="POST" action="?/reseedFromApi" use:enhance={() => {
+					reseedLoading = true;
+					confirmReseed = false;
+					reseedFeedback = null;
+					return async ({ result, update }) => {
+						reseedLoading = false;
+						if (result.type === 'success' && result.data) {
+							const d = result.data as any;
+							reseedFeedback = {
+								ok: true,
+								msg: `✓ ${d.inserted} matchs insérés — ${d.api_confirmed ?? 0} horaires confirmés API, ${(d.inserted ?? 72) - (d.api_confirmed ?? 0)} approx.`,
+							};
+							setTimeout(() => reseedFeedback = null, 10000);
+						} else if (result.type === 'failure') {
+							reseedFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+						}
+						await update({ reset: false });
+					};
+				}}>
+					<button type="submit" disabled={reseedLoading}
+						class="rounded bg-err/10 border border-err/40 hover:bg-err/20 disabled:opacity-40 px-3 py-1.5 text-xs text-err transition-colors cursor-pointer">
+						{reseedLoading ? '...' : 'Oui, reconstruire'}
+					</button>
+				</form>
+				<button onclick={() => confirmReseed = false}
+					class="text-xs text-muted hover:text-fg transition-colors cursor-pointer">
+					Annuler
+				</button>
+			</div>
+		{:else}
+			<button onclick={() => confirmReseed = true}
+				class="rounded-lg border border-err/30 hover:border-err/60 px-4 py-2 text-sm text-err/70 hover:text-err transition-colors cursor-pointer whitespace-nowrap shrink-0">
+				Reconstruire
+			</button>
+		{/if}
+	</div>
+
+	{#if reseedFeedback}
+		<div class="rounded px-4 py-3 text-sm {reseedFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+			{reseedFeedback.msg}
+			{#if reseedFeedback.detail}
+				<p class="text-xs mt-1 opacity-70">{reseedFeedback.detail}</p>
+			{/if}
+		</div>
+	{/if}
 
 	{#if form?.error}
 		<div class="rounded bg-err/10 border border-err/30 px-4 py-3 text-sm text-err">{form.error}</div>
@@ -58,7 +162,7 @@
 							<span class="text-base">{isoToFlag(match.away_flag)}</span>
 							<span class="ml-auto text-xs text-faint">{formatDate(match.match_datetime)}</span>
 							<span class="text-xs {statusColors[match.status] ?? 'text-faint'} uppercase">
-								{match.status}
+								{match.status === 'upcoming' ? 'À venir' : match.status === 'live' ? 'En cours' : match.status === 'finished' ? 'Terminé' : match.status}
 							</span>
 						</div>
 
@@ -81,8 +185,8 @@
 								<label for="status-{match.id}" class="block text-xs text-muted mb-1">Statut</label>
 								<select id="status-{match.id}" name="status"
 									class="rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none">
-									{#each ['upcoming', 'live', 'finished'] as s}
-										<option value={s} selected={match.status === s}>{s}</option>
+									{#each [['upcoming', 'À venir'], ['live', 'En cours'], ['finished', 'Terminé']] as [val, label]}
+										<option value={val} selected={match.status === val}>{label}</option>
 									{/each}
 								</select>
 							</div>
