@@ -11,7 +11,7 @@
 	let notifOpen = $state(false);
 	let theme = $state<'dark' | 'light'>('dark');
 
-	const totalNotif = $derived((data.friendNotifCount ?? 0) + (data.groupNotifCount ?? 0));
+	const totalNotif = $derived((data.friendNotifCount ?? 0) + (data.groupNotifCount ?? 0) + (data.inviteCount ?? 0));
 
 	const navLinks = $derived([
 		{ href: '/',            label: t('nav_home') },
@@ -154,6 +154,13 @@
 												<span class="text-xs text-accent">{t('notif_go_groups')}</span>
 											</a>
 										{/if}
+										{#if (data.inviteCount ?? 0) > 0}
+											<a href="/groups" onclick={closeNotif}
+												class="flex items-center justify-between px-4 py-2.5 hover:bg-raised transition-colors">
+												<span class="text-sm text-fg">{data.inviteCount} invitation{(data.inviteCount ?? 0) > 1 ? 's' : ''} de groupe</span>
+												<span class="text-xs text-accent">{t('notif_go_groups')}</span>
+											</a>
+										{/if}
 									</div>
 								{/if}
 							</div>
@@ -220,6 +227,13 @@
 								class="flex items-center gap-2 py-2 text-sm text-fg">
 								<span class="w-5 h-5 rounded-full bg-err text-canvas text-[9px] font-bold flex items-center justify-center shrink-0">{data.groupNotifCount}</span>
 								{data.groupNotifCount} {t('notif_group')}
+							</a>
+						{/if}
+						{#if (data.inviteCount ?? 0) > 0}
+							<a href="/groups" onclick={closeMenu}
+								class="flex items-center gap-2 py-2 text-sm text-fg">
+								<span class="w-5 h-5 rounded-full bg-err text-canvas text-[9px] font-bold flex items-center justify-center shrink-0">{data.inviteCount}</span>
+								{data.inviteCount} invitation{(data.inviteCount ?? 0) > 1 ? 's' : ''} de groupe
 							</a>
 						{/if}
 					</div>

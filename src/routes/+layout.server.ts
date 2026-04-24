@@ -14,7 +14,7 @@ export const load: LayoutServerLoad = async ({ locals: { supabase, safeGetSessio
 
 	const adminGroupIds = (adminGroups ?? []).map((g) => g.group_id);
 
-	const [{ count: friendCount }, joinResult] = await Promise.all([
+	const [{ count: friendCount }, joinResult, { count: inviteCount }] = await Promise.all([
 		supabase
 			.from('friendships')
 			.select('id', { count: 'exact', head: true })
@@ -26,13 +26,19 @@ export const load: LayoutServerLoad = async ({ locals: { supabase, safeGetSessio
 				.select('id', { count: 'exact', head: true })
 				.eq('status', 'pending')
 				.in('group_id', adminGroupIds)
-			: Promise.resolve({ count: 0 })
+			: Promise.resolve({ count: 0 }),
+		supabase
+			.from('group_invites')
+			.select('id', { count: 'exact', head: true })
+			.eq('user_id', user.id)
+			.eq('status', 'pending')
 	]);
 
 	return {
 		session,
 		user,
 		friendNotifCount: friendCount ?? 0,
-		groupNotifCount:  (joinResult as { count: number | null }).count ?? 0
+		groupNotifCount:  (joinResult as { count: number | null }).count ?? 0,
+		inviteCount: inviteCount ?? 0
 	};
 };
