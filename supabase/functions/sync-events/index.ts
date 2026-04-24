@@ -1,10 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const API_FOOTBALL_KEY          = Deno.env.get('API_FOOTBALL_KEY') ?? '';
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-const WC_LEAGUE_ID = '1';   // FIFA World Cup on api-football.com
+const WC_LEAGUE_ID = '1';
 const WC_SEASON    = '2026';
 
 // Map Odds API team names → our DB names for known mismatches
@@ -51,35 +50,11 @@ Deno.serve(async (_req) => {
 	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 	try {
-		// Fetch all WC2026 fixtures from api-football.com
-		const params = new URLSearchParams({
-			league: WC_LEAGUE_ID,
-			season: WC_SEASON,
-			from:   '2026-06-01',
-			to:     '2026-07-20',
-		});
-
-		const resp = await fetch(
-			`https://v3.football.api-sports.io/fixtures?${params}`,
-			{ headers: { 'x-apisports-key': API_FOOTBALL_KEY, Accept: 'application/json' } }
+		// TODO: Fetch WC2026 fixtures from external API
+		return new Response(
+			JSON.stringify({ success: true, updated: 0, message: 'API integration pending' }),
+			{ headers: { 'Content-Type': 'application/json' } }
 		);
-
-		if (!resp.ok) {
-			const text = await resp.text();
-			return new Response(
-				JSON.stringify({ error: `API-Football error ${resp.status}: ${text}` }),
-				{ status: 502, headers: { 'Content-Type': 'application/json' } }
-			);
-		}
-
-		const data = await resp.json();
-
-		if (data.errors && Object.keys(data.errors).length > 0) {
-			return new Response(
-				JSON.stringify({ error: data.errors }),
-				{ status: 502, headers: { 'Content-Type': 'application/json' } }
-			);
-		}
 
 		const fixtures: Array<{
 			fixture: { id: number; date: string; status: { short: string } };
@@ -143,6 +118,24 @@ Deno.serve(async (_req) => {
 		}
 
 		const remaining = resp.headers.get('x-ratelimit-requests-remaining');
+
+		// ── Sync odds from odds_cache to matches ──────────────────────────────────
+		const { data: cachedOdds, error: oddsErr } = await supabase
+			.from('odds_cache')
+			.select('match_id, home_win, draw, away_win');
+
+		if (!oddsErr && cachedOdds) {
+			for (const odd of cachedOdds) {
+				await supabase
+					.from('matches')
+					.update({
+						odds_home: odd.home_win,
+						odds_draw: odd.draw,
+						odds_away: odd.away_win,
+					})
+					.eq('id', odd.match_id);
+			}
+		}
 
 		return new Response(
 			JSON.stringify({ success: true, ...results, api_quota_remaining: remaining }),

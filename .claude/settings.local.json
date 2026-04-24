@@ -39,7 +39,14 @@
       "Bash(supabase --version)",
       "PowerShell(Get-Command supabase -ErrorAction SilentlyContinue)",
       "PowerShell(Get-Command npx -ErrorAction SilentlyContinue)",
-      "WebFetch(domain:api.openligadb.de)"
+      "WebFetch(domain:api.openligadb.de)",
+      "WebFetch(domain:gamma-api.polymarket.com)",
+      "WebFetch(domain:polymarket.com)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "WebFetch(domain:clob.polymarket.com)",
+      "WebSearch",
+      "WebFetch(domain:docs.polymarket.com)",
+      "Bash(del \"I:\\\\code\\\\Devsigny global\\\\un pronal des pronos\\\\src\\\\lib\\\\polymarket.ts\")"
     ]
   }
 }

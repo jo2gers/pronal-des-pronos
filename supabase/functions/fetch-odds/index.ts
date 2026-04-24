@@ -1,10 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const API_FOOTBALL_KEY          = Deno.env.get('API_FOOTBALL_KEY') ?? '';
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-// Bet ID 1 = "Match Winner" (Home / Draw / Away) on api-football.com
 const MATCH_WINNER_BET_ID = 1;
 
 Deno.serve(async (_req) => {
@@ -22,40 +20,42 @@ Deno.serve(async (_req) => {
 
 		for (const match of matches ?? []) {
 			const resp = await fetch(
-				`https://v3.football.api-sports.io/odds?fixture=${match.external_id}&bet=${MATCH_WINNER_BET_ID}`,
-				{ headers: { 'x-apisports-key': API_FOOTBALL_KEY, Accept: 'application/json' } }
-			);
+// TODO: Replace with Polymarket API integration
+	for (const match of matches ?? []) {
+		if (!match.external_id) continue;1 / (percentage / 100)
+			const convertToOdd = (percentage: string | undefined): number | null => {
+				if (!percentage) return null;
+				const num = parseFloat(percentage);
+				if (num <= 0 || num > 100) return null;
+				return 1 / (num / 100);
+			};
 
-			if (!resp.ok) continue;
+			const homeOdd = convertToOdd(homeOdds);
+			const drawOdd = convertToOdd(drawOdds);
+			const awayOdd = convertToOdd(awayOdds);
 
-			const data = await resp.json();
-			const oddsEntry = data.response?.[0];
-			if (!oddsEntry) continue;
-
-			// Walk bookmakers until we find one with Match Winner data
-			const bets = oddsEntry.bookmakers?.[0]?.bets ?? [];
-			const matchWinner = bets.find(
-				(b: any) => b.id === MATCH_WINNER_BET_ID || b.name === 'Match Winner'
-			);
-			if (!matchWinner) continue;
-
-			const values: Array<{ value: string; odd: string }> = matchWinner.values ?? [];
-			const homeOdds = values.find((v) => v.value === 'Home')?.odd;
-			const drawOdds = values.find((v) => v.value === 'Draw')?.odd;
-			const awayOdds = values.find((v) => v.value === 'Away')?.odd;
-
-			if (!homeOdds && !awayOdds) continue;
-
+			// Save to cache
 			await supabase.from('odds_cache').upsert(
 				{
 					match_id:   match.id,
-					home_win:   homeOdds ? parseFloat(homeOdds) : null,
-					draw:       drawOdds ? parseFloat(drawOdds) : null,
-					away_win:   awayOdds ? parseFloat(awayOdds) : null,
+					home_win:   homeOdd,
+					draw:       drawOdd,
+					away_win:   awayOdd,
 					fetched_at: new Date().toISOString(),
 				},
 				{ onConflict: 'match_id' }
 			);
+
+			// Also update matches table directly for immediate availability
+			await supabase
+				.from('matches')
+				.update({
+					odds_home: homeOdd,
+					odds_draw: drawOdd,
+					odds_away: awayOdd,
+				})
+				.eq('id', match.id);
+
 			updated++;
 		}
 

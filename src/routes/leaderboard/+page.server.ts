@@ -36,7 +36,6 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			const count       = pronostics?.filter((p) => p.user_id === profile.id).length ?? 0;
 			return { userId: profile.id, user: profile, pronoPoints, teamBonus, total, count };
 		})
-		.filter((e) => e.total > 0)
 		.sort((a, b) => b.total - a.total)
 		.map((entry, i) => ({ ...entry, rank: i + 1 }));
 

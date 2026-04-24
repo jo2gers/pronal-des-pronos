@@ -10,15 +10,19 @@ function calculatePoints(
 	actualAway: number,
 	oddsUsed: number
 ): number {
-	if (predictedHome === actualHome && predictedAway === actualAway) {
-		return +(3 * oddsUsed).toFixed(3);
-	}
-	const predictedResult = Math.sign(predictedHome - predictedAway);
-	const actualResult    = Math.sign(actualHome - actualAway);
-	if (predictedResult === actualResult) {
-		return +(1 * oddsUsed).toFixed(3);
-	}
-	return 0;
+	console.log('calculatePoints input:', { predictedHome, predictedAway, actualHome, actualAway, oddsUsed });
+	// Convert odds to implied probability: probability = 1 / odds
+	// Then points = (1 / probability) * base_points = odds * base_points
+	const basePoints = 
+		predictedHome === actualHome && predictedAway === actualAway ? 3 :
+		Math.sign(predictedHome - predictedAway) === Math.sign(actualHome - actualAway) ? 1 :
+		0;
+	
+	if (basePoints === 0) return 0;
+	
+	// Apply odds multiplier and return 2 decimal places
+	const pointsEarned = basePoints * oddsUsed;
+	return parseFloat(pointsEarned.toFixed(2));
 }
 
 // Base bonus points per stage win (before applying WC-odds multiplier)
@@ -62,6 +66,7 @@ Deno.serve(async (req) => {
 	let scored = 0;
 
 	for (const p of pronostics ?? []) {
+		console.log('Scoring pronostic:', { pronostic_id: p.id, predicted_home: p.predicted_home, predicted_away: p.predicted_away, actual_home: match.home_score, actual_away: match.away_score, odds_used: p.odds_used });
 		const points = calculatePoints(
 			p.predicted_home,
 			p.predicted_away,
@@ -101,8 +106,7 @@ Deno.serve(async (req) => {
 					.maybeSingle();
 
 				const multiplier   = +(oddsRow?.multiplier ?? 1.0);
-				const bonusToAward = +(multiplier * stageBonus).toFixed(2);
-
+			const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
 				// Find all users whose favourite team is the winner
 				// favorite_team stores English names (from WC2026_TEAMS), so match directly
 				const { data: supporters } = await supabase
@@ -113,7 +117,7 @@ Deno.serve(async (req) => {
 				for (const profile of supporters ?? []) {
 					await supabase
 						.from('profiles')
-						.update({ team_bonus_points: +((profile.team_bonus_points ?? 0) + bonusToAward).toFixed(2) })
+						.update({ team_bonus_points: parseFloat(((profile.team_bonus_points ?? 0) + bonusToAward).toFixed(2)) })
 						.eq('id', profile.id);
 
 					bonusAwarded++;

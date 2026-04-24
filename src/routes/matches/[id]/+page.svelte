@@ -153,20 +153,38 @@
 			</div>
 		</div>
 
-		<!-- Inline odds from match row -->
+		<!-- Polymarket odds (probabilities) -->
 		{#if data.match.odds_home && data.match.odds_draw && data.match.odds_away}
-			<div class="mt-6 pt-4 border-t border-wire flex justify-center gap-8 text-center">
-				<div>
-					<p class="text-xs text-faint mb-1">{data.match.home_team}</p>
-					<p class="text-xl font-bold text-fg tabular-nums" style="font-family: var(--font-display)">{data.match.odds_home?.toFixed(2)}</p>
-				</div>
-				<div>
-					<p class="text-xs text-faint mb-1">Nul</p>
-					<p class="text-xl font-bold text-fg tabular-nums" style="font-family: var(--font-display)">{data.match.odds_draw?.toFixed(2)}</p>
-				</div>
-				<div>
-					<p class="text-xs text-faint mb-1">{data.match.away_team}</p>
-					<p class="text-xl font-bold text-fg tabular-nums" style="font-family: var(--font-display)">{data.match.odds_away?.toFixed(2)}</p>
+			{@const pHome = Math.round(100 / (data.match.odds_home ?? 1))}
+			{@const pDraw = Math.round(100 / (data.match.odds_draw ?? 1))}
+			{@const pAway = Math.round(100 / (data.match.odds_away ?? 1))}
+			<div class="mt-6 pt-4 border-t border-wire">
+				<p class="text-[10px] text-faint uppercase tracking-widest text-center mb-3">Polymarket · probabilités</p>
+				<div class="flex items-end gap-2">
+					<!-- Home bar -->
+					<div class="flex-1 text-center">
+						<p class="text-xs text-muted mb-1 truncate">{data.match.home_team}</p>
+						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
+							<div class="h-full rounded-full bg-accent transition-all" style="width: {pHome}%"></div>
+						</div>
+						<p class="text-lg font-bold text-fg tabular-nums leading-none" style="font-family: var(--font-display)">{pHome}%</p>
+					</div>
+					<!-- Draw bar -->
+					<div class="w-14 text-center shrink-0">
+						<p class="text-xs text-muted mb-1">Nul</p>
+						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
+							<div class="h-full rounded-full bg-wire-hi transition-all" style="width: {pDraw}%"></div>
+						</div>
+						<p class="text-lg font-bold text-fg tabular-nums leading-none" style="font-family: var(--font-display)">{pDraw}%</p>
+					</div>
+					<!-- Away bar -->
+					<div class="flex-1 text-center">
+						<p class="text-xs text-muted mb-1 truncate">{data.match.away_team}</p>
+						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
+							<div class="h-full rounded-full bg-accent transition-all" style="width: {pAway}%"></div>
+						</div>
+						<p class="text-lg font-bold text-fg tabular-nums leading-none" style="font-family: var(--font-display)">{pAway}%</p>
+					</div>
 				</div>
 			</div>
 		{/if}

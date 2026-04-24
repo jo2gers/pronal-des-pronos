@@ -26,8 +26,12 @@
 	let calcLoadingId = $state<string | null>(null);
 	let resetLoading = $state(false);
 	let confirmReset = $state(false);
+	let oddsLoading = $state(false);
+	let wcOddsLoading = $state(false);
 	let feedback = $state<{ id: string; msg: string } | null>(null);
 	let resetFeedback = $state<{ ok: boolean; msg: string } | null>(null);
+	let oddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
+	let wcOddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 </script>
 
 <div class="space-y-6">
@@ -35,6 +39,82 @@
 		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Simulateur de matchs</h1>
 		<span class="rounded bg-live/10 border border-live/30 px-2 py-0.5 text-xs text-live">ADMIN</span>
 	</div>
+
+	<!-- Sync WC winner odds from Polymarket -->
+	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
+		<div class="flex-1 min-w-0">
+			<p class="text-sm font-semibold text-fg">Cotes vainqueur CM · Polymarket</p>
+			<p class="text-xs text-faint mt-0.5">Met à jour les cotes « Qui va gagner la Coupe du Monde » dans wc_winner_odds (utilisées pour les bonus équipe).</p>
+		</div>
+		<form method="POST" action="?/syncWCWinnerOdds" use:enhance={() => {
+			wcOddsLoading = true;
+			wcOddsFeedback = null;
+			return async ({ result, update }) => {
+				wcOddsLoading = false;
+				if (result.type === 'success' && result.data) {
+					const d = result.data as any;
+					const detail = d.unmatched?.length ? `Non trouvés : ${d.unmatched.join(', ')}` : undefined;
+					wcOddsFeedback = { ok: true, msg: `✓ ${d.updated} équipe(s) mises à jour`, detail };
+					setTimeout(() => wcOddsFeedback = null, 8000);
+				} else if (result.type === 'failure') {
+					wcOddsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+				}
+				await update({ reset: false });
+			};
+		}}>
+			<button type="submit" disabled={wcOddsLoading}
+				class="rounded-lg bg-raised border border-wire hover:border-wire-hi disabled:opacity-40 px-4 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
+				{wcOddsLoading ? '...' : 'Sync vainqueur'}
+			</button>
+		</form>
+	</div>
+
+	{#if wcOddsFeedback}
+		<div class="rounded px-4 py-3 text-sm {wcOddsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+			{wcOddsFeedback.msg}
+			{#if wcOddsFeedback.detail}<p class="text-xs mt-1 opacity-70">{wcOddsFeedback.detail}</p>{/if}
+		</div>
+	{/if}
+
+	<!-- Sync odds from Polymarket -->
+	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
+		<div class="flex-1 min-w-0">
+			<p class="text-sm font-semibold text-fg">Syncer les cotes Polymarket</p>
+			<p class="text-xs text-faint mt-0.5">Récupère les probabilités de victoire/nul/défaite pour chaque match depuis Polymarket et les enregistre en base.</p>
+		</div>
+		<form method="POST" action="?/syncOdds" use:enhance={() => {
+			oddsLoading = true;
+			oddsFeedback = null;
+			return async ({ result, update }) => {
+				oddsLoading = false;
+				if (result.type === 'success' && result.data) {
+					const d = result.data as any;
+					const detail = d.unmatched?.length
+						? `Non trouvés : ${d.unmatched.join(', ')}`
+						: undefined;
+					oddsFeedback = { ok: true, msg: `✓ ${d.updated} match(s) mis à jour`, detail };
+					setTimeout(() => oddsFeedback = null, 8000);
+				} else if (result.type === 'failure') {
+					oddsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+				}
+				await update({ reset: false });
+			};
+		}}>
+			<button type="submit" disabled={oddsLoading}
+				class="rounded-lg bg-raised border border-wire hover:border-wire-hi disabled:opacity-40 px-4 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
+				{oddsLoading ? 'Synchronisation...' : 'Sync cotes'}
+			</button>
+		</form>
+	</div>
+
+	{#if oddsFeedback}
+		<div class="rounded px-4 py-3 text-sm {oddsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+			{oddsFeedback.msg}
+			{#if oddsFeedback.detail}
+				<p class="text-xs mt-1 opacity-70">{oddsFeedback.detail}</p>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Reset all (destructive) -->
 	<div class="rounded-xl bg-panel border border-err/20 p-4 flex items-center gap-4 flex-wrap">

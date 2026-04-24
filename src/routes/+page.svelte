@@ -182,11 +182,11 @@
 			<div class="flex items-center gap-2 min-w-0">
 				<span class="text-xs text-faint uppercase tracking-widest shrink-0">{t('points')}</span>
 				<span class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
-					{data.stats.totalPoints.toFixed(1)}
+					{data.stats.totalPoints.toFixed(2)}
 				</span>
 				{#if data.stats.teamBonus > 0}
 					<a href="/rules" class="text-xs tabular-nums hover:underline" style="color: var(--color-bonus)">
-						+{data.stats.teamBonus} équipe
+						+{data.stats.teamBonus.toFixed(2)} équipe
 					</a>
 				{/if}
 			</div>
@@ -200,6 +200,58 @@
 			<a href="/leaderboard" class="ml-auto text-xs text-accent hover:text-accent-hi shrink-0 transition-colors">
 				{t('leaderboard_link')}
 			</a>
+		</div>
+	{/if}
+
+	<!-- Finished matches -->
+	{#if data.user && data.finishedMatches?.length}
+		<div>
+			<h2 class="text-sm font-bold text-faint uppercase tracking-widest mb-4">{t('last_matches')}</h2>
+
+			{#if data.finishedMatches.length}
+				<div class="rounded-xl bg-panel border border-wire overflow-hidden">
+					{#each data.finishedMatches as match}
+						{@const prono = data.pronosticsMap[match.id]}
+						{@const label = prono?.is_scored
+							? (prono.predicted_home === match.home_score && prono.predicted_away === match.away_score
+								? 'exact'
+								: Math.sign(prono.predicted_home - prono.predicted_away) === Math.sign(match.home_score - match.away_score)
+									? 'correct'
+									: 'wrong')
+							: null}
+
+						<div class="border-b border-wire last:border-0 px-4 py-3 flex items-center gap-2 hover:bg-raised transition-colors">
+							<!-- Home -->
+							<div class="flex-1 min-w-0">
+								<span class="text-sm font-medium text-fg truncate">{match.home_team}</span>
+							</div>
+
+							<!-- Centre -->
+							<div class="text-center shrink-0 min-w-[96px]">
+								<a href="/matches/{match.id}"
+									class="font-bold text-fg tabular-nums hover:text-accent transition-colors"
+									style="font-family: var(--font-display)">
+									{match.home_score} – {match.away_score}
+								</a>
+								{#if prono}
+									<span class="block tabular-nums text-xs mt-0.5
+										{label === 'exact' ? 'text-accent font-bold' : label === 'correct' ? 'text-fg/70' : 'text-faint'}">
+										{prono.predicted_home}–{prono.predicted_away}
+										{#if prono.is_scored}
+											· {prono.points_earned != null ? (prono.points_earned > 0 ? '+' : '') + Number(prono.points_earned).toFixed(2) : '–'}
+										{/if}
+									</span>
+								{/if}
+							</div>
+
+							<!-- Away -->
+							<div class="flex-1 min-w-0 text-right">
+								<span class="text-sm font-medium text-fg truncate">{match.away_team}</span>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -352,6 +404,33 @@
 											</div>
 										</div>
 									</div>
+
+									<!-- Odds display -->
+									{#if match.odds_home || match.odds_draw || match.odds_away}
+										<div class="mb-4 p-3 rounded-lg bg-panel border border-wire/40">
+											<p class="text-[10px] uppercase text-faint font-semibold tracking-widest mb-2">Cotes</p>
+											<div class="grid grid-cols-3 gap-2">
+												<div class="text-center">
+													<p class="text-xs text-muted mb-1">{match.home_team}</p>
+													<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+														{match.odds_home?.toFixed(2) ?? '–'}
+													</p>
+												</div>
+												<div class="text-center">
+													<p class="text-xs text-muted mb-1">Draw</p>
+													<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+														{match.odds_draw?.toFixed(2) ?? '–'}
+													</p>
+												</div>
+												<div class="text-center">
+													<p class="text-xs text-muted mb-1">{match.away_team}</p>
+													<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+														{match.odds_away?.toFixed(2) ?? '–'}
+													</p>
+												</div>
+											</div>
+										</div>
+									{/if}
 
 									<div class="flex gap-2 mt-1">
 										<button type="button" onclick={() => openId = null}

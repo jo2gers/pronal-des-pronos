@@ -4,6 +4,7 @@
 
 	let { data, form } = $props();
 	let loading = $state(false);
+	let selectedTeam = $state(form?.favorite_team ?? '');
 </script>
 
 <div class="mx-auto max-w-md mt-16">
@@ -50,19 +51,39 @@
 				/>
 			</div>
 			<div>
-				<label for="favorite_team" class="block text-sm text-muted mb-1">
-					Équipe favorite <span class="text-accent">*</span>
-				</label>
-				<select id="favorite_team" name="favorite_team" required
-					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg focus:border-accent focus:outline-none">
-					<option value="">— Choisis ton équipe —</option>
+				<div class="flex items-center justify-between mb-2">
+					<label class="block text-sm text-muted">
+						Équipe favorite <span class="text-accent">*</span>
+					</label>
+					{#if selectedTeam && data.oddsMap[selectedTeam]}
+						<span class="text-xs text-accent font-semibold tabular-nums">
+							×{data.oddsMap[selectedTeam].toFixed(2)} bonus CM
+						</span>
+					{/if}
+				</div>
+				<input type="hidden" name="favorite_team" value={selectedTeam} required />
+				<p class="text-[11px] text-faint mb-2">Cotes vainqueur CM · plus c'est élevé, plus tu gagnes si ton équipe gagne</p>
+
+				<div class="grid grid-cols-2 gap-1 max-h-56 overflow-y-auto pr-0.5">
 					{#each WC2026_TEAMS as team}
-						<option value={team.name} selected={form?.favorite_team === team.name}>
-							{team.name}
-						</option>
+						{@const isSelected = selectedTeam === team.name}
+						{@const odds = data.oddsMap[team.name]}
+						<button type="button" onclick={() => selectedTeam = team.name}
+							class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left border transition-colors cursor-pointer
+								{isSelected
+									? 'bg-accent-lo border-accent/50 text-fg'
+									: 'bg-raised border-wire hover:border-wire-hi text-fg'}">
+							<span class="text-sm font-medium truncate">{team.name}</span>
+							{#if odds}
+								<span class="text-[11px] font-semibold shrink-0 tabular-nums
+									{isSelected ? 'text-accent' : 'text-faint'}">
+									×{odds.toFixed(2)}
+								</span>
+							{/if}
+						</button>
 					{/each}
-				</select>
-				<p class="text-xs text-faint mt-1">Obligatoire · modifiable jusqu'à 2h avant le premier match</p>
+				</div>
+				<p class="text-xs text-faint mt-1.5">Obligatoire · modifiable jusqu'à 2h avant le premier match</p>
 			</div>
 			<button
 				type="submit" disabled={loading}

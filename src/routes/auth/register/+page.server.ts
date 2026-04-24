@@ -1,11 +1,20 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) => {
+export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession }, url }) => {
 	const { user } = await safeGetSession();
 	const next = url.searchParams.get('next') ?? '/';
 	if (user) redirect(303, next);
-	return { next };
+
+	const { data: oddsData } = await supabase
+		.from('wc_winner_odds')
+		.select('team_name_en, odds');
+
+	const oddsMap = Object.fromEntries(
+		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.odds))])
+	);
+
+	return { next, oddsMap };
 };
 
 export const actions: Actions = {

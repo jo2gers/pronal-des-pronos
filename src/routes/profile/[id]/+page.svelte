@@ -79,12 +79,19 @@
 					<img src={url} alt={data.profile.favorite_team}
 						class="w-14 h-10 object-cover rounded-md shadow-sm shrink-0" />
 				{/if}
-				<div>
+				<div class="flex-1 min-w-0">
 					<p class="text-[11px] text-faint uppercase tracking-widest mb-0.5">{t('fav_team')}</p>
 					<p class="text-2xl font-bold text-fg leading-tight" style="font-family: var(--font-display)">
 						{data.profile.favorite_team}
 					</p>
 				</div>
+				{#if data.teamOdds != null}
+					<div class="text-right shrink-0">
+						<p class="text-2xl font-bold tabular-nums leading-none text-accent" style="font-family: var(--font-display)">
+							{data.teamOdds.toFixed(2)}<span class="text-sm font-normal text-faint ml-0.5">×</span>
+						</p>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -97,13 +104,13 @@
 				<p class="text-xs text-muted mt-1 uppercase tracking-wide">Total</p>
 			</div>
 			<div class="text-center px-2">
-				<p class="text-2xl font-bold text-fg tabular-nums">{data.pronoPoints.toFixed(1)}</p>
+				<p class="text-2xl font-bold text-fg tabular-nums">{data.pronoPoints.toFixed(2)}</p>
 				<p class="text-xs text-muted mt-1 uppercase tracking-wide">{t('points')}</p>
 			</div>
 			<div class="text-center px-2">
 				{#if data.teamBonus > 0}
 					<p class="text-2xl font-bold tabular-nums" style="color: var(--color-bonus)">
-						+{data.teamBonus.toFixed(1)}
+						+{data.teamBonus.toFixed(2)}
 					</p>
 					<p class="text-xs text-muted mt-1 uppercase tracking-wide">Bonus</p>
 				{:else}
@@ -119,7 +126,7 @@
 
 		{#if data.teamBonus > 0}
 			<p class="text-xs text-faint text-center mt-3">
-				{data.pronoPoints.toFixed(1)} pts + <span style="color: var(--color-bonus)">{data.teamBonus.toFixed(1)} pts bonus</span>
+				{data.pronoPoints.toFixed(2)} pts + <span style="color: var(--color-bonus)">{data.teamBonus.toFixed(2)} pts bonus</span>
 				· {data.totalPronoCount} {t('profile_picks_played').toLowerCase()}
 			</p>
 		{/if}

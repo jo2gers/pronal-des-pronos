@@ -34,6 +34,24 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		return m && p.predicted_home === m.home_score && p.predicted_away === m.away_score;
 	}).length;
 
+	// Fetch WC winner odds from DB (populated by admin sync from Polymarket)
+	// odds column = 1/probability (decimal odds, e.g. 6.25 for Spain)
+	let teamOdds: number | null = null;
+	if (profile.favorite_team) {
+		const { data: oddsRows } = await supabase
+			.from('wc_winner_odds')
+			.select('odds, multiplier, team_name_en');
+
+		// Match by exact name first, then fallback to case-insensitive contains
+		const row =
+			(oddsRows ?? []).find((r) => r.team_name_en === profile.favorite_team) ??
+			(oddsRows ?? []).find((r) =>
+				r.team_name_en.toLowerCase().includes(profile.favorite_team!.toLowerCase().split(' ')[0])
+			);
+
+		if (row) teamOdds = parseFloat(String(row.multiplier ?? row.odds));
+	}
+
 	return {
 		profile,
 		pronostics: scored,
@@ -42,6 +60,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		totalPoints,
 		exactScores,
 		totalPronoCount: (pronostics ?? []).length,
-		isOwnProfile: user?.id === params.id
+		isOwnProfile: user?.id === params.id,
+		teamOdds
 	};
 };

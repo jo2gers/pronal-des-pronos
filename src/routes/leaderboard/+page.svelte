@@ -136,7 +136,7 @@
 							<td class="px-4 py-3 text-right hidden md:table-cell tabular-nums">
 								{#if row.teamBonus > 0}
 									<span class="text-sm font-semibold" style="color: var(--color-bonus)">
-										+{row.teamBonus.toFixed(1)}
+										+{row.teamBonus.toFixed(2)}
 									</span>
 								{:else}
 									<span class="text-faint text-sm">—</span>
@@ -150,7 +150,7 @@
 								</span>
 								{#if row.teamBonus > 0}
 									<span class="text-[11px] text-faint font-normal hidden sm:inline ml-1">
-										({row.pronoPoints.toFixed(1)}+{row.teamBonus.toFixed(1)})
+										({row.pronoPoints.toFixed(2)}+{row.teamBonus.toFixed(2)})
 									</span>
 								{/if}
 							</td>

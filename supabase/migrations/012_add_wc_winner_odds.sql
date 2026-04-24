@@ -71,7 +71,6 @@ INSERT INTO public.wc_winner_odds (team_name_en, team_name_fr, odds) VALUES
 ('Ukraine',            'Ukraine',                251.00),
 ('Nigeria',            'Nigéria',                301.00),
 ('Venezuela',          'Venezuela',              501.00),
-('Cameroon',           'Cameroun',               501.00),
 ('Slovakia',           'Slovaquie',              501.00),
 ('Costa Rica',         'Costa Rica',             751.00),
 ('Bolivia',            'Bolivie',               1001.00),

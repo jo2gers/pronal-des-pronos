@@ -6,25 +6,27 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
 	const matchFields = 'id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, venue, status, home_score, away_score, odds_home, odds_draw, odds_away';
 
-	const [{ data: liveMatches }, { data: nextMatch }, { data: upcomingMatches }, statsResult] =
+	const [{ data: liveMatches }, { data: nextMatch }, { data: upcomingMatches }, { data: finishedMatches }, statsResult] =
 		await Promise.all([
 			supabase.from('matches').select(matchFields).eq('status', 'live').neq('home_team', 'TBD'),
 			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
 				.order('match_datetime', { ascending: true }).limit(1).maybeSingle(),
 			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
-				.order('match_datetime', { ascending: true }).limit(8),
+				.order('match_datetime', { ascending: true }).limit(5),
+			supabase.from('matches').select(matchFields).eq('status', 'finished').neq('home_team', 'TBD')
+				.order('match_datetime', { ascending: false }).limit(3),
 			user
-				? supabase.from('pronostics').select('match_id, predicted_home, predicted_away, points_earned').eq('user_id', user.id)
+				? supabase.from('pronostics').select('match_id, predicted_home, predicted_away, points_earned, is_scored').eq('user_id', user.id)
 				: Promise.resolve({ data: null })
 		]);
 
 	let stats = null;
-	let pronosticsMap: Record<string, { predicted_home: number; predicted_away: number }> = {};
+	let pronosticsMap: Record<string, { predicted_home: number; predicted_away: number; points_earned: number | null; is_scored: boolean }> = {};
 
 	if (user && statsResult.data) {
 		const pronostics = statsResult.data;
 		pronosticsMap = Object.fromEntries(
-			pronostics.map((p) => [p.match_id, { predicted_home: p.predicted_home, predicted_away: p.predicted_away }])
+			pronostics.map((p) => [p.match_id, { predicted_home: p.predicted_home, predicted_away: p.predicted_away, points_earned: p.points_earned, is_scored: p.is_scored }])
 		);
 
 		const pronoPoints = pronostics.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
@@ -41,7 +43,15 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		stats = { totalPoints, pronoPoints, teamBonus, pronosticsCount: pronostics.length, rank: (count ?? 0) + 1 };
 	}
 
-	return { liveMatches: liveMatches ?? [], nextMatch: nextMatch ?? null, upcomingMatches: upcomingMatches ?? [], stats, pronosticsMap, user };
+	return { 
+		liveMatches: liveMatches ?? [], 
+		nextMatch: nextMatch ?? null, 
+		upcomingMatches: upcomingMatches ?? [], 
+		finishedMatches: (finishedMatches ?? []).reverse(),
+		stats, 
+		pronosticsMap, 
+		user 
+	};
 };
 
 export const actions: Actions = {

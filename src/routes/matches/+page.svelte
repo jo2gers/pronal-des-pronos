@@ -172,7 +172,7 @@
 								{label === 'exact' ? 'text-accent font-bold' : label === 'correct' ? 'text-fg/70' : 'text-faint'}">
 								{prono.predicted_home}–{prono.predicted_away}
 								{#if prono.is_scored}
-									· {prono.points_earned != null ? (prono.points_earned > 0 ? '+' : '') + Number(prono.points_earned).toFixed(1) : '–'}
+									· {prono.points_earned != null ? (prono.points_earned > 0 ? '+' : '') + Number(prono.points_earned).toFixed(2) : '–'}
 								{/if}
 							</span>
 						{/if}
@@ -304,6 +304,33 @@
 							</div>
 						</div>
 					</div>
+
+					<!-- Odds display -->
+					{#if match.odds_home || match.odds_draw || match.odds_away}
+						<div class="mb-4 p-3 rounded-lg bg-panel border border-wire/40">
+							<p class="text-[10px] uppercase text-faint font-semibold tracking-widest mb-2">Cotes</p>
+							<div class="grid grid-cols-3 gap-2">
+								<div class="text-center">
+									<p class="text-xs text-muted mb-1">{match.home_team}</p>
+									<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+										{match.odds_home?.toFixed(2) ?? '–'}
+									</p>
+								</div>
+								<div class="text-center">
+									<p class="text-xs text-muted mb-1">Draw</p>
+									<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+										{match.odds_draw?.toFixed(2) ?? '–'}
+									</p>
+								</div>
+								<div class="text-center">
+									<p class="text-xs text-muted mb-1">{match.away_team}</p>
+									<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+										{match.odds_away?.toFixed(2) ?? '–'}
+									</p>
+								</div>
+							</div>
+						</div>
+					{/if}
 
 					<div class="flex gap-2 mt-1">
 						<button type="button" onclick={() => openId = null}
