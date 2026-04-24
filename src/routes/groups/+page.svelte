@@ -129,31 +129,47 @@
 
 	<!-- User's pending group invites -->
 	{#if data.myPendingInvites.length > 0}
-		<div class="rounded-xl bg-panel border border-wire/60 p-4">
-			<h2 class="text-sm font-semibold text-muted mb-3">
-				Invitations aux groupes ({data.myPendingInvites.length})
+		<div class="rounded-xl bg-panel border border-accent/30 p-4">
+			<h2 class="text-sm font-semibold text-accent mb-3 flex items-center gap-2">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+						d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+				</svg>
+				Invitations aux groupes
+				<span class="rounded-full bg-accent/15 text-accent text-[10px] font-bold px-1.5 py-0.5 leading-none">
+					{data.myPendingInvites.length}
+				</span>
 			</h2>
-			<div class="space-y-2">
+			<div class="space-y-3">
 				{#each data.myPendingInvites as invite}
-					<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">
-						<div class="flex-1 min-w-0">
-							<p class="text-sm text-fg font-medium">{invite.group_name}</p>
-							<p class="text-xs text-faint">
-								Invité par {invite.invited_by?.display_name ?? invite.invited_by?.username ?? '?'}
-							</p>
+					<div class="rounded-lg bg-raised border border-wire p-4">
+						<div class="flex items-start justify-between gap-3">
+							<div class="flex-1 min-w-0">
+								<p class="text-base font-bold text-fg leading-tight">{invite.group_name}</p>
+								{#if invite.group_description}
+									<p class="text-sm text-muted mt-1 leading-snug">{invite.group_description}</p>
+								{/if}
+								<p class="text-xs text-faint mt-2 flex items-center gap-1">
+									<svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+									</svg>
+									Invité par <span class="text-muted font-medium ml-0.5">{invite.invited_by?.display_name ?? invite.invited_by?.username ?? '?'}</span>
+								</p>
+							</div>
 						</div>
-						<div class="flex gap-2 shrink-0">
+						<div class="flex gap-2 mt-3">
 							<form method="POST" action="?/respondToInvite" use:enhance>
 								<input type="hidden" name="invite_id" value={invite.id} />
 								<button name="action" value="accepted" type="submit"
-									class="rounded bg-accent hover:bg-accent-hi px-3 py-1 text-xs text-canvas transition-colors cursor-pointer">
+									class="rounded-lg bg-accent hover:bg-accent-hi px-4 py-1.5 text-sm font-semibold text-canvas transition-colors cursor-pointer">
 									Accepter
 								</button>
 							</form>
 							<form method="POST" action="?/respondToInvite" use:enhance>
 								<input type="hidden" name="invite_id" value={invite.id} />
 								<button name="action" value="declined" type="submit"
-									class="rounded bg-raised hover:bg-wire border border-wire px-3 py-1 text-xs text-muted transition-colors cursor-pointer">
+									class="rounded-lg bg-raised hover:bg-wire border border-wire px-4 py-1.5 text-sm text-muted transition-colors cursor-pointer">
 									Refuser
 								</button>
 							</form>

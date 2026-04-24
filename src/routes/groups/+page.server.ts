@@ -60,7 +60,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	// Current user's pending group invites
 	const { data: myInvites } = await supabase
 		.from('group_invites')
-		.select('id, group_id, created_at, invited_by, groups(id, name)')
+		.select('id, group_id, created_at, invited_by, groups(id, name, description)')
 		.eq('user_id', user.id)
 		.eq('status', 'pending');
 
@@ -74,7 +74,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const myPendingInvites = (myInvites ?? []).map((inv) => ({
 		id: inv.id,
 		group_id: inv.group_id,
-		group_name: (inv.groups as { name: string } | null)?.name ?? '',
+		group_name: (inv.groups as { name: string; description: string | null } | null)?.name ?? '',
+		group_description: (inv.groups as { name: string; description: string | null } | null)?.description ?? null,
 		invited_by: inviterMap[inv.invited_by] as { username: string; display_name: string | null } | null,
 		created_at: inv.created_at
 	}));
