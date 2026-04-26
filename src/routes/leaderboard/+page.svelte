@@ -61,7 +61,7 @@
 
 	<!-- Empty state -->
 	{#if ranked.length === 0}
-		<div class="rounded-xl bg-panel border border-wire px-6 py-12 text-center">
+		<div class="border-t border-wire py-12 text-center">
 			{#if filter === 'friends'}
 				<p class="text-muted">{t('lb_empty_friends')}</p>
 				<p class="text-faint text-sm mt-2">{t('lb_empty_friends_hint')}</p>
@@ -71,17 +71,17 @@
 			{/if}
 		</div>
 
-	<!-- Table -->
+	<!-- Table — full-bleed on mobile -->
 	{:else}
-		<div class="rounded-xl bg-panel border border-wire overflow-hidden">
+		<div class="-mx-4 sm:mx-0 sm:rounded-xl sm:bg-panel/40 sm:border sm:border-wire overflow-hidden border-y border-wire sm:border-y-0">
 			<table class="w-full">
 				<thead>
 					<tr class="border-b border-wire">
-						<th class="px-4 py-3 text-left w-12 text-xs text-faint uppercase tracking-wider font-semibold">#</th>
-						<th class="px-4 py-3 text-left text-xs text-faint uppercase tracking-wider font-semibold">{t('lb_player')}</th>
-						<th class="px-4 py-3 text-right text-xs text-faint uppercase tracking-wider font-semibold hidden sm:table-cell">{t('lb_picks')}</th>
-						<th class="px-4 py-3 text-right text-xs text-faint uppercase tracking-wider font-semibold hidden md:table-cell">{t('lb_bonus')}</th>
-						<th class="px-4 py-3 text-right text-xs text-faint uppercase tracking-wider font-semibold">{t('lb_total')}</th>
+						<th class="px-4 py-3 text-left w-12 text-[11px] text-faint font-semibold">#</th>
+						<th class="px-4 py-3 text-left text-[11px] text-faint font-semibold">{t('lb_player')}</th>
+						<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold hidden sm:table-cell">{t('lb_picks')}</th>
+						<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold hidden md:table-cell">{t('lb_bonus')}</th>
+						<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold">{t('lb_total')}</th>
 					</tr>
 				</thead>
 				<tbody>

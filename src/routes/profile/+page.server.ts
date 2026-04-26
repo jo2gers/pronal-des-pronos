@@ -5,7 +5,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
 
-	const [{ data: profile }, { data: firstMatch }, { data: oddsData }] = await Promise.all([
+	const [{ data: profile }, { data: firstMatch }, { data: oddsData }, { data: scorerData }] = await Promise.all([
 		supabase.from('profiles').select('*').eq('id', user.id).single(),
 		supabase
 			.from('matches')
@@ -14,19 +14,27 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			.order('match_datetime', { ascending: true })
 			.limit(1)
 			.maybeSingle(),
-		supabase.from('wc_winner_odds').select('team_name_en, multiplier')
+		supabase.from('wc_winner_odds').select('team_name_en, multiplier'),
+		supabase.from('wc_top_scorers').select('player_name, odds, multiplier').order('odds', { ascending: true })
 	]);
 
-	// Lock favorite_team 2 hours before the first match of the competition
+	// Lock favorite_team & top_scorer permanently 2 days before the first WC match
 	const firstMatchTime = firstMatch?.match_datetime ? new Date(firstMatch.match_datetime) : null;
-	const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 60 * 60 * 1000) : null;
+	const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 24 * 60 * 60 * 1000) : null;
 	const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
+	const scorerLocked = teamLocked;
 
 	const oddsMap = Object.fromEntries(
 		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.multiplier))])
 	);
 
-	return { profile, teamLocked, firstMatchTime: firstMatchTime?.toISOString() ?? null, oddsMap };
+	const scorers = (scorerData ?? []).map((s) => ({
+		player_name: s.player_name as string,
+		odds: parseFloat(String(s.odds)),
+		multiplier: parseFloat(String(s.multiplier))
+	}));
+
+	return { profile, teamLocked, scorerLocked, firstMatchTime: firstMatchTime?.toISOString() ?? null, oddsMap, scorers };
 };
 
 export const actions: Actions = {
@@ -37,6 +45,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const display_name = (form.get('display_name') as string).trim();
 		const favorite_team = form.get('favorite_team') as string;
+		const top_scorer = ((form.get('top_scorer') as string) ?? '').trim();
 		const country = form.get('country') as string;
 
 		// Check lock status server-side
@@ -49,21 +58,48 @@ export const actions: Actions = {
 			.maybeSingle();
 
 		const firstMatchTime = firstMatch?.match_datetime ? new Date(firstMatch.match_datetime) : null;
-		const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 60 * 60 * 1000) : null;
+		const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 24 * 60 * 60 * 1000) : null;
 		const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
+		const scorerLocked = teamLocked;
 
-		// Get current team to preserve if locked
+		// Get current values to preserve if locked
 		const { data: currentProfile } = await supabase
 			.from('profiles')
-			.select('favorite_team')
+			.select('favorite_team, top_scorer')
 			.eq('id', user.id)
 			.single();
 
 		const finalTeam = teamLocked ? (currentProfile?.favorite_team ?? null) : (favorite_team || null);
+		const finalScorer = scorerLocked
+			? (currentProfile?.top_scorer ?? null)
+			: (top_scorer || null);
+
+		// Compute initial top_scorer_bonus_points if scorer changed
+		const updateData: Record<string, unknown> = {
+			display_name,
+			favorite_team: finalTeam,
+			country,
+			top_scorer: finalScorer
+		};
+
+		if (finalScorer) {
+			const { data: scorerRow } = await supabase
+				.from('wc_top_scorers')
+				.select('multiplier, goals_scored')
+				.eq('player_name', finalScorer)
+				.maybeSingle();
+			if (scorerRow) {
+				const m = parseFloat(String(scorerRow.multiplier ?? 0));
+				const g = parseInt(String(scorerRow.goals_scored ?? 0));
+				updateData.top_scorer_bonus_points = parseFloat((m * g).toFixed(2));
+			}
+		} else {
+			updateData.top_scorer_bonus_points = 0;
+		}
 
 		const { error } = await supabase
 			.from('profiles')
-			.update({ display_name, favorite_team: finalTeam, country })
+			.update(updateData)
 			.eq('id', user.id);
 
 		if (error) return fail(500, { error: error.message });

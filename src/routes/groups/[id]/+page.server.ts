@@ -78,6 +78,20 @@ export const actions: Actions = {
 			.eq('group_id', params.id)
 			.eq('user_id', user.id);
 
+		// If no members remain, delete the empty group + all dependent rows.
+		const { count } = await supabase
+			.from('group_members')
+			.select('user_id', { count: 'exact', head: true })
+			.eq('group_id', params.id);
+
+		if ((count ?? 0) === 0) {
+			await Promise.all([
+				supabase.from('group_invites').delete().eq('group_id', params.id),
+				supabase.from('group_join_requests').delete().eq('group_id', params.id)
+			]);
+			await supabase.from('groups').delete().eq('id', params.id);
+		}
+
 		redirect(303, '/groups');
 	},
 

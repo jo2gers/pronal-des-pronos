@@ -32,15 +32,16 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		const pronoPoints = pronostics.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
 
 		const { data: profileData } = await supabase
-			.from('profiles').select('team_bonus_points').eq('id', user.id).single();
+			.from('profiles').select('team_bonus_points, top_scorer_bonus_points').eq('id', user.id).single();
 
 		const teamBonus   = profileData?.team_bonus_points ?? 0;
-		const totalPoints = pronoPoints + teamBonus;
+		const scorerBonus = profileData?.top_scorer_bonus_points ?? 0;
+		const totalPoints = pronoPoints + teamBonus + scorerBonus;
 
 		const { count } = await supabase
 			.from('pronostics').select('user_id', { count: 'exact', head: true }).gt('points_earned', pronoPoints);
 
-		stats = { totalPoints, pronoPoints, teamBonus, pronosticsCount: pronostics.length, rank: (count ?? 0) + 1 };
+		stats = { totalPoints, pronoPoints, teamBonus, scorerBonus, pronosticsCount: pronostics.length, rank: (count ?? 0) + 1 };
 	}
 
 	return { 
@@ -72,7 +73,7 @@ export const actions: Actions = {
 			.from('matches').select('match_datetime, status, odds_home, odds_draw, odds_away')
 			.eq('id', match_id).single();
 
-		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 2 * 3600000)
+		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 5 * 60000)
 			return fail(400, { error: 'Pronos fermés pour ce match', match_id });
 
 		let odds_used = 1.0;

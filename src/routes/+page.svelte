@@ -64,7 +64,7 @@
 		if (match.status !== 'upcoming') return 'none';
 		const ms = new Date(match.match_datetime).getTime() - Date.now();
 		if (ms <= 0) return 'none';
-		if (ms < 2 * 3600000)  return 'locked';
+		if (ms < 5 * 60000)    return 'locked';
 		if (ms < 6 * 3600000)  return 'critical';
 		if (ms < 24 * 3600000) return 'warning';
 		return 'normal';
@@ -92,7 +92,7 @@
 				{#each liveMatches as match}
 					<a href="/matches/{match.id}"
 						class="rounded-lg bg-canvas border border-live/30 hover:border-live transition-colors px-4 py-5 text-center block">
-						<p class="text-xs text-muted mb-3 uppercase tracking-wide">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
+						<p class="text-xs text-muted mb-3">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
 						<div class="flex items-center justify-between gap-3">
 							<div class="flex-1 text-center">
 								{#if match.home_flag}
@@ -172,27 +172,27 @@
 	<!-- User stats -->
 	{#if data.user && data.stats}
 		<div class="flex items-center gap-3 px-1">
-			<div class="flex items-center gap-2 min-w-0">
-				<span class="text-xs text-faint uppercase tracking-widest shrink-0">{t('your_rank')}</span>
+			<div class="flex items-baseline gap-1.5 min-w-0">
+				<span class="text-sm text-faint shrink-0">{t('your_rank')}</span>
 				<span class="text-lg font-bold text-fg tabular-nums" style="font-family: var(--font-display)">
 					#{data.stats.rank ?? '–'}
 				</span>
 			</div>
 			<span class="text-wire-hi">·</span>
-			<div class="flex items-center gap-2 min-w-0">
-				<span class="text-xs text-faint uppercase tracking-widest shrink-0">{t('points')}</span>
+			<div class="flex items-baseline gap-1.5 min-w-0">
+				<span class="text-sm text-faint shrink-0">{t('points')}</span>
 				<span class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
 					{data.stats.totalPoints.toFixed(2)}
 				</span>
 				{#if data.stats.teamBonus > 0}
 					<a href="/rules" class="text-xs tabular-nums hover:underline" style="color: var(--color-bonus)">
-						+{data.stats.teamBonus.toFixed(2)} équipe
+						+{data.stats.teamBonus.toFixed(2)} {t('team_bonus_short')}
 					</a>
 				{/if}
 			</div>
 			<span class="text-wire-hi">·</span>
-			<div class="flex items-center gap-2 min-w-0">
-				<span class="text-xs text-faint uppercase tracking-widest shrink-0">{t('picks')}</span>
+			<div class="flex items-baseline gap-1.5 min-w-0">
+				<span class="text-sm text-faint shrink-0">{t('picks')}</span>
 				<span class="text-lg font-bold text-fg tabular-nums" style="font-family: var(--font-display)">
 					{data.stats.pronosticsCount}
 				</span>
@@ -203,13 +203,13 @@
 		</div>
 	{/if}
 
-	<!-- Finished matches -->
+	<!-- Finished matches — flat hairline list, full-bleed on mobile -->
 	{#if data.user && data.finishedMatches?.length}
-		<div>
-			<h2 class="text-sm font-bold text-faint uppercase tracking-widest mb-4">{t('last_matches')}</h2>
+		<section class="border-t border-wire pt-5">
+			<h2 class="text-base font-semibold text-fg mb-3 px-1">{t('last_matches')}</h2>
 
 			{#if data.finishedMatches.length}
-				<div class="rounded-xl bg-panel border border-wire overflow-hidden">
+				<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40">
 					{#each data.finishedMatches as match}
 						{@const prono = data.pronosticsMap[match.id]}
 						{@const label = prono?.is_scored
@@ -220,19 +220,19 @@
 									: 'wrong')
 							: null}
 
-						<div class="border-b border-wire last:border-0 px-4 py-3 flex items-center gap-2 hover:bg-raised transition-colors">
+						<a href="/matches/{match.id}"
+							class="px-4 py-3 flex items-center gap-2 hover:bg-raised/60 transition-colors group">
 							<!-- Home -->
 							<div class="flex-1 min-w-0">
-								<span class="text-sm font-medium text-fg truncate">{match.home_team}</span>
+								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate">{match.home_team}</span>
 							</div>
 
 							<!-- Centre -->
 							<div class="text-center shrink-0 min-w-[96px]">
-								<a href="/matches/{match.id}"
-									class="font-bold text-fg tabular-nums hover:text-accent transition-colors"
+								<span class="font-bold text-fg group-hover:text-accent transition-colors tabular-nums"
 									style="font-family: var(--font-display)">
 									{match.home_score} – {match.away_score}
-								</a>
+								</span>
 								{#if prono}
 									<span class="block tabular-nums text-xs mt-0.5
 										{label === 'exact' ? 'text-accent font-bold' : label === 'correct' ? 'text-fg/70' : 'text-faint'}">
@@ -246,19 +246,19 @@
 
 							<!-- Away -->
 							<div class="flex-1 min-w-0 text-right">
-								<span class="text-sm font-medium text-fg truncate">{match.away_team}</span>
+								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate">{match.away_team}</span>
 							</div>
-						</div>
+						</a>
 					{/each}
 				</div>
 			{/if}
-		</div>
+		</section>
 	{/if}
 
 	<!-- Upcoming matches — accordion, same pattern as matches page -->
 	<div>
-		<div class="flex items-center justify-between mb-4">
-			<h2 class="text-sm font-bold text-faint uppercase tracking-widest">{t('upcoming_matches')}</h2>
+		<div class="flex items-baseline justify-between mb-4">
+			<h2 class="text-base font-semibold text-fg" style="font-family: var(--font-display)">{t('upcoming_matches')}</h2>
 			{#if data.user}
 				<span class="text-xs text-faint">{t('click_to_pick')}</span>
 			{:else}
@@ -320,7 +320,7 @@
 										{/if}
 									{/if}
 									{#if match.group_label}
-										<span class="text-[10px] text-faint/60 tracking-wider uppercase mt-0.5 block">Gr. {match.group_label}</span>
+										<span class="text-[10px] text-faint/60 mt-0.5 block">Gr. {match.group_label}</span>
 									{/if}
 								</div>
 
@@ -332,8 +332,8 @@
 								<!-- Trailing -->
 								<div class="flex items-center gap-1.5 ml-1 shrink-0">
 									{#if saved}
-										<span class="text-xs font-semibold px-1.5 py-0.5 rounded"
-											style="color: var(--color-success); background: oklch(from var(--color-success) l c h / 0.1)">✓</span>
+										<span class="w-1.5 h-1.5 rounded-full shrink-0"
+											style="background: var(--color-success)"></span>
 									{:else if u === 'critical'}
 										<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
 									{/if}
@@ -345,7 +345,7 @@
 									{/if}
 									<a href="/matches/{match.id}" onclick={(e) => e.stopPropagation()}
 										class="w-6 h-6 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-wire transition-colors"
-										title="Détails du match">
+										title={t('match_details_title')}>
 										<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 												d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -405,26 +405,25 @@
 										</div>
 									</div>
 
-									<!-- Odds display -->
+									<!-- Odds — flat row, no nested surface -->
 									{#if match.odds_home || match.odds_draw || match.odds_away}
-										<div class="mb-4 p-3 rounded-lg bg-panel border border-wire/40">
-											<p class="text-[10px] uppercase text-faint font-semibold tracking-widest mb-2">Cotes</p>
-											<div class="grid grid-cols-3 gap-2">
-												<div class="text-center">
-													<p class="text-xs text-muted mb-1">{match.home_team}</p>
-													<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+										<div class="mb-4 pt-3 mt-1 border-t border-wire/60">
+											<div class="flex items-baseline justify-between gap-3">
+												<div class="flex-1 min-w-0">
+													<p class="text-xs text-faint truncate">{match.home_team}</p>
+													<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
 														{match.odds_home?.toFixed(2) ?? '–'}
 													</p>
 												</div>
-												<div class="text-center">
-													<p class="text-xs text-muted mb-1">Draw</p>
-													<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+												<div class="text-center flex-1 min-w-0">
+													<p class="text-xs text-faint">{t('match_draw')}</p>
+													<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
 														{match.odds_draw?.toFixed(2) ?? '–'}
 													</p>
 												</div>
-												<div class="text-center">
-													<p class="text-xs text-muted mb-1">{match.away_team}</p>
-													<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+												<div class="text-right flex-1 min-w-0">
+													<p class="text-xs text-faint truncate">{match.away_team}</p>
+													<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
 														{match.odds_away?.toFixed(2) ?? '–'}
 													</p>
 												</div>
@@ -452,7 +451,7 @@
 				{t('view_all')}
 			</a>
 		{:else}
-			<p class="text-muted text-sm">Aucun match à venir.</p>
+			<p class="text-muted text-sm">{t('no_upcoming')}</p>
 		{/if}
 	</div>
 

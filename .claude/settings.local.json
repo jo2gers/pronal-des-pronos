@@ -46,7 +46,8 @@
       "WebFetch(domain:clob.polymarket.com)",
       "WebSearch",
       "WebFetch(domain:docs.polymarket.com)",
-      "Bash(del \"I:\\\\code\\\\Devsigny global\\\\un pronal des pronos\\\\src\\\\lib\\\\polymarket.ts\")"
+      "Bash(del \"I:\\\\code\\\\Devsigny global\\\\un pronal des pronos\\\\src\\\\lib\\\\polymarket.ts\")",
+      "Bash(npx svelte-check *)"
     ]
   }
 }

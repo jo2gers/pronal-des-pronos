@@ -17,8 +17,11 @@ export function formatDate(datetime: string): string {
 	});
 }
 
+// Match locks 5 minutes before kickoff
+export const MATCH_LOCK_MS = 5 * 60 * 1000;
+
 export function isMatchLocked(matchDatetime: string): boolean {
-	return new Date(matchDatetime) <= new Date();
+	return new Date(matchDatetime).getTime() - Date.now() < MATCH_LOCK_MS;
 }
 
 export function timeUntilMatch(matchDatetime: string): string {

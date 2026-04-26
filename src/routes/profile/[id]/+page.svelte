@@ -95,63 +95,100 @@
 			</div>
 		{/if}
 
-		<!-- Stats bar -->
-		<div class="grid grid-cols-4 divide-x divide-wire mt-5 pt-5 border-t border-wire">
-			<div class="text-center px-2">
-				<p class="text-2xl font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
-					{data.totalPoints.toFixed(1)}
-				</p>
-				<p class="text-xs text-muted mt-1 uppercase tracking-wide">Total</p>
-			</div>
-			<div class="text-center px-2">
-				<p class="text-2xl font-bold text-fg tabular-nums">{data.pronoPoints.toFixed(2)}</p>
-				<p class="text-xs text-muted mt-1 uppercase tracking-wide">{t('points')}</p>
-			</div>
-			<div class="text-center px-2">
-				{#if data.teamBonus > 0}
-					<p class="text-2xl font-bold tabular-nums" style="color: var(--color-bonus)">
-						+{data.teamBonus.toFixed(2)}
+		<!-- Top scorer pick -->
+		{#if data.profile.top_scorer}
+			<div class="mt-3 pt-3 border-t border-wire flex items-center gap-4">
+				<div class="w-14 h-10 rounded-md bg-raised border border-wire flex items-center justify-center shrink-0">
+					<svg class="w-6 h-6 text-accent" fill="currentColor" viewBox="0 0 24 24">
+						<path d="M12 2 8.5 5.5l1 4.5h5l1-4.5L12 2zm-7 7-2 1 1 4 4 .5L9 11 5 9zm14 0-4 2 1 4 4-.5 1-4-2-1.5zM7 14l-2 4 2 3 4-1 1-4-5-2zm10 0-5 2 1 4 4 1 2-3-2-4z"/>
+					</svg>
+				</div>
+				<div class="flex-1 min-w-0">
+					<p class="text-xs text-faint mb-0.5">{t('top_scorer_label')}</p>
+					<p class="text-lg font-bold text-fg leading-tight" style="font-family: var(--font-display)">
+						{data.profile.top_scorer}
 					</p>
-					<p class="text-xs text-muted mt-1 uppercase tracking-wide">Bonus</p>
-				{:else}
-					<p class="text-2xl font-bold text-fg tabular-nums">{data.totalPronoCount}</p>
-					<p class="text-xs text-muted mt-1 uppercase tracking-wide">{t('profile_picks_played')}</p>
+					{#if data.scorerInfo}
+						<p class="text-xs text-faint mt-0.5">
+							{data.scorerInfo.goals} {data.scorerInfo.goals > 1 ? t('goal_plural') : t('goal_singular')} · ×{data.scorerInfo.multiplier.toFixed(1)} {t('per_goal')}
+						</p>
+					{/if}
+				</div>
+				{#if (data.scorerBonus ?? 0) > 0}
+					<div class="text-right shrink-0">
+						<p class="text-xl font-bold tabular-nums leading-none" style="color: var(--color-bonus); font-family: var(--font-display)">
+							+{data.scorerBonus.toFixed(2)}
+						</p>
+						<p class="text-[10px] text-faint mt-0.5">pts bonus</p>
+					</div>
 				{/if}
 			</div>
-			<div class="text-center px-2">
-				<p class="text-2xl font-bold text-fg tabular-nums">{data.exactScores}</p>
-				<p class="text-xs text-muted mt-1 uppercase tracking-wide">{t('profile_exact')}</p>
+		{/if}
+
+		<!-- Stats: hero total + inline secondary metrics -->
+		<div class="mt-6 pt-5 border-t border-wire">
+			<div class="flex items-end gap-5 flex-wrap">
+				<!-- Hero: Total -->
+				<div class="flex-none">
+					<p class="text-5xl sm:text-6xl font-bold text-accent tabular-nums leading-none"
+						style="font-family: var(--font-display)">
+						{data.totalPoints.toFixed(1)}
+					</p>
+					<p class="text-xs text-faint mt-2">{t('lb_total')}</p>
+				</div>
+
+				<!-- Secondary: inline, smaller, comma-separated -->
+				<dl class="flex flex-wrap items-baseline gap-x-4 gap-y-1 pb-1 text-sm flex-1 min-w-0">
+					<div class="flex items-baseline gap-1.5">
+						<dt class="text-faint">{t('points')}</dt>
+						<dd class="font-semibold text-fg tabular-nums">{data.pronoPoints.toFixed(2)}</dd>
+					</div>
+					{#if data.teamBonus > 0}
+						<div class="flex items-baseline gap-1.5">
+							<dt class="text-faint">{t('team_bonus_short')}</dt>
+							<dd class="font-semibold tabular-nums" style="color: var(--color-bonus)">+{data.teamBonus.toFixed(2)}</dd>
+						</div>
+					{/if}
+					{#if (data.scorerBonus ?? 0) > 0}
+						<div class="flex items-baseline gap-1.5">
+							<dt class="text-faint">{t('profile_scorer_bonus')}</dt>
+							<dd class="font-semibold tabular-nums" style="color: var(--color-bonus)">+{data.scorerBonus.toFixed(2)}</dd>
+						</div>
+					{/if}
+					<div class="flex items-baseline gap-1.5">
+						<dt class="text-faint">{t('profile_exact')}</dt>
+						<dd class="font-semibold text-fg tabular-nums">{data.exactScores}</dd>
+					</div>
+					<div class="flex items-baseline gap-1.5">
+						<dt class="text-faint">{t('profile_picks_played')}</dt>
+						<dd class="font-semibold text-fg tabular-nums">{data.totalPronoCount}</dd>
+					</div>
+				</dl>
 			</div>
 		</div>
-
-		{#if data.teamBonus > 0}
-			<p class="text-xs text-faint text-center mt-3">
-				{data.pronoPoints.toFixed(2)} pts + <span style="color: var(--color-bonus)">{data.teamBonus.toFixed(2)} pts bonus</span>
-				· {data.totalPronoCount} {t('profile_picks_played').toLowerCase()}
-			</p>
-		{/if}
 	</div>
 
-	<!-- Pronostics history -->
-	<div>
-		<h2 class="text-lg font-bold text-fg mb-3">
-			{t('profile_history')} ({data.pronostics.length})
-		</h2>
+	<!-- Pronostics history — flat section, full-bleed table on mobile -->
+	<section class="pt-2">
+		<header class="flex items-baseline justify-between border-t border-wire pt-5 mb-4">
+			<h2 class="text-base font-semibold text-fg">{t('profile_history')}</h2>
+			<span class="text-xs text-faint tabular-nums">{data.pronostics.length}</span>
+		</header>
 
 		{#if data.pronostics.length === 0}
-			<div class="rounded-xl bg-panel border border-wire px-6 py-10 text-center">
+			<div class="py-10 text-center">
 				<p class="text-muted">{t('profile_empty')}</p>
 				<p class="text-faint text-sm mt-1">{t('profile_empty_hint')}</p>
 			</div>
 		{:else}
-			<div class="rounded-xl bg-panel border border-wire overflow-hidden">
+			<div class="-mx-4 sm:mx-0 sm:rounded-xl sm:border sm:border-wire overflow-hidden">
 				<table class="w-full">
 					<thead>
 						<tr class="border-b border-wire bg-raised/30">
-							<th class="px-4 py-3 text-left text-xs text-faint uppercase tracking-wider font-semibold">{t('profile_col_match')}</th>
-							<th class="px-4 py-3 text-center text-xs text-faint uppercase tracking-wider font-semibold hidden sm:table-cell">{t('profile_col_result')}</th>
-							<th class="px-4 py-3 text-center text-xs text-faint uppercase tracking-wider font-semibold">{t('profile_col_pick')}</th>
-							<th class="px-4 py-3 text-right text-xs text-faint uppercase tracking-wider font-semibold">Pts</th>
+							<th class="px-4 py-3 text-left text-[11px] text-faint font-semibold">{t('profile_col_match')}</th>
+							<th class="px-4 py-3 text-center text-[11px] text-faint font-semibold hidden sm:table-cell">{t('profile_col_result')}</th>
+							<th class="px-4 py-3 text-center text-[11px] text-faint font-semibold">{t('profile_col_pick')}</th>
+							<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold">Pts</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -195,5 +232,5 @@
 				</table>
 			</div>
 		{/if}
-	</div>
+	</section>
 </div>

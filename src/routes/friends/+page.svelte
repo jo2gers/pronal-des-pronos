@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { t } from '$lib/i18n.svelte';
 
 	let { data, form } = $props();
 	let searching = $state(false);
@@ -11,22 +12,22 @@
 </script>
 
 <div class="space-y-6">
-	<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Amis</h1>
+	<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">{t('friends_title')}</h1>
 
 	<!-- Search -->
 	<div class="rounded-xl bg-panel border border-wire p-4">
-		<h2 class="text-sm font-semibold text-muted mb-3">Trouver un joueur</h2>
+		<h2 class="text-sm font-semibold text-muted mb-3">{t('friends_find')}</h2>
 		<form method="POST" action="?/search" use:enhance={() => {
 			searching = true;
 			return async ({ update }) => { searching = false; await update(); };
 		}} class="flex gap-2">
 			<input name="query" type="text" minlength="2" required
 				class="flex-1 rounded-lg bg-raised border border-wire px-3 py-2 text-fg placeholder:text-faint focus:border-accent focus:outline-none text-sm"
-				placeholder="Rechercher par pseudo..."
+				placeholder={t('friends_search_placeholder')}
 				value={form?.query ?? ''} />
 			<button type="submit" disabled={searching}
 				class="rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-4 py-2 text-sm text-canvas transition-colors">
-				{searching ? '...' : 'Rechercher'}
+				{searching ? '...' : t('friends_search')}
 			</button>
 		</form>
 
@@ -50,12 +51,12 @@
 							<input type="hidden" name="addressee_id" value={profile.id} />
 							<button type="submit"
 								class="rounded bg-accent hover:bg-accent-hi px-3 py-1 text-xs text-canvas transition-colors cursor-pointer">
-								Ajouter
+								{t('friends_add')}
 							</button>
 						</form>
 					</div>
 				{:else}
-					<p class="text-sm text-faint mt-2">Aucun résultat.</p>
+					<p class="text-sm text-faint mt-2">{t('friends_no_results')}</p>
 				{/each}
 			</div>
 		{/if}
@@ -65,7 +66,7 @@
 	{#if data.pendingReceived.length > 0}
 		<div class="rounded-xl bg-panel border border-wire p-4">
 			<h2 class="text-sm font-semibold text-muted mb-3">
-				Demandes reçues ({data.pendingReceived.length})
+				{t('friends_received')} ({data.pendingReceived.length})
 			</h2>
 			<div class="space-y-2">
 				{#each data.pendingReceived as req}
@@ -75,11 +76,11 @@
 							<input type="hidden" name="friendship_id" value={req.id} />
 							<button name="action" value="accepted" type="submit"
 								class="rounded bg-accent hover:bg-accent-hi px-3 py-1 text-xs text-canvas transition-colors cursor-pointer">
-								Accepter
+								{t('friends_accept')}
 							</button>
 							<button name="action" value="declined" type="submit"
 								class="rounded bg-raised hover:bg-wire border border-wire px-3 py-1 text-xs text-muted transition-colors cursor-pointer">
-								Refuser
+								{t('friends_decline')}
 							</button>
 						</form>
 					</div>
@@ -91,10 +92,10 @@
 	<!-- Friends list -->
 	<div class="rounded-xl bg-panel border border-wire p-4">
 		<h2 class="text-sm font-semibold text-muted mb-3">
-			Mes amis ({data.accepted.length})
+			{t('friends_my_friends')} ({data.accepted.length})
 		</h2>
 		{#if data.accepted.length === 0}
-			<p class="text-sm text-faint">Aucun ami pour l'instant. Recherche des joueurs ci-dessus !</p>
+			<p class="text-sm text-faint">{t('friends_empty')}</p>
 		{:else}
 			<div class="space-y-2">
 				{#each data.accepted as friend}

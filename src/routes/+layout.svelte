@@ -135,7 +135,7 @@
 						<!-- Dropdown -->
 						{#if notifOpen}
 							<div class="absolute right-0 top-9 w-64 rounded-xl bg-panel border border-wire shadow-lg z-50 overflow-hidden">
-								<p class="text-[11px] font-semibold text-faint uppercase tracking-wider px-4 pt-3 pb-1">{t('notif_title')}</p>
+								<p class="text-xs font-semibold text-fg px-4 pt-3 pb-1">{t('notif_title')}</p>
 								{#if totalNotif === 0}
 									<p class="text-sm text-faint px-4 py-3">{t('notif_none')}</p>
 								{:else}
@@ -157,7 +157,7 @@
 										{#if (data.inviteCount ?? 0) > 0}
 											<a href="/groups" onclick={closeNotif}
 												class="flex items-center justify-between px-4 py-2.5 hover:bg-raised transition-colors">
-												<span class="text-sm text-fg">{data.inviteCount} invitation{(data.inviteCount ?? 0) > 1 ? 's' : ''} de groupe</span>
+												<span class="text-sm text-fg">{data.inviteCount} {(data.inviteCount ?? 0) > 1 ? t('groups_invite_plural') : t('groups_invite_singular')}</span>
 												<span class="text-xs text-accent">{t('notif_go_groups')}</span>
 											</a>
 										{/if}
@@ -233,7 +233,7 @@
 							<a href="/groups" onclick={closeMenu}
 								class="flex items-center gap-2 py-2 text-sm text-fg">
 								<span class="w-5 h-5 rounded-full bg-err text-canvas text-[9px] font-bold flex items-center justify-center shrink-0">{data.inviteCount}</span>
-								{data.inviteCount} invitation{(data.inviteCount ?? 0) > 1 ? 's' : ''} de groupe
+								{data.inviteCount} {(data.inviteCount ?? 0) > 1 ? t('groups_invite_plural') : t('groups_invite_singular')}
 							</a>
 						{/if}
 					</div>

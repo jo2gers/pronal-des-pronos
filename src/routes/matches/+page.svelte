@@ -67,7 +67,7 @@
 		if (match.status !== 'upcoming') return 'none';
 		const ms = new Date(match.match_datetime).getTime() - Date.now();
 		if (ms <= 0) return 'none';
-		if (ms < 2 * 3600000)  return 'locked';
+		if (ms < 5 * 60000)    return 'locked';
 		if (ms < 6 * 3600000)  return 'critical';
 		if (ms < 24 * 3600000) return 'warning';
 		return 'normal';
@@ -113,13 +113,16 @@
 		<p class="text-xs text-faint -mt-6">{t('click_to_pick')}</p>
 	{/if}
 
-	{#each grouped() as { stage, matches }}
-		<section>
-			<h2 class="text-xs font-bold text-faint uppercase tracking-widest mb-4">
-				{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[stage] ?? stage}
-			</h2>
+	{#each grouped() as { stage, matches }, i}
+		<section class="{i === 0 ? '' : 'border-t border-wire pt-8'}">
+			<header class="flex items-baseline justify-between mb-4 px-1">
+				<h2 class="text-base font-semibold text-fg" style="font-family: var(--font-display)">
+					{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[stage] ?? stage}
+				</h2>
+				<span class="text-xs text-faint tabular-nums">{matches.length}</span>
+			</header>
 
-			<div class="rounded-xl bg-panel border border-wire overflow-hidden">
+			<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40 overflow-hidden">
 				{#each matches as match}
 					{@render matchEntry(match)}
 				{/each}
@@ -136,7 +139,7 @@
 	{@const hasProno = !!data.pronosticsMap[match.id] || saved}
 	{@const sc = scores[match.id] ?? { home: 0, away: 0 }}
 
-	<div class="border-b border-wire last:border-0">
+	<div>
 		<!-- Match row -->
 		<div
 			role={pickable ? 'button' : undefined}
@@ -198,7 +201,7 @@
 						{/if}
 					{/if}
 					{#if match.group_label}
-						<span class="text-[10px] text-faint/60 tracking-wider uppercase mt-0.5 block">{t('group_short')} {match.group_label}</span>
+						<span class="text-[10px] text-faint/60 mt-0.5 block">{t('group_short')} {match.group_label}</span>
 					{/if}
 				</div>
 
@@ -210,10 +213,8 @@
 				<!-- Trailing indicators -->
 				<div class="flex items-center gap-1.5 ml-1 shrink-0">
 					{#if saved}
-						<span class="text-xs font-semibold px-1.5 py-0.5 rounded"
-							style="color: var(--color-success); background: oklch(from var(--color-success) l c h / 0.1)">
-							✓
-						</span>
+						<span class="w-1.5 h-1.5 rounded-full shrink-0"
+							style="background: var(--color-success)"></span>
 					{:else if u === 'critical'}
 						<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
 					{/if}
@@ -226,7 +227,7 @@
 					<!-- Always: link to match detail -->
 					<a href="/matches/{match.id}" onclick={(e) => e.stopPropagation()}
 						class="w-6 h-6 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-wire transition-colors"
-						title="Détails du match">
+						title={t('match_details_title')}>
 						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -305,26 +306,25 @@
 						</div>
 					</div>
 
-					<!-- Odds display -->
+					<!-- Odds — flat row, no nested surface -->
 					{#if match.odds_home || match.odds_draw || match.odds_away}
-						<div class="mb-4 p-3 rounded-lg bg-panel border border-wire/40">
-							<p class="text-[10px] uppercase text-faint font-semibold tracking-widest mb-2">Cotes</p>
-							<div class="grid grid-cols-3 gap-2">
-								<div class="text-center">
-									<p class="text-xs text-muted mb-1">{match.home_team}</p>
-									<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+						<div class="mb-4 pt-3 mt-1 border-t border-wire/60">
+							<div class="flex items-baseline justify-between gap-3">
+								<div class="flex-1 min-w-0">
+									<p class="text-xs text-faint truncate">{match.home_team}</p>
+									<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
 										{match.odds_home?.toFixed(2) ?? '–'}
 									</p>
 								</div>
-								<div class="text-center">
-									<p class="text-xs text-muted mb-1">Draw</p>
-									<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+								<div class="text-center flex-1 min-w-0">
+									<p class="text-xs text-faint">{t('match_draw')}</p>
+									<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
 										{match.odds_draw?.toFixed(2) ?? '–'}
 									</p>
 								</div>
-								<div class="text-center">
-									<p class="text-xs text-muted mb-1">{match.away_team}</p>
-									<p class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+								<div class="text-right flex-1 min-w-0">
+									<p class="text-xs text-faint truncate">{match.away_team}</p>
+									<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
 										{match.odds_away?.toFixed(2) ?? '–'}
 									</p>
 								</div>

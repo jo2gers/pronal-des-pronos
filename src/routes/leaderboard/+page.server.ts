@@ -20,11 +20,11 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
 	const { data: profiles } = await supabase
 		.from('profiles')
-		.select('id, username, display_name, avatar_url, favorite_team, team_bonus_points')
+		.select('id, username, display_name, avatar_url, favorite_team, team_bonus_points, top_scorer, top_scorer_bonus_points')
 		.or(
 			profileIds.length > 0
-				? `id.in.(${profileIds.join(',')}),team_bonus_points.gt.0`
-				: 'team_bonus_points.gt.0'
+				? `id.in.(${profileIds.join(',')}),team_bonus_points.gt.0,top_scorer_bonus_points.gt.0`
+				: 'team_bonus_points.gt.0,top_scorer_bonus_points.gt.0'
 		);
 
 	// Build leaderboard
@@ -32,9 +32,10 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		.map((profile) => {
 			const pronoPoints = pronoMap.get(profile.id) ?? 0;
 			const teamBonus   = profile.team_bonus_points ?? 0;
-			const total       = pronoPoints + teamBonus;
+			const scorerBonus = profile.top_scorer_bonus_points ?? 0;
+			const total       = pronoPoints + teamBonus + scorerBonus;
 			const count       = pronostics?.filter((p) => p.user_id === profile.id).length ?? 0;
-			return { userId: profile.id, user: profile, pronoPoints, teamBonus, total, count };
+			return { userId: profile.id, user: profile, pronoPoints, teamBonus, scorerBonus, total, count };
 		})
 		.sort((a, b) => b.total - a.total)
 		.map((entry, i) => ({ ...entry, rank: i + 1 }));

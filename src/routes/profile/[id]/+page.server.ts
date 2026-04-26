@@ -6,7 +6,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	const { data: profile } = await supabase
 		.from('profiles')
-		.select('id, username, display_name, avatar_url, favorite_team, country, team_bonus_points')
+		.select('id, username, display_name, avatar_url, favorite_team, country, team_bonus_points, top_scorer, top_scorer_bonus_points')
 		.eq('id', params.id)
 		.single();
 
@@ -26,9 +26,10 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		const dateB = new Date((b.match as any)?.match_datetime ?? 0).getTime();
 		return dateB - dateA; // Newest first
 	});
-	const pronoPoints = scored.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
-	const teamBonus   = profile.team_bonus_points ?? 0;
-	const totalPoints = pronoPoints + teamBonus;
+	const pronoPoints  = scored.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
+	const teamBonus    = profile.team_bonus_points ?? 0;
+	const scorerBonus  = profile.top_scorer_bonus_points ?? 0;
+	const totalPoints  = pronoPoints + teamBonus + scorerBonus;
 	const exactScores = scored.filter((p) => {
 		const m = p.match as any;
 		return m && p.predicted_home === m.home_score && p.predicted_away === m.away_score;
@@ -52,15 +53,33 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		if (row) teamOdds = parseFloat(String(row.multiplier ?? row.odds));
 	}
 
+	// Fetch top scorer details (if user has picked one)
+	let scorerInfo: { multiplier: number; goals: number } | null = null;
+	if (profile.top_scorer) {
+		const { data: scorerRow } = await supabase
+			.from('wc_top_scorers')
+			.select('multiplier, goals_scored')
+			.eq('player_name', profile.top_scorer)
+			.maybeSingle();
+		if (scorerRow) {
+			scorerInfo = {
+				multiplier: parseFloat(String(scorerRow.multiplier ?? 0)),
+				goals: parseInt(String(scorerRow.goals_scored ?? 0))
+			};
+		}
+	}
+
 	return {
 		profile,
 		pronostics: scored,
 		pronoPoints,
 		teamBonus,
+		scorerBonus,
 		totalPoints,
 		exactScores,
 		totalPronoCount: (pronostics ?? []).length,
 		isOwnProfile: user?.id === params.id,
-		teamOdds
+		teamOdds,
+		scorerInfo
 	};
 };

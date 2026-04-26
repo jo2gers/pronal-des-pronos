@@ -16,13 +16,33 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
 
 	const supabase = adminClient();
 
-	const { data: matches } = await supabase
-		.from('matches')
-		.select('id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, status, home_score, away_score')
-		.neq('home_team', 'TBD')
-		.order('match_datetime', { ascending: true });
+	const [{ data: matches }, { data: scorers }, { data: groups }] = await Promise.all([
+		supabase
+			.from('matches')
+			.select('id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, status, home_score, away_score')
+			.neq('home_team', 'TBD')
+			.order('match_datetime', { ascending: true }),
+		supabase
+			.from('wc_top_scorers')
+			.select('player_name, team, odds, multiplier, goals_scored')
+			.order('goals_scored', { ascending: false }),
+		supabase
+			.from('groups')
+			.select('id, name, description, invite_code, is_public, created_at, group_members(count)')
+			.order('created_at', { ascending: false })
+	]);
 
-	return { matches: matches ?? [] };
+	const groupsWithCount = (groups ?? []).map((g: any) => ({
+		id: g.id,
+		name: g.name,
+		description: g.description,
+		invite_code: g.invite_code,
+		is_public: g.is_public,
+		created_at: g.created_at,
+		member_count: g.group_members?.[0]?.count ?? 0
+	}));
+
+	return { matches: matches ?? [], scorers: scorers ?? [], groups: groupsWithCount };
 };
 
 export const actions: Actions = {
@@ -284,6 +304,98 @@ export const actions: Actions = {
 		return { oddsSync: true, updated, unmatched };
 	},
 
+	syncTopScorerOdds: async () => {
+		const supabase = adminClient();
+
+		const res = await fetch(
+			'https://gamma-api.polymarket.com/events?slug=2026-fifa-world-cup-top-goalscorer',
+			{ headers: { Accept: 'application/json' } }
+		);
+		if (!res.ok) return fail(500, { error: `Polymarket: ${res.status}` });
+
+		const raw = await res.json();
+		const events: any[] = Array.isArray(raw) ? raw : [raw];
+		const event = events[0];
+		const markets: any[] = Array.isArray(event?.markets) ? event.markets : [];
+
+		if (markets.length === 0 && event?.id) {
+			const mRes = await fetch(
+				`https://gamma-api.polymarket.com/markets?event_id=${event.id}&limit=200`,
+				{ headers: { Accept: 'application/json' } }
+			);
+			if (mRes.ok) markets.push(...(await mRes.json()));
+		}
+
+		if (markets.length === 0) {
+			return fail(500, { error: 'Polymarket: aucun marché trouvé' });
+		}
+
+		function priceOf(market: any): number {
+			let p = market.outcomePrices;
+			if (typeof p === 'string') { try { p = JSON.parse(p); } catch { return 0; } }
+			return Array.isArray(p) ? parseFloat(p[0] ?? '0') || 0 : 0;
+		}
+
+		let updated = 0;
+		const skipped: string[] = [];
+
+		for (const market of markets) {
+			const q = market.question as string | undefined;
+			const m = q?.match(/^Will (.+?) be the top goalscorer at the 2026 FIFA World Cup\?$/i);
+			if (!m) continue;
+
+			const playerName = m[1].trim();
+			const prob = priceOf(market);
+			if (prob <= 0) { skipped.push(`${playerName} (prob=0)`); continue; }
+
+			const odds = parseFloat(Math.min(3001, 1 / prob).toFixed(2));
+
+			const { error } = await supabase
+				.from('wc_top_scorers')
+				.upsert({ player_name: playerName, odds }, { onConflict: 'player_name' });
+
+			if (!error) updated++;
+			else skipped.push(`${playerName} (${error.message})`);
+		}
+
+		return { topScorerSync: true, updated, skipped };
+	},
+
+	updateScorerGoals: async ({ request }) => {
+		const supabase = adminClient();
+		const form = await request.formData();
+		const playerName = form.get('player_name') as string;
+		const goals = parseInt(form.get('goals_scored') as string);
+
+		if (!playerName || isNaN(goals) || goals < 0) {
+			return fail(400, { error: 'Données invalides' });
+		}
+
+		const { error } = await supabase
+			.from('wc_top_scorers')
+			.update({ goals_scored: goals, updated_at: new Date().toISOString() })
+			.eq('player_name', playerName);
+
+		if (error) return fail(500, { error: error.message });
+
+		// Recompute top_scorer_bonus_points for every profile that picked this player
+		const { data: scorerRow } = await supabase
+			.from('wc_top_scorers')
+			.select('multiplier')
+			.eq('player_name', playerName)
+			.single();
+
+		const multiplier = parseFloat(String(scorerRow?.multiplier ?? 0));
+		const bonus = parseFloat((multiplier * goals).toFixed(2));
+
+		await supabase
+			.from('profiles')
+			.update({ top_scorer_bonus_points: bonus })
+			.eq('top_scorer', playerName);
+
+		return { goalsUpdated: true, player: playerName, goals, bonus };
+	},
+
 	resetAll: async () => {
 		const supabase = adminClient();
 
@@ -300,10 +412,34 @@ export const actions: Actions = {
 		}).not('id', 'is', null);
 		if (e2) return fail(500, { error: `Matchs: ${e2.message}` });
 
-		// 3. Reset all team bonus points
-		const { error: e3 } = await supabase.from('profiles').update({ team_bonus_points: 0 }).not('id', 'is', null);
+		// 3. Reset all team bonus points + top scorer bonus points
+		const { error: e3 } = await supabase.from('profiles').update({
+			team_bonus_points: 0,
+			top_scorer_bonus_points: 0
+		}).not('id', 'is', null);
 		if (e3) return fail(500, { error: `Profils: ${e3.message}` });
 
+		// 4. Reset goals scored for top scorers
+		await supabase.from('wc_top_scorers').update({ goals_scored: 0 }).gt('goals_scored', 0);
+
 		return { reset: true };
+	},
+
+	deleteGroup: async ({ request }) => {
+		const supabase = adminClient();
+		const form = await request.formData();
+		const groupId = form.get('group_id') as string;
+		if (!groupId) return fail(400, { error: 'Group ID requis' });
+
+		await Promise.all([
+			supabase.from('group_invites').delete().eq('group_id', groupId),
+			supabase.from('group_join_requests').delete().eq('group_id', groupId),
+			supabase.from('group_members').delete().eq('group_id', groupId)
+		]);
+
+		const { error } = await supabase.from('groups').delete().eq('id', groupId);
+		if (error) return fail(500, { error: error.message });
+
+		return { groupDeleted: true, groupId };
 	}
 };

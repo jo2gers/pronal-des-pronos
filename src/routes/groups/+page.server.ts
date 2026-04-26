@@ -96,7 +96,7 @@ export const actions: Actions = {
 		// Find the group
 		const { data: group } = await supabase
 			.from('groups')
-			.select('id, name')
+			.select('id, name, is_public')
 			.eq('invite_code', code)
 			.maybeSingle();
 
@@ -112,7 +112,16 @@ export const actions: Actions = {
 
 		if (existing) return fail(400, { joinError: 'already_member', code });
 
-		// Already has a pending request?
+		// Public group → join directly.
+		if (group.is_public !== false) {
+			const { error: insertErr } = await supabase
+				.from('group_members')
+				.insert({ group_id: group.id, user_id: user.id, role: 'member' });
+			if (insertErr) return fail(500, { joinError: insertErr.message, code });
+			redirect(303, `/groups/${group.id}`);
+		}
+
+		// Private group → create a pending request (idempotent).
 		const { data: existingReq } = await supabase
 			.from('group_join_requests')
 			.select('id')
@@ -122,7 +131,6 @@ export const actions: Actions = {
 
 		if (existingReq) return { joinSuccess: true, groupName: group.name, alreadyPending: true };
 
-		// Create the pending request
 		const { error: insertErr } = await supabase
 			.from('group_join_requests')
 			.insert({ group_id: group.id, user_id: user.id });

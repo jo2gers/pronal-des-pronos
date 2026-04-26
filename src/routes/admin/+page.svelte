@@ -28,10 +28,17 @@
 	let confirmReset = $state(false);
 	let oddsLoading = $state(false);
 	let wcOddsLoading = $state(false);
+	let scorerOddsLoading = $state(false);
+	let goalLoadingPlayer = $state<string | null>(null);
 	let feedback = $state<{ id: string; msg: string } | null>(null);
 	let resetFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let oddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 	let wcOddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
+	let scorerOddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
+	let goalsFeedback = $state<{ ok: boolean; msg: string } | null>(null);
+	let confirmDeleteGroupId = $state<string | null>(null);
+	let deleteGroupLoadingId = $state<string | null>(null);
+	let groupFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 </script>
 
 <div class="space-y-6">
@@ -76,6 +83,110 @@
 		</div>
 	{/if}
 
+	<!-- Sync top scorer odds from Polymarket -->
+	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
+		<div class="flex-1 min-w-0">
+			<p class="text-sm font-semibold text-fg">Cotes meilleur buteur · Polymarket</p>
+			<p class="text-xs text-faint mt-0.5">Met à jour les cotes « Meilleur buteur de la CM » dans wc_top_scorers (utilisées pour le bonus buteur).</p>
+		</div>
+		<form method="POST" action="?/syncTopScorerOdds" use:enhance={() => {
+			scorerOddsLoading = true;
+			scorerOddsFeedback = null;
+			return async ({ result, update }) => {
+				scorerOddsLoading = false;
+				if (result.type === 'success' && result.data) {
+					const d = result.data as any;
+					const detail = d.skipped?.length ? `Ignorés : ${d.skipped.join(', ')}` : undefined;
+					scorerOddsFeedback = { ok: true, msg: `✓ ${d.updated} buteur(s) mis à jour`, detail };
+					setTimeout(() => scorerOddsFeedback = null, 8000);
+				} else if (result.type === 'failure') {
+					scorerOddsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+				}
+				await update({ reset: false });
+			};
+		}}>
+			<button type="submit" disabled={scorerOddsLoading}
+				class="rounded-lg bg-raised border border-wire hover:border-wire-hi disabled:opacity-40 px-4 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
+				{scorerOddsLoading ? '...' : 'Sync buteurs'}
+			</button>
+		</form>
+	</div>
+
+	{#if scorerOddsFeedback}
+		<div class="rounded px-4 py-3 text-sm {scorerOddsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+			{scorerOddsFeedback.msg}
+			{#if scorerOddsFeedback.detail}<p class="text-xs mt-1 opacity-70">{scorerOddsFeedback.detail}</p>{/if}
+		</div>
+	{/if}
+
+	<!-- Goals scored editor -->
+	{#if data.scorers && data.scorers.length > 0}
+		<div class="rounded-xl bg-panel border border-wire p-4">
+			<div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+				<div>
+					<p class="text-sm font-semibold text-fg">Buts marqués par buteur</p>
+					<p class="text-xs text-faint mt-0.5">Mettre à jour le nombre de buts. Le bonus = ROUND(LN(cote), 1) × buts.</p>
+				</div>
+			</div>
+			{#if goalsFeedback}
+				<div class="rounded px-3 py-2 text-xs mb-3 {goalsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+					{goalsFeedback.msg}
+				</div>
+			{/if}
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-left text-xs text-faint uppercase tracking-wider border-b border-wire">
+							<th class="px-2 py-2 font-semibold">Joueur</th>
+							<th class="px-2 py-2 font-semibold text-right">Cote</th>
+							<th class="px-2 py-2 font-semibold text-right">Mult.</th>
+							<th class="px-2 py-2 font-semibold text-right">Buts</th>
+							<th class="px-2 py-2"></th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.scorers as s}
+							<tr class="border-b border-wire/40 last:border-0">
+								<td class="px-2 py-2 text-fg font-medium">{s.player_name}</td>
+								<td class="px-2 py-2 text-right tabular-nums text-muted">{Number(s.odds).toFixed(2)}</td>
+								<td class="px-2 py-2 text-right tabular-nums text-accent font-semibold">{Number(s.multiplier).toFixed(1)}</td>
+								<td class="px-2 py-2 text-right">
+									<form method="POST" action="?/updateScorerGoals" use:enhance={() => {
+										goalLoadingPlayer = s.player_name;
+										goalsFeedback = null;
+										return async ({ result, update }) => {
+											goalLoadingPlayer = null;
+											if (result.type === 'success' && result.data) {
+												const d = result.data as any;
+												goalsFeedback = { ok: true, msg: `✓ ${d.player} : ${d.goals} but(s) · bonus ${d.bonus} pts` };
+												setTimeout(() => goalsFeedback = null, 5000);
+											} else if (result.type === 'failure') {
+												goalsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+											}
+											await update({ reset: false });
+										};
+									}} class="flex items-center justify-end gap-1.5">
+										<input type="hidden" name="player_name" value={s.player_name} />
+										<input
+											type="number" name="goals_scored" min="0" max="50"
+											value={s.goals_scored}
+											class="w-16 rounded bg-raised border border-wire px-2 py-1 text-right text-sm text-fg focus:border-accent focus:outline-none"
+										/>
+										<button type="submit" disabled={goalLoadingPlayer === s.player_name}
+											class="rounded bg-accent hover:bg-accent-hi disabled:opacity-40 px-2.5 py-1 text-xs font-semibold text-canvas transition-colors cursor-pointer">
+											{goalLoadingPlayer === s.player_name ? '…' : 'OK'}
+										</button>
+									</form>
+								</td>
+								<td></td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Sync odds from Polymarket -->
 	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
 		<div class="flex-1 min-w-0">
@@ -113,6 +224,78 @@
 			{#if oddsFeedback.detail}
 				<p class="text-xs mt-1 opacity-70">{oddsFeedback.detail}</p>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Groups management -->
+	{#if data.groups && data.groups.length > 0}
+		<div class="rounded-xl bg-panel border border-wire p-4">
+			<div class="mb-3">
+				<p class="text-sm font-semibold text-fg">Groupes ({data.groups.length})</p>
+				<p class="text-xs text-faint mt-0.5">Supprimer un groupe efface aussi ses membres, invitations et demandes en attente.</p>
+			</div>
+			{#if groupFeedback}
+				<div class="rounded px-3 py-2 text-xs mb-3 {groupFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+					{groupFeedback.msg}
+				</div>
+			{/if}
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-left text-[11px] text-faint font-semibold border-b border-wire">
+							<th class="px-2 py-2">Nom</th>
+							<th class="px-2 py-2">Code</th>
+							<th class="px-2 py-2 text-center">Visibilité</th>
+							<th class="px-2 py-2 text-right">Membres</th>
+							<th class="px-2 py-2"></th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.groups as g}
+							<tr class="border-b border-wire/40 last:border-0">
+								<td class="px-2 py-2 text-fg font-medium">{g.name}</td>
+								<td class="px-2 py-2 text-muted tabular-nums">{g.invite_code}</td>
+								<td class="px-2 py-2 text-center text-xs text-muted">{g.is_public === false ? 'Privé' : 'Public'}</td>
+								<td class="px-2 py-2 text-right tabular-nums text-fg">{g.member_count}</td>
+								<td class="px-2 py-2 text-right">
+									{#if confirmDeleteGroupId === g.id}
+										<form method="POST" action="?/deleteGroup" use:enhance={() => {
+											deleteGroupLoadingId = g.id;
+											confirmDeleteGroupId = null;
+											groupFeedback = null;
+											return async ({ result, update }) => {
+												deleteGroupLoadingId = null;
+												if (result.type === 'success') {
+													groupFeedback = { ok: true, msg: `« ${g.name} » supprimé` };
+													setTimeout(() => groupFeedback = null, 5000);
+												} else if (result.type === 'failure') {
+													groupFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+												}
+												await update({ reset: false });
+											};
+										}} class="inline-flex items-center gap-1.5">
+											<input type="hidden" name="group_id" value={g.id} />
+											<button type="submit" disabled={deleteGroupLoadingId === g.id}
+												class="rounded bg-err/10 border border-err/40 hover:bg-err/20 disabled:opacity-40 px-2.5 py-1 text-xs text-err transition-colors cursor-pointer">
+												{deleteGroupLoadingId === g.id ? '...' : 'Confirmer'}
+											</button>
+											<button type="button" onclick={() => confirmDeleteGroupId = null}
+												class="text-xs text-muted hover:text-fg transition-colors cursor-pointer">
+												Annuler
+											</button>
+										</form>
+									{:else}
+										<button onclick={() => confirmDeleteGroupId = g.id}
+											class="rounded border border-err/30 hover:border-err/60 px-2.5 py-1 text-xs text-err/70 hover:text-err transition-colors cursor-pointer">
+											Supprimer
+										</button>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		</div>
 	{/if}
 

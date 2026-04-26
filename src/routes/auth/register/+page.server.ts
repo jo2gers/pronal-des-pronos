@@ -6,15 +6,22 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const next = url.searchParams.get('next') ?? '/';
 	if (user) redirect(303, next);
 
-	const { data: oddsData } = await supabase
-		.from('wc_winner_odds')
-		.select('team_name_en, odds');
+	const [{ data: oddsData }, { data: scorerData }] = await Promise.all([
+		supabase.from('wc_winner_odds').select('team_name_en, odds'),
+		supabase.from('wc_top_scorers').select('player_name, odds, multiplier').order('odds', { ascending: true })
+	]);
 
 	const oddsMap = Object.fromEntries(
 		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.odds))])
 	);
 
-	return { next, oddsMap };
+	const scorers = (scorerData ?? []).map((s) => ({
+		player_name: s.player_name as string,
+		odds: parseFloat(String(s.odds)),
+		multiplier: parseFloat(String(s.multiplier))
+	}));
+
+	return { next, oddsMap, scorers };
 };
 
 export const actions: Actions = {
@@ -24,6 +31,7 @@ export const actions: Actions = {
 		const password = form.get('password') as string;
 		const username = (form.get('username') as string).trim().toLowerCase();
 		const favorite_team = (form.get('favorite_team') as string).trim();
+		const top_scorer = ((form.get('top_scorer') as string) ?? '').trim();
 		const next = (form.get('next') as string) || '/';
 
 		if (!/^[a-z0-9_]{3,30}$/.test(username)) {
@@ -53,10 +61,10 @@ export const actions: Actions = {
 		if (error) return fail(400, { error: error.message, email, username, next });
 		if (!data.user) return fail(400, { error: 'Erreur lors de la création du compte', email, username, next });
 
-		// Update the profile username and favorite team
+		// Update the profile username, favorite team, and top scorer
 		await supabase
 			.from('profiles')
-			.update({ username, favorite_team })
+			.update({ username, favorite_team, top_scorer: top_scorer || null })
 			.eq('id', data.user.id);
 
 		redirect(303, next);

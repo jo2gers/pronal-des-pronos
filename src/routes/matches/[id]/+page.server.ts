@@ -65,7 +65,7 @@ export const actions: Actions = {
 			.eq('id', params.id)
 			.single();
 
-		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 2 * 3600000)
+		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 5 * 60000)
 			return fail(400, { error: 'Les pronostics sont fermés pour ce match' });
 
 		let odds_used = 1.0;
