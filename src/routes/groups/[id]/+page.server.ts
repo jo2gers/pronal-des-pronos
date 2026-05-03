@@ -64,10 +64,82 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		}))
 		.sort((a, b) => b.points - a.points);
 
-	return { group, scoreboard, isAdmin, user, friendsNotInGroup };
+	// Pending join requests (only visible to admin)
+	let pendingRequests: Array<{
+		id: string;
+		user_id: string;
+		created_at: string;
+		profiles: { id: string; username: string; display_name: string | null; avatar_url: string | null } | null;
+	}> = [];
+
+	if (isAdmin) {
+		const { data: requests } = await supabase
+			.from('group_join_requests')
+			.select('id, user_id, created_at, profiles(id, username, display_name, avatar_url)')
+			.eq('group_id', params.id)
+			.eq('status', 'pending')
+			.order('created_at', { ascending: true });
+
+		pendingRequests = (requests ?? []) as typeof pendingRequests;
+	}
+
+	return { group, scoreboard, isAdmin, user, friendsNotInGroup, pendingRequests };
 };
 
 export const actions: Actions = {
+	approveRequest: async ({ params, request, locals: { supabase, safeGetSession } }) => {
+		const { user } = await safeGetSession();
+		if (!user) return fail(401, { error: 'Non authentifié' });
+
+		const form = await request.formData();
+		const requestId = form.get('request_id') as string;
+
+		const { data: membership } = await supabase
+			.from('group_members')
+			.select('role')
+			.eq('group_id', params.id)
+			.eq('user_id', user.id)
+			.maybeSingle();
+
+		if (!membership || membership.role !== 'admin') return fail(403, { error: 'Non autorisé' });
+
+		const { data: req } = await supabase
+			.from('group_join_requests')
+			.select('user_id')
+			.eq('id', requestId)
+			.single();
+
+		if (!req) return fail(404, { error: 'Demande introuvable' });
+
+		await Promise.all([
+			supabase.from('group_members').insert({ group_id: params.id, user_id: req.user_id, role: 'member' }),
+			supabase.from('group_join_requests').update({ status: 'approved' }).eq('id', requestId)
+		]);
+
+		return { approved: true };
+	},
+
+	declineRequest: async ({ params, request, locals: { supabase, safeGetSession } }) => {
+		const { user } = await safeGetSession();
+		if (!user) return fail(401, { error: 'Non authentifié' });
+
+		const form = await request.formData();
+		const requestId = form.get('request_id') as string;
+
+		const { data: membership } = await supabase
+			.from('group_members')
+			.select('role')
+			.eq('group_id', params.id)
+			.eq('user_id', user.id)
+			.maybeSingle();
+
+		if (!membership || membership.role !== 'admin') return fail(403, { error: 'Non autorisé' });
+
+		await supabase.from('group_join_requests').update({ status: 'declined' }).eq('id', requestId);
+
+		return { declined: true };
+	},
+
 	leave: async ({ params, locals: { supabase, safeGetSession } }) => {
 		const { user } = await safeGetSession();
 		if (!user) return fail(401, { error: 'Non authentifié' });

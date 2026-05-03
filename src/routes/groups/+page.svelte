@@ -32,13 +32,13 @@
 		<div class="rounded-xl bg-panel border border-wire p-4">
 			<form method="POST" action="?/joinByCode" use:enhance={() => {
 				joiningCode = true;
-				return async ({ update }) => { joiningCode = false; await update(); showJoinInput = false; };
+				return async ({ result, update }) => { joiningCode = false; await update(); if (result.type === 'redirect' || result.type === 'success') showJoinInput = false; };
 			}} class="flex gap-2">
 				<input
 					name="code" type="text" required maxlength="12"
 					value={form?.code ?? ''}
 					placeholder={t('groups_code_placeholder')}
-					class="flex-1 rounded-lg bg-raised border border-wire px-3 py-2 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none uppercase tracking-widest font-mono"
+					class="flex-1 rounded-lg bg-raised border border-wire px-3 py-2 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none lowercase tracking-widest font-mono"
 				/>
 				<button type="submit" disabled={joiningCode}
 					class="rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-4 py-2 text-sm font-semibold text-canvas transition-colors">

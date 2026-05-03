@@ -6,7 +6,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	if (!user) redirect(303, `/auth/login?next=/groups/join/${encodeURIComponent(params.code)}`);
 
 	// Look up the group by invite code (case-insensitive — codes are stored uppercase)
-	const code = params.code.trim().toUpperCase();
+	const code = params.code.trim().toLowerCase();
 	const { data: group } = await supabase
 		.from('groups')
 		.select('id, name, is_public')

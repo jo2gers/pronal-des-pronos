@@ -62,6 +62,57 @@
 		{/if}
 	</div>
 
+	<!-- Pending join requests (admin only) -->
+	{#if data.isAdmin && data.pendingRequests.length > 0}
+		<div class="rounded-xl bg-panel border border-err/30 p-4">
+			<h2 class="text-sm font-semibold text-err mb-3 flex items-center gap-2">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+						d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+				</svg>
+				{t('groups_pending_title')}
+				<span class="rounded-full bg-err/15 text-err text-[10px] font-bold px-1.5 py-0.5 leading-none">
+					{data.pendingRequests.length}
+				</span>
+			</h2>
+			<div class="space-y-2">
+				{#each data.pendingRequests as req}
+					<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">
+						{#if req.profiles?.avatar_url}
+							<img src={req.profiles.avatar_url} alt="" class="w-8 h-8 rounded-full object-cover shrink-0" />
+						{:else}
+							<span class="w-8 h-8 rounded-full bg-wire flex items-center justify-center text-sm text-faint font-bold shrink-0">
+								{req.profiles?.username?.[0]?.toUpperCase() ?? '?'}
+							</span>
+						{/if}
+						<div class="flex-1 min-w-0">
+							<p class="text-sm text-fg font-medium truncate">
+								{req.profiles?.display_name ?? req.profiles?.username ?? '?'}
+							</p>
+							<p class="text-xs text-faint">@{req.profiles?.username}</p>
+						</div>
+						<div class="flex gap-2 shrink-0">
+							<form method="POST" action="?/approveRequest" use:enhance>
+								<input type="hidden" name="request_id" value={req.id} />
+								<button type="submit"
+									class="rounded bg-accent hover:bg-accent-hi px-3 py-1 text-xs text-canvas transition-colors cursor-pointer">
+									{t('groups_approve')}
+								</button>
+							</form>
+							<form method="POST" action="?/declineRequest" use:enhance>
+								<input type="hidden" name="request_id" value={req.id} />
+								<button type="submit"
+									class="rounded bg-raised hover:bg-wire border border-wire px-3 py-1 text-xs text-muted transition-colors cursor-pointer">
+									{t('groups_decline')}
+								</button>
+							</form>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	<!-- Invite link + code -->
 	<div class="rounded-xl bg-panel border border-wire p-4 space-y-3">
 		<div>

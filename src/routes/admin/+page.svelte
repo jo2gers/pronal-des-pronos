@@ -404,7 +404,7 @@
 							<!-- Scores -->
 							<div>
 								<label for="hs-{match.id}" class="block text-xs text-muted mb-1">{match.home_team}</label>
-								<input id="hs-{match.id}" name="home_score" type="number" min="0" max="20"
+								<input id="hs-{match.id}" name="home_score" type="number" min="0" max="999"
 									value={match.home_score ?? ''}
 									class="w-16 rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg text-center focus:border-accent focus:outline-none"
 									placeholder="–" />
@@ -414,7 +414,7 @@
 
 							<div>
 								<label for="as-{match.id}" class="block text-xs text-muted mb-1">{match.away_team}</label>
-								<input id="as-{match.id}" name="away_score" type="number" min="0" max="20"
+								<input id="as-{match.id}" name="away_score" type="number" min="0" max="999"
 									value={match.away_score ?? ''}
 									class="w-16 rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg text-center focus:border-accent focus:outline-none"
 									placeholder="–" />

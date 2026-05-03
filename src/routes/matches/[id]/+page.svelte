@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { formatDate, isMatchLocked } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
@@ -9,6 +10,13 @@
 	}
 
 	let { data, form } = $props();
+
+	// Auto-refresh every 30s while this match is live
+	$effect(() => {
+		if (data.match.status !== 'live') return;
+		const interval = setInterval(() => invalidateAll(), 30_000);
+		return () => clearInterval(interval);
+	});
 
 	let home      = $state(data.userPronostic?.predicted_home ?? 0);
 	let away      = $state(data.userPronostic?.predicted_away ?? 0);

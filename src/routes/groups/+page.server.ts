@@ -89,7 +89,7 @@ export const actions: Actions = {
 		if (!user) return fail(401, { error: 'Non authentifié' });
 
 		const form = await request.formData();
-		const code = (form.get('code') as string ?? '').trim().toUpperCase();
+		const code = (form.get('code') as string ?? '').trim().toLowerCase();
 
 		if (!code) return fail(400, { joinError: 'Code requis', code });
 

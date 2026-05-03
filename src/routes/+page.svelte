@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { formatDate, timeUntilMatch } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
@@ -8,8 +9,15 @@
 
 	type Match = NonNullable<typeof data.upcomingMatches>[number];
 
-	let liveMatches = $state<typeof data.liveMatches>(data.liveMatches ?? []);
-	let nextMatch   = $state<typeof data.nextMatch>(data.nextMatch ?? null);
+	let liveMatches = $derived(data.liveMatches ?? []);
+	let nextMatch   = $derived(data.nextMatch ?? null);
+
+	// Auto-refresh every 30s while a match is live
+	$effect(() => {
+		if (!liveMatches.length) return;
+		const interval = setInterval(() => invalidateAll(), 30_000);
+		return () => clearInterval(interval);
+	});
 
 	// ── Accordion state (mirrors matches page) ───────────────────────────────────
 	let openId      = $state<string | null>(null);
@@ -300,10 +308,15 @@
 											{match.home_score} – {match.away_score}
 										</a>
 									{:else if match.status === 'live'}
-										<a href="/matches/{match.id}" onclick={(e) => e.stopPropagation()}
-											class="inline-flex items-center gap-1 rounded bg-live px-2 py-0.5 text-xs font-bold text-fg">
-											<span class="w-1.5 h-1.5 rounded-full bg-fg/80 animate-pulse"></span>
-											LIVE
+										<a href="/matches/{match.id}" onclick={(e) => e.stopPropagation()} class="block">
+											<span class="font-bold text-live tabular-nums leading-none block"
+												style="font-family: var(--font-display)">
+												{match.home_score ?? 0} – {match.away_score ?? 0}
+											</span>
+											<span class="inline-flex items-center gap-1 rounded bg-live px-1.5 py-0.5 text-[10px] font-bold text-fg mt-1">
+												<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>
+												LIVE
+											</span>
 										</a>
 									{:else}
 										{#if hasProno}
