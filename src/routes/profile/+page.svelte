@@ -60,7 +60,7 @@
 
 	<!-- Avatar -->
 	<div class="rounded-xl bg-panel border border-wire p-6">
-		<h2 class="text-lg font-semibold text-fg mb-4">{t('profile_avatar_section')}</h2>
+		<h2 class="text-base font-semibold text-fg mb-4" style="font-family: var(--font-display)">{t('profile_avatar_section')}</h2>
 		<div class="flex items-center gap-4 mb-4">
 			{#if data.profile?.avatar_url}
 				<img src={data.profile.avatar_url} alt="Avatar" class="w-16 h-16 rounded-full object-cover" />
@@ -90,7 +90,7 @@
 
 	<!-- Profile info -->
 	<div class="rounded-xl bg-panel border border-wire p-6">
-		<h2 class="text-lg font-semibold text-fg mb-4">{t('profile_info_section')}</h2>
+		<h2 class="text-base font-semibold text-fg mb-4" style="font-family: var(--font-display)">{t('profile_info_section')}</h2>
 		<form method="POST" action="?/update" use:enhance={() => {
 			loadingProfile = true;
 			return async ({ update }) => { loadingProfile = false; await update(); };

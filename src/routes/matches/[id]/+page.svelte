@@ -161,7 +161,7 @@
 			</div>
 		</div>
 
-		<!-- Polymarket odds (probabilities) -->
+		<!-- Polymarket odds -->
 		{#if data.match.odds_home && data.match.odds_draw && data.match.odds_away}
 			{@const pHome = Math.round(100 / (data.match.odds_home ?? 1))}
 			{@const pDraw = Math.round(100 / (data.match.odds_draw ?? 1))}
@@ -175,7 +175,7 @@
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
 							<div class="h-full rounded-full bg-accent transition-all" style="width: {pHome}%"></div>
 						</div>
-						<p class="text-lg font-bold text-fg tabular-nums leading-none" style="font-family: var(--font-display)">{pHome}%</p>
+						<p class="text-lg font-bold text-accent tabular-nums leading-none" style="font-family: var(--font-display)">{data.match.odds_home.toFixed(2)}</p>
 					</div>
 					<!-- Draw bar -->
 					<div class="w-14 text-center shrink-0">
@@ -183,7 +183,7 @@
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
 							<div class="h-full rounded-full bg-wire-hi transition-all" style="width: {pDraw}%"></div>
 						</div>
-						<p class="text-lg font-bold text-fg tabular-nums leading-none" style="font-family: var(--font-display)">{pDraw}%</p>
+						<p class="text-lg font-bold text-muted tabular-nums leading-none" style="font-family: var(--font-display)">{data.match.odds_draw.toFixed(2)}</p>
 					</div>
 					<!-- Away bar -->
 					<div class="flex-1 text-center">
@@ -191,7 +191,7 @@
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
 							<div class="h-full rounded-full bg-accent transition-all" style="width: {pAway}%"></div>
 						</div>
-						<p class="text-lg font-bold text-fg tabular-nums leading-none" style="font-family: var(--font-display)">{pAway}%</p>
+						<p class="text-lg font-bold text-accent tabular-nums leading-none" style="font-family: var(--font-display)">{data.match.odds_away.toFixed(2)}</p>
 					</div>
 				</div>
 			</div>
@@ -211,29 +211,32 @@
 			</div>
 
 			{#if data.match.status === 'finished' && data.userPronostic}
-				<!-- Finished: show result prominently -->
+				<!-- Finished: show result prominently — pick + points balanced -->
 				{@const badge = rowBadge(data.userPronostic.points_earned, data.userPronostic.predicted_home, data.userPronostic.predicted_away)}
-				<div class="flex items-center justify-center gap-8">
+				<div class="grid grid-cols-2 gap-6 items-start">
 					<div class="text-center">
 						<p class="text-xs text-faint mb-2">{t('match_my_pick')}</p>
-						<p class="text-4xl font-bold text-fg tabular-nums" style="font-family: var(--font-display)">
-							{data.userPronostic.predicted_home} – {data.userPronostic.predicted_away}
+						<p class="text-4xl sm:text-5xl font-bold text-fg tabular-nums leading-none" style="font-family: var(--font-display)">
+							{data.userPronostic.predicted_home}<span class="text-wire-hi mx-1.5">–</span>{data.userPronostic.predicted_away}
 						</p>
-						{#if badge === 'exact'}
-							<span class="inline-block mt-2 text-xs font-semibold text-accent border border-accent/30 rounded px-2 py-0.5">{t('match_score_exact')}</span>
-						{:else if badge === 'correct'}
-							<span class="inline-block mt-2 text-xs font-semibold text-muted border border-wire rounded px-2 py-0.5">{t('match_winner_ok')}</span>
-						{:else}
-							<span class="inline-block mt-2 text-xs text-faint border border-wire/50 rounded px-2 py-0.5">{t('match_missed')}</span>
-						{/if}
+						<div class="mt-3 min-h-[1.5rem]">
+							{#if badge === 'exact'}
+								<span class="inline-block text-xs font-semibold text-accent border border-accent/30 rounded px-2 py-0.5">{t('match_score_exact')}</span>
+							{:else if badge === 'correct'}
+								<span class="inline-block text-xs font-semibold text-muted border border-wire rounded px-2 py-0.5">{t('match_winner_ok')}</span>
+							{:else}
+								<span class="inline-block text-xs text-faint border border-wire/50 rounded px-2 py-0.5">{t('match_missed')}</span>
+							{/if}
+						</div>
 					</div>
-					<div class="text-center">
+					<div class="text-center border-l border-wire">
 						<p class="text-xs text-faint mb-2">{t('match_points_earned')}</p>
-						<p class="text-5xl font-bold tabular-nums
+						<p class="text-4xl sm:text-5xl font-bold tabular-nums leading-none
 							{badge === 'exact' ? 'text-accent' : badge === 'correct' ? 'text-fg' : 'text-muted'}"
 							style="font-family: var(--font-display)">
 							{data.userPronostic.points_earned?.toFixed(2) ?? '0.00'}
 						</p>
+						<p class="text-[11px] text-faint mt-3">{t('match_pts')}</p>
 					</div>
 				</div>
 
@@ -364,7 +367,7 @@
 							<!-- Name -->
 							<span class="flex-1 text-sm truncate {me ? 'text-accent font-semibold' : friend ? 'text-fg' : 'text-muted'}">
 								{(p.profiles as any)?.display_name ?? (p.profiles as any)?.username ?? '?'}
-								{#if me}<span class="text-faint font-normal ml-1 text-xs">(moi)</span>{/if}
+								{#if me}<span class="text-faint font-normal ml-1 text-xs">{t('match_me_label')}</span>{/if}
 							</span>
 
 							<!-- Prediction -->

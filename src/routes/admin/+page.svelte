@@ -1,4 +1,6 @@
 <script lang="ts">
+	// NOTE: Admin page is intentionally French-only.
+	// It is a single-operator surface; bilingual i18n is not worth the maintenance cost.
 	import { enhance } from '$app/forms';
 	import { formatDate } from '$lib/utils';
 	import { STAGE_LABELS_FR } from '$lib/wc2026';
@@ -136,11 +138,11 @@
 			<div class="overflow-x-auto">
 				<table class="w-full text-sm">
 					<thead>
-						<tr class="text-left text-xs text-faint uppercase tracking-wider border-b border-wire">
-							<th class="px-2 py-2 font-semibold">Joueur</th>
-							<th class="px-2 py-2 font-semibold text-right">Cote</th>
-							<th class="px-2 py-2 font-semibold text-right">Mult.</th>
-							<th class="px-2 py-2 font-semibold text-right">Buts</th>
+						<tr class="text-left text-[11px] text-faint font-semibold border-b border-wire">
+							<th class="px-2 py-2">Joueur</th>
+							<th class="px-2 py-2 text-right">Cote</th>
+							<th class="px-2 py-2 text-right">Mult.</th>
+							<th class="px-2 py-2 text-right">Buts</th>
 							<th class="px-2 py-2"></th>
 						</tr>
 					</thead>
@@ -356,7 +358,7 @@
 
 	{#each grouped as { stage, matches }}
 		<section>
-			<h2 class="text-sm font-bold text-accent uppercase tracking-wider mb-3">
+			<h2 class="text-base font-semibold text-fg mb-3" style="font-family: var(--font-display)">
 				{STAGE_LABELS_FR[stage] ?? stage}
 			</h2>
 

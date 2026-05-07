@@ -84,12 +84,26 @@
 		if (!isPickable(match)) return;
 		openId = openId === match.id ? null : match.id;
 	}
+
+	// Keyboard shortcuts for the open accordion picker
+	function onPickerKey(e: KeyboardEvent) {
+		if (!openId) return;
+		const sc = scores[openId];
+		if (!sc) return;
+		if (e.key === 'Escape')      { openId = null; e.preventDefault(); return; }
+		if (e.key === 'ArrowUp')     { if (sc.home < 20) sc.home++; e.preventDefault(); return; }
+		if (e.key === 'ArrowDown')   { if (sc.home > 0)  sc.home--; e.preventDefault(); return; }
+		if (e.key === 'ArrowRight')  { if (sc.away < 20) sc.away++; e.preventDefault(); return; }
+		if (e.key === 'ArrowLeft')   { if (sc.away > 0)  sc.away--; e.preventDefault(); return; }
+	}
 </script>
+
+<svelte:window onkeydown={onPickerKey} />
 
 <div class="space-y-8">
 
 	<!-- Hero -->
-	<div class="rounded-xl bg-panel border-t-2 border-t-accent px-6 py-8 sm:px-10">
+	<div class="rounded-xl bg-panel border border-wire px-6 py-8 sm:px-10">
 
 		{#if liveMatches.length > 0}
 			<div class="flex items-center justify-center gap-2 mb-5">
@@ -179,33 +193,33 @@
 
 	<!-- User stats -->
 	{#if data.user && data.stats}
-		<div class="flex items-center gap-3 px-1">
-			<div class="flex items-baseline gap-1.5 min-w-0">
-				<span class="text-sm text-faint shrink-0">{t('your_rank')}</span>
+		<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 px-1">
+			<div class="flex items-baseline gap-1.5">
+				<span class="text-sm text-faint">{t('your_rank')}</span>
 				<span class="text-lg font-bold text-fg tabular-nums" style="font-family: var(--font-display)">
 					#{data.stats.rank ?? '–'}
 				</span>
 			</div>
-			<span class="text-wire-hi">·</span>
-			<div class="flex items-baseline gap-1.5 min-w-0">
-				<span class="text-sm text-faint shrink-0">{t('points')}</span>
+			<span class="text-wire-hi hidden sm:inline">·</span>
+			<div class="flex items-baseline gap-1.5">
+				<span class="text-sm text-faint">{t('points')}</span>
 				<span class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
 					{data.stats.totalPoints.toFixed(2)}
 				</span>
 				{#if data.stats.teamBonus > 0}
-					<a href="/rules" class="text-xs tabular-nums hover:underline" style="color: var(--color-bonus)">
+					<a href="/rules" class="text-xs tabular-nums whitespace-nowrap hover:underline" style="color: var(--color-bonus)">
 						+{data.stats.teamBonus.toFixed(2)} {t('team_bonus_short')}
 					</a>
 				{/if}
 			</div>
-			<span class="text-wire-hi">·</span>
-			<div class="flex items-baseline gap-1.5 min-w-0">
-				<span class="text-sm text-faint shrink-0">{t('picks')}</span>
+			<span class="text-wire-hi hidden sm:inline">·</span>
+			<div class="flex items-baseline gap-1.5">
+				<span class="text-sm text-faint">{t('picks')}</span>
 				<span class="text-lg font-bold text-fg tabular-nums" style="font-family: var(--font-display)">
 					{data.stats.pronosticsCount}
 				</span>
 			</div>
-			<a href="/leaderboard" class="ml-auto text-xs text-accent hover:text-accent-hi shrink-0 transition-colors">
+			<a href="/leaderboard" class="ml-auto text-xs text-accent hover:text-accent-hi whitespace-nowrap transition-colors">
 				{t('leaderboard_link')}
 			</a>
 		</div>
@@ -231,7 +245,11 @@
 						<a href="/matches/{match.id}"
 							class="px-4 py-3 flex items-center gap-2 hover:bg-raised/60 transition-colors group">
 							<!-- Home -->
-							<div class="flex-1 min-w-0">
+							<div class="flex-1 min-w-0 flex items-center gap-2">
+								{#if match.home_flag}
+									<img src="https://flagcdn.com/w20/{match.home_flag.toLowerCase()}.png"
+										alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
+								{/if}
 								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate">{match.home_team}</span>
 							</div>
 
@@ -253,8 +271,12 @@
 							</div>
 
 							<!-- Away -->
-							<div class="flex-1 min-w-0 text-right">
-								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate">{match.away_team}</span>
+							<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
+								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate text-right">{match.away_team}</span>
+								{#if match.away_flag}
+									<img src="https://flagcdn.com/w20/{match.away_flag.toLowerCase()}.png"
+										alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
+								{/if}
 							</div>
 						</a>
 					{/each}
@@ -274,6 +296,10 @@
 			{/if}
 		</div>
 
+		{#if data.user && data.stats && data.stats.pronosticsCount === 0 && data.upcomingMatches?.length}
+			<p class="mb-3 px-1 text-sm text-accent">{t('first_pick_hint')}</p>
+		{/if}
+
 		{#if data.upcomingMatches?.length}
 			<div class="rounded-xl bg-panel border border-wire overflow-hidden">
 				{#each data.upcomingMatches as match}
@@ -283,19 +309,31 @@
 					{@const saved    = savedIds.has(match.id)}
 					{@const hasProno = !!data.pronosticsMap[match.id] || saved}
 					{@const sc       = scores[match.id] ?? { home: 0, away: 0 }}
+					{@const linkRow  = !pickable && match.status !== 'finished' && match.status !== 'live'}
 
 					<div class="border-b border-wire last:border-0">
 						<!-- Row -->
 						<div
-							role={pickable ? 'button' : undefined}
-							tabindex={pickable ? 0 : undefined}
-							onclick={() => pickable ? toggle(match) : undefined}
-							onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') ? toggle(match) : undefined}
-							class="px-4 py-3 transition-colors {pickable ? 'cursor-pointer hover:bg-raised' : ''} {isOpen ? 'bg-raised' : ''}">
+							role={pickable || linkRow ? 'button' : undefined}
+							tabindex={pickable || linkRow ? 0 : undefined}
+							onclick={() => {
+								if (pickable) toggle(match);
+								else if (linkRow) window.location.href = `/matches/${match.id}`;
+							}}
+							onkeydown={(e) => {
+								if (e.key !== 'Enter' && e.key !== ' ') return;
+								if (pickable) toggle(match);
+								else if (linkRow) window.location.href = `/matches/${match.id}`;
+							}}
+							class="px-4 py-3 transition-colors {pickable || linkRow ? 'cursor-pointer hover:bg-raised' : ''} {isOpen ? 'bg-raised' : ''}">
 
 							<div class="flex items-center gap-2">
 								<!-- Home -->
-								<div class="flex-1 min-w-0">
+								<div class="flex-1 min-w-0 flex items-center gap-2">
+									{#if match.home_flag}
+										<img src="https://flagcdn.com/w20/{match.home_flag.toLowerCase()}.png"
+											alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
+									{/if}
 									<span class="text-sm font-medium text-fg truncate">{match.home_team}</span>
 								</div>
 
@@ -338,32 +376,27 @@
 								</div>
 
 								<!-- Away -->
-								<div class="flex-1 min-w-0 text-right">
-									<span class="text-sm font-medium text-fg truncate">{match.away_team}</span>
+								<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
+									<span class="text-sm font-medium text-fg truncate text-right">{match.away_team}</span>
+									{#if match.away_flag}
+										<img src="https://flagcdn.com/w20/{match.away_flag.toLowerCase()}.png"
+											alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
+									{/if}
 								</div>
 
 								<!-- Trailing -->
-								<div class="flex items-center gap-1.5 ml-1 shrink-0">
+								<div class="flex items-center gap-1.5 ml-1 shrink-0 w-4 justify-end">
 									{#if saved}
 										<span class="w-1.5 h-1.5 rounded-full shrink-0"
 											style="background: var(--color-success)"></span>
 									{:else if u === 'critical'}
 										<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
-									{/if}
-									{#if pickable}
+									{:else if pickable}
 										<svg class="w-3.5 h-3.5 text-faint transition-transform duration-200 {isOpen ? 'rotate-180' : ''}"
 											fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
 										</svg>
 									{/if}
-									<a href="/matches/{match.id}" onclick={(e) => e.stopPropagation()}
-										class="w-6 h-6 flex items-center justify-center rounded text-faint hover:text-fg hover:bg-wire transition-colors"
-										title={t('match_details_title')}>
-										<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-												d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-										</svg>
-									</a>
 								</div>
 							</div>
 						</div>
@@ -418,32 +451,40 @@
 										</div>
 									</div>
 
-									<!-- Odds — flat row, no nested surface -->
+									<!-- Odds — home & away as primary (matches stepper sides), draw demoted between -->
 									{#if match.odds_home || match.odds_draw || match.odds_away}
 										<div class="mb-4 pt-3 mt-1 border-t border-wire/60">
-											<div class="flex items-baseline justify-between gap-3">
-												<div class="flex-1 min-w-0">
-													<p class="text-xs text-faint truncate">{match.home_team}</p>
-													<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+											<div class="flex items-end justify-between gap-3">
+												<!-- Home odds — left, mirrors home stepper -->
+												<div class="min-w-0 flex-1">
+													<p class="text-[11px] text-faint truncate">{match.home_team}</p>
+													<p class="text-lg font-bold text-accent tabular-nums leading-none mt-0.5"
+														style="font-family: var(--font-display)">
 														{match.odds_home?.toFixed(2) ?? '–'}
 													</p>
 												</div>
-												<div class="text-center flex-1 min-w-0">
-													<p class="text-xs text-faint">{t('match_draw')}</p>
-													<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+												<!-- Draw — demoted, smaller, muted -->
+												<div class="text-center shrink-0">
+													<p class="text-[11px] text-faint">{t('match_draw')}</p>
+													<p class="text-sm font-semibold text-muted tabular-nums leading-none mt-1"
+														style="font-family: var(--font-display)">
 														{match.odds_draw?.toFixed(2) ?? '–'}
 													</p>
 												</div>
-												<div class="text-right flex-1 min-w-0">
-													<p class="text-xs text-faint truncate">{match.away_team}</p>
-													<p class="text-base font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+												<!-- Away odds — right, mirrors away stepper -->
+												<div class="min-w-0 flex-1 text-right">
+													<p class="text-[11px] text-faint truncate">{match.away_team}</p>
+													<p class="text-lg font-bold text-accent tabular-nums leading-none mt-0.5"
+														style="font-family: var(--font-display)">
 														{match.odds_away?.toFixed(2) ?? '–'}
 													</p>
 												</div>
 											</div>
+											<p class="mt-2 text-[11px] text-faint">{t('odds_hint')}</p>
 										</div>
 									{/if}
 
+									<p class="hidden sm:block text-[11px] text-faint mb-2 tabular-nums">{t('picker_kbd_hint')}</p>
 									<div class="flex gap-2 mt-1">
 										<button type="button" onclick={() => openId = null}
 											class="flex-none rounded-lg border border-wire px-4 py-2 text-sm text-muted hover:text-fg hover:border-wire-hi transition-colors cursor-pointer">

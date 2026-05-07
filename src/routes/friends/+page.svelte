@@ -16,7 +16,7 @@
 
 	<!-- Search -->
 	<div class="rounded-xl bg-panel border border-wire p-4">
-		<h2 class="text-sm font-semibold text-muted mb-3">{t('friends_find')}</h2>
+		<h2 class="text-base font-semibold text-fg mb-3" style="font-family: var(--font-display)">{t('friends_find')}</h2>
 		<form method="POST" action="?/search" use:enhance={() => {
 			searching = true;
 			return async ({ update }) => { searching = false; await update(); };
@@ -65,8 +65,8 @@
 	<!-- Pending received -->
 	{#if data.pendingReceived.length > 0}
 		<div class="rounded-xl bg-panel border border-wire p-4">
-			<h2 class="text-sm font-semibold text-muted mb-3">
-				{t('friends_received')} ({data.pendingReceived.length})
+			<h2 class="text-base font-semibold text-fg mb-3" style="font-family: var(--font-display)">
+				{t('friends_received')} <span class="text-faint font-normal tabular-nums">({data.pendingReceived.length})</span>
 			</h2>
 			<div class="space-y-2">
 				{#each data.pendingReceived as req}
@@ -91,8 +91,8 @@
 
 	<!-- Friends list -->
 	<div class="rounded-xl bg-panel border border-wire p-4">
-		<h2 class="text-sm font-semibold text-muted mb-3">
-			{t('friends_my_friends')} ({data.accepted.length})
+		<h2 class="text-base font-semibold text-fg mb-3" style="font-family: var(--font-display)">
+			{t('friends_my_friends')} <span class="text-faint font-normal tabular-nums">({data.accepted.length})</span>
 		</h2>
 		{#if data.accepted.length === 0}
 			<p class="text-sm text-faint">{t('friends_empty')}</p>
@@ -101,7 +101,7 @@
 				{#each data.accepted as friend}
 					<button
 						type="button"
-						on:click={() => viewProfile((friend as any).id)}
+						onclick={() => viewProfile((friend as any).id)}
 						class="w-full text-left flex items-center gap-3 rounded-lg bg-raised px-3 py-2 hover:bg-wire transition-colors cursor-pointer">
 						{#if (friend as any)?.avatar_url}
 							<img src={(friend as any).avatar_url} alt="" class="w-8 h-8 rounded-full object-cover" />

@@ -8,7 +8,7 @@
 
 <div class="mx-auto max-w-md mt-16">
 	<div class="rounded-xl bg-panel border border-wire p-8">
-		<h1 class="text-2xl font-bold text-accent mb-2">{t('auth_login_title')}</h1>
+		<h1 class="text-2xl font-bold text-fg mb-2" style="font-family: var(--font-display); letter-spacing: 0.02em">{t('auth_login_title')}</h1>
 		<p class="text-muted text-sm mb-6">{t('auth_login_welcome')}</p>
 
 		{#if form?.error}

@@ -64,7 +64,7 @@
 {/if}
 
 <div class="min-h-screen bg-canvas text-fg" style="font-family: var(--font-body)">
-	<nav class="sticky top-0 z-50 border-b border-wire bg-canvas/95 backdrop-blur-sm">
+	<nav class="sticky top-0 z-50 border-b border-wire bg-canvas">
 		<div class="mx-auto flex h-14 max-w-6xl items-center px-4 gap-4">
 			<!-- Wordmark -->
 			<a href="/" onclick={closeMenu}

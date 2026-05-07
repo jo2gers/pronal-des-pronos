@@ -29,51 +29,24 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-start justify-between">
-		<div>
-			<div class="flex items-center gap-2">
-				<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">{data.group.name}</h1>
-				<span class="text-xs border border-wire rounded px-1.5 py-0.5 text-faint">
-					{data.group.is_public === false ? t('group_private') : t('group_public')}
-				</span>
-			</div>
-			{#if data.group.description}
-				<p class="text-muted text-sm mt-1">{data.group.description}</p>
-			{/if}
+	<div>
+		<div class="flex items-baseline gap-2 flex-wrap">
+			<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">{data.group.name}</h1>
+			<span class="text-xs border border-wire rounded px-1.5 py-0.5 text-faint">
+				{data.group.is_public === false ? t('group_private') : t('group_public')}
+			</span>
 		</div>
-		{#if confirmLeave}
-			<div class="flex items-center gap-2">
-				<span class="text-xs text-faint">{t('group_confirm_question')}</span>
-				<form method="POST" action="?/leave" use:enhance>
-					<button type="submit" class="text-xs text-err font-semibold hover:opacity-80 transition-opacity cursor-pointer">
-						{t('group_yes_leave')}
-					</button>
-				</form>
-				<button onclick={() => confirmLeave = false}
-					class="text-xs text-muted hover:text-fg transition-colors cursor-pointer">
-					{t('cancel')}
-				</button>
-			</div>
-		{:else}
-			<button onclick={() => confirmLeave = true}
-				class="text-sm text-faint hover:text-err transition-colors cursor-pointer">
-				{t('group_leave')}
-			</button>
+		{#if data.group.description}
+			<p class="text-muted text-sm mt-1">{data.group.description}</p>
 		{/if}
 	</div>
 
 	<!-- Pending join requests (admin only) -->
 	{#if data.isAdmin && data.pendingRequests.length > 0}
-		<div class="rounded-xl bg-panel border border-err/30 p-4">
-			<h2 class="text-sm font-semibold text-err mb-3 flex items-center gap-2">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-						d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-				</svg>
+		<div class="rounded-xl bg-panel border border-accent/30 p-4">
+			<h2 class="text-base font-semibold text-accent mb-3 flex items-baseline gap-2" style="font-family: var(--font-display)">
 				{t('groups_pending_title')}
-				<span class="rounded-full bg-err/15 text-err text-[10px] font-bold px-1.5 py-0.5 leading-none">
-					{data.pendingRequests.length}
-				</span>
+				<span class="text-xs text-accent/70 font-normal tabular-nums">{data.pendingRequests.length}</span>
 			</h2>
 			<div class="space-y-2">
 				{#each data.pendingRequests as req}
@@ -222,5 +195,29 @@
 			</tbody>
 		</table>
 		</div>
+	</section>
+
+	<!-- Leave group — danger zone, bottom of page -->
+	<section class="border-t border-wire pt-5 flex items-center justify-end flex-wrap gap-3">
+		{#if confirmLeave}
+			<div class="flex items-center gap-3">
+				<span class="text-xs text-faint">{t('group_confirm_question')}</span>
+				<form method="POST" action="?/leave" use:enhance>
+					<button type="submit"
+						class="rounded bg-err/10 border border-err/40 hover:bg-err/20 px-3 py-1.5 text-xs text-err transition-colors cursor-pointer">
+						{t('group_yes_leave')}
+					</button>
+				</form>
+				<button onclick={() => confirmLeave = false}
+					class="text-xs text-muted hover:text-fg transition-colors cursor-pointer">
+					{t('cancel')}
+				</button>
+			</div>
+		{:else}
+			<button onclick={() => confirmLeave = true}
+				class="rounded border border-err/30 hover:border-err/60 px-3 py-1.5 text-xs text-err/70 hover:text-err transition-colors cursor-pointer">
+				{t('group_leave')}
+			</button>
+		{/if}
 	</section>
 </div>

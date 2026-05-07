@@ -80,7 +80,7 @@
 						class="w-14 h-10 object-cover rounded-md shadow-sm shrink-0" />
 				{/if}
 				<div class="flex-1 min-w-0">
-					<p class="text-[11px] text-faint uppercase tracking-widest mb-0.5">{t('fav_team')}</p>
+					<p class="text-xs text-faint mb-0.5">{t('fav_team')}</p>
 					<p class="text-2xl font-bold text-fg leading-tight" style="font-family: var(--font-display)">
 						{data.profile.favorite_team}
 					</p>
@@ -125,47 +125,44 @@
 			</div>
 		{/if}
 
-		<!-- Stats: hero total + inline secondary metrics -->
-		<div class="mt-6 pt-5 border-t border-wire">
-			<div class="flex items-end gap-5 flex-wrap">
-				<!-- Hero: Total -->
-				<div class="flex-none">
-					<p class="text-5xl sm:text-6xl font-bold text-accent tabular-nums leading-none"
-						style="font-family: var(--font-display)">
-						{data.totalPoints.toFixed(1)}
-					</p>
-					<p class="text-xs text-faint mt-2">{t('lb_total')}</p>
-				</div>
-
-				<!-- Secondary: inline, smaller, comma-separated -->
-				<dl class="flex flex-wrap items-baseline gap-x-4 gap-y-1 pb-1 text-sm flex-1 min-w-0">
-					<div class="flex items-baseline gap-1.5">
-						<dt class="text-faint">{t('points')}</dt>
-						<dd class="font-semibold text-fg tabular-nums">{data.pronoPoints.toFixed(2)}</dd>
-					</div>
-					{#if data.teamBonus > 0}
-						<div class="flex items-baseline gap-1.5">
-							<dt class="text-faint">{t('team_bonus_short')}</dt>
-							<dd class="font-semibold tabular-nums" style="color: var(--color-bonus)">+{data.teamBonus.toFixed(2)}</dd>
-						</div>
-					{/if}
-					{#if (data.scorerBonus ?? 0) > 0}
-						<div class="flex items-baseline gap-1.5">
-							<dt class="text-faint">{t('profile_scorer_bonus')}</dt>
-							<dd class="font-semibold tabular-nums" style="color: var(--color-bonus)">+{data.scorerBonus.toFixed(2)}</dd>
-						</div>
-					{/if}
-					<div class="flex items-baseline gap-1.5">
-						<dt class="text-faint">{t('profile_exact')}</dt>
-						<dd class="font-semibold text-fg tabular-nums">{data.exactScores}</dd>
-					</div>
-					<div class="flex items-baseline gap-1.5">
-						<dt class="text-faint">{t('profile_picks_played')}</dt>
-						<dd class="font-semibold text-fg tabular-nums">{data.totalPronoCount}</dd>
-					</div>
-				</dl>
+		<!-- Stats: flat horizontal strip, no hero number -->
+		<dl class="mt-6 pt-5 border-t border-wire flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-sm">
+			<div class="flex items-baseline gap-1.5">
+				<dt class="text-faint">{t('lb_total')}</dt>
+				<dd class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+					{data.totalPoints.toFixed(2)}
+				</dd>
 			</div>
-		</div>
+			<span class="text-wire-hi hidden sm:inline">·</span>
+			<div class="flex items-baseline gap-1.5">
+				<dt class="text-faint">{t('points')}</dt>
+				<dd class="font-semibold text-fg tabular-nums">{data.pronoPoints.toFixed(2)}</dd>
+			</div>
+			{#if data.teamBonus > 0}
+				<span class="text-wire-hi hidden sm:inline">·</span>
+				<div class="flex items-baseline gap-1.5">
+					<dt class="text-faint">{t('team_bonus_short')}</dt>
+					<dd class="font-semibold tabular-nums" style="color: var(--color-bonus)">+{data.teamBonus.toFixed(2)}</dd>
+				</div>
+			{/if}
+			{#if (data.scorerBonus ?? 0) > 0}
+				<span class="text-wire-hi hidden sm:inline">·</span>
+				<div class="flex items-baseline gap-1.5">
+					<dt class="text-faint">{t('profile_scorer_bonus')}</dt>
+					<dd class="font-semibold tabular-nums" style="color: var(--color-bonus)">+{data.scorerBonus.toFixed(2)}</dd>
+				</div>
+			{/if}
+			<span class="text-wire-hi hidden sm:inline">·</span>
+			<div class="flex items-baseline gap-1.5">
+				<dt class="text-faint">{t('profile_exact')}</dt>
+				<dd class="font-semibold text-fg tabular-nums">{data.exactScores}</dd>
+			</div>
+			<span class="text-wire-hi hidden sm:inline">·</span>
+			<div class="flex items-baseline gap-1.5">
+				<dt class="text-faint">{t('profile_picks_played')}</dt>
+				<dd class="font-semibold text-fg tabular-nums">{data.totalPronoCount}</dd>
+			</div>
+		</dl>
 	</div>
 
 	<!-- Pronostics history — flat section, full-bleed table on mobile -->

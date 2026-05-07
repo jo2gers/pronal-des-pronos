@@ -6,7 +6,7 @@
 </script>
 
 <div class="max-w-lg mx-auto">
-	<h1 class="text-2xl font-bold text-fg mb-6">{t('group_create_title')}</h1>
+	<h1 class="text-2xl font-bold text-fg mb-6" style="font-family: var(--font-display); letter-spacing: 0.02em">{t('group_create_title')}</h1>
 
 	{#if form?.error}
 		<div class="mb-4 rounded bg-err/10 border border-err/30 px-4 py-3 text-sm text-err">
