@@ -2,6 +2,10 @@ import { json } from '@sveltejs/kit';
 import { createClient } from '@supabase/supabase-js';
 import type { RequestHandler } from './$types';
 
+// Vercel Hobby plan: 10s function timeout. Keep this hint explicit so future
+// changes don't accidentally rely on long-running work.
+export const config = { maxDuration: 10 };
+
 const SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 

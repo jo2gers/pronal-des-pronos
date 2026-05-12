@@ -42,6 +42,9 @@
 	let bracketFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let confirmDeleteGroupId = $state<string | null>(null);
 
+	const liveCount = $derived(data.matches.filter((m) => m.status === 'live').length);
+	const finishedCount = $derived(data.matches.filter((m) => m.status === 'finished').length);
+
 	function ago(ts: string | null): string {
 		if (!ts) return 'jamais';
 		const diff = Date.now() - new Date(ts).getTime();
@@ -76,8 +79,6 @@
 	</div>
 
 	<!-- KPI status strip — at-a-glance freshness for every sync source -->
-	{@const liveCount = data.matches.filter(m => m.status === 'live').length}
-	{@const finishedCount = data.matches.filter(m => m.status === 'finished').length}
 	<dl class="grid grid-cols-2 sm:grid-cols-4 gap-3">
 		<div class="rounded-lg bg-panel border border-wire px-3 py-2.5">
 			<dt class="text-[11px] text-faint">Cotes matchs</dt>
