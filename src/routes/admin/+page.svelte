@@ -54,13 +54,15 @@
 		return `il y a ${d} j`;
 	}
 
-	// Color-code freshness: ≤6h = fg, 6–24h = warn, >24h or never = err.
-	// Lets operators spot a broken sync at a glance instead of reading every "il y a N" string.
+	// Color-code freshness. Cron runs daily, so healthy can be up to ~26h old.
+	//   ≤ 26h → fg (healthy, within one cycle)
+	//   26–50h → warn (missed one cycle)
+	//   > 50h or never → err (missed multiple cycles — investigate)
 	function staleClass(ts: string | null): string {
 		if (!ts) return 'text-err';
 		const hours = (Date.now() - new Date(ts).getTime()) / 3_600_000;
-		if (hours <= 6) return 'text-fg';
-		if (hours <= 24) return 'text-warn';
+		if (hours <= 26) return 'text-fg';
+		if (hours <= 50) return 'text-warn';
 		return 'text-err';
 	}
 	let deleteGroupLoadingId = $state<string | null>(null);
@@ -70,7 +72,7 @@
 <div class="space-y-6">
 	<div class="flex items-baseline justify-between flex-wrap gap-2">
 		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Simulateur de matchs</h1>
-		<p class="text-xs text-faint">Cron auto-sync: toutes les 6 h</p>
+		<p class="text-xs text-faint">Cron auto-sync : 1×/jour (06:00 UTC)</p>
 	</div>
 
 	<!-- KPI status strip — at-a-glance freshness for every sync source -->
