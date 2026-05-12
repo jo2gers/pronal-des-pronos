@@ -83,6 +83,8 @@
 </script>
 
 <svelte:head>
+	<title>Tifo — World Cup 2026 picks with your friends</title>
+	<meta name="description" content="Tifo · friends · leagues · scoreboard. Designed and built by Devsigny." />
 	<link rel="icon" href={favicon} />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
@@ -100,7 +102,7 @@
 			<a href="/" onclick={closeMenu}
 				class="shrink-0 font-display text-xl font-bold tracking-wide text-accent"
 				style="font-family: var(--font-display); letter-spacing: 0.04em">
-				PRONAL
+				TIFO
 			</a>
 
 			<!-- Desktop nav -->

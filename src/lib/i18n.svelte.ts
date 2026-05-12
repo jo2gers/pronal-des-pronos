@@ -211,7 +211,7 @@ const FR = {
   friends_accept: 'Accepter',
   friends_decline: 'Refuser',
   // Rules
-  rules_title: 'Comment fonctionne Pronal ?',
+  rules_title: 'Comment fonctionne Tifo ?',
   rules_subtitle: 'Tout ce que tu dois savoir pour maximiser tes points.',
   rules_points_title: 'Points par pronostic',
   rules_points_intro: 'Pour chaque match, tu prédis le score exact. Deux niveaux de récompense :',
@@ -495,7 +495,7 @@ const EN: typeof FR = {
   friends_accept: 'Accept',
   friends_decline: 'Decline',
   // Rules
-  rules_title: 'How does Pronal work?',
+  rules_title: 'How does Tifo work?',
   rules_subtitle: 'Everything you need to know to maximize your points.',
   rules_points_title: 'Points per pick',
   rules_points_intro: 'For each match, you predict the exact score. Two reward levels:',
