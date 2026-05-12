@@ -241,7 +241,7 @@
 							class="px-4 py-3 flex items-center gap-2 hover:bg-raised/60 transition-colors group">
 							<!-- Home -->
 							<div class="flex-1 min-w-0 flex items-center gap-2">
-								<HexFlag code={match.home_flag} size={20} />
+								<HexFlag code={match.home_flag} size={32} />
 								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate">{match.home_team}</span>
 							</div>
 
@@ -265,7 +265,7 @@
 							<!-- Away -->
 							<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
 								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate text-right">{match.away_team}</span>
-								<HexFlag code={match.away_flag} size={20} />
+								<HexFlag code={match.away_flag} size={32} />
 							</div>
 						</a>
 					{/each}
@@ -319,7 +319,7 @@
 							<div class="flex items-center gap-2">
 								<!-- Home -->
 								<div class="flex-1 min-w-0 flex items-center gap-2">
-									<HexFlag code={match.home_flag} size={20} />
+									<HexFlag code={match.home_flag} size={32} />
 									<span class="text-sm font-medium text-fg truncate">{match.home_team}</span>
 								</div>
 
@@ -364,7 +364,7 @@
 								<!-- Away -->
 								<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
 									<span class="text-sm font-medium text-fg truncate text-right">{match.away_team}</span>
-									<HexFlag code={match.away_flag} size={20} />
+									<HexFlag code={match.away_flag} size={32} />
 								</div>
 
 								<!-- Trailing -->

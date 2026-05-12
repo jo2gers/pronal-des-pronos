@@ -109,7 +109,7 @@
 	<div class="fixed inset-0 z-40" onclick={closeNotif} role="presentation"></div>
 {/if}
 
-<div class="min-h-screen bg-canvas text-fg" style="font-family: var(--font-body)">
+<div class="min-h-screen flex flex-col bg-canvas text-fg" style="font-family: var(--font-body)">
 	<nav class="sticky top-0 z-50 border-b border-wire bg-canvas">
 		<div class="mx-auto flex h-14 max-w-6xl items-center px-4 gap-4">
 			<!-- Wordmark -->
@@ -338,12 +338,12 @@
 		{/if}
 	</nav>
 
-	<main class="mx-auto max-w-6xl px-4 py-8">
+	<main class="flex-1 w-full mx-auto max-w-6xl px-4 py-8">
 		{@render children()}
 	</main>
 
-	<!-- Devsigny attribution — appears on every page -->
-	<footer class="border-t border-wire mt-12">
+	<!-- Devsigny attribution — appears on every page, pinned to bottom -->
+	<footer class="mt-auto border-t border-wire">
 		<div class="mx-auto max-w-6xl px-4 py-6 flex items-center justify-between gap-3 flex-wrap">
 			<a href="https://devsigny.com" target="_blank" rel="noopener noreferrer"
 				class="group inline-flex items-baseline gap-1.5 text-xs text-faint hover:text-fg transition-colors"
