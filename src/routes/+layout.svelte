@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { supabase } from '$lib/supabase';
 	import { getLang, setLang, t } from '$lib/i18n.svelte';
@@ -29,6 +29,35 @@
 		theme = storedTheme as 'dark' | 'light';
 		setLang(storedLang as 'fr' | 'en');
 		document.documentElement.classList.toggle('light', storedTheme === 'light');
+	});
+
+	// ── Live notifications via Supabase Realtime ───────────────────────────────
+	// Subscribe to the 3 notification-source tables. RLS gates which events
+	// each client actually receives, so we don't need narrow column filters.
+	// On any change → invalidateAll() re-runs the layout server load, which
+	// recomputes friendNotifCount / groupNotifCount / inviteCount and the bell
+	// badge updates without a page refresh.
+	let lastInvalidate = 0;
+	function debouncedInvalidate() {
+		const now = Date.now();
+		if (now - lastInvalidate < 500) return; // coalesce bursts (e.g. INSERT+UPDATE in same RPC)
+		lastInvalidate = now;
+		invalidateAll();
+	}
+
+	$effect(() => {
+		if (!data.user) return;
+
+		const channel = supabase
+			.channel('notif-stream')
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'friendships'         }, debouncedInvalidate)
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'group_invites'       }, debouncedInvalidate)
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'group_join_requests' }, debouncedInvalidate)
+			.subscribe();
+
+		return () => {
+			supabase.removeChannel(channel);
+		};
 	});
 
 	function toggleTheme() {
