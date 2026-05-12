@@ -13,28 +13,24 @@ export const actions: Actions = {
 		if (!user) return fail(401, { error: 'Non authentifié' });
 
 		const form = await request.formData();
-		const name = (form.get('name') as string).trim();
-		const description = (form.get('description') as string).trim();
+		const name = ((form.get('name') as string) ?? '').trim();
+		const description = ((form.get('description') as string) ?? '').trim();
 		const is_public = form.get('is_public') !== 'false';
 
-		if (!name) return fail(400, { error: 'Le nom est obligatoire' });
+		if (name.length < 2) return fail(400, { error: 'Le nom est obligatoire (≥ 2 caractères)' });
 
-		// Generate UUID here so we can insert group_members immediately after
-		// without needing to SELECT the new group (which would fail RLS before membership exists)
-		const groupId = crypto.randomUUID();
+		// Atomic SECURITY DEFINER RPC: inserts group + creator admin membership in one tx.
+		// Avoids the chicken-and-egg RLS hole where the second insert would fail leaving an orphan.
+		const { data: rpcResult, error: rpcErr } = await supabase
+			.rpc('create_group', { p_name: name, p_description: description, p_is_public: is_public });
 
-		const { error: groupError } = await supabase
-			.from('groups')
-			.insert({ id: groupId, name, description: description || null, creator_id: user.id, is_public });
+		if (rpcErr) return fail(500, { error: rpcErr.message });
+		const result = rpcResult as { status: string; group_id?: string };
+		if (result.status === 'invalid_name') return fail(400, { error: 'Le nom est obligatoire' });
+		if (result.status !== 'created' || !result.group_id) {
+			return fail(500, { error: 'Création échouée' });
+		}
 
-		if (groupError) return fail(500, { error: groupError.message });
-
-		const { error: memberError } = await supabase
-			.from('group_members')
-			.insert({ group_id: groupId, user_id: user.id, role: 'admin' });
-
-		if (memberError) return fail(500, { error: memberError.message });
-
-		redirect(303, `/groups/${groupId}`);
+		redirect(303, `/leagues/${result.group_id}`);
 	}
 };

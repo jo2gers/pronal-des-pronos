@@ -3,6 +3,8 @@
 	import { t } from '$lib/i18n.svelte';
 	let { form } = $props();
 	let loading = $state(false);
+	let name = $state('');
+	const nameValid = $derived(name.trim().length >= 2);
 </script>
 
 <div class="max-w-lg mx-auto">
@@ -21,7 +23,8 @@
 		}} class="space-y-4">
 			<div>
 				<label for="name" class="block text-sm text-muted mb-1">{t('group_name_label')}</label>
-				<input id="name" name="name" type="text" required maxlength="50"
+				<input id="name" name="name" type="text" required minlength="2" maxlength="50"
+					bind:value={name}
 					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg placeholder:text-faint focus:border-accent focus:outline-none"
 					placeholder={t('group_name_placeholder')} />
 			</div>
@@ -51,10 +54,10 @@
 				</div>
 			</div>
 			<div class="flex gap-3 pt-2">
-				<a href="/groups" class="flex-1 rounded-lg border border-wire px-4 py-2.5 text-center text-sm text-muted hover:border-wire-hi transition-colors">
+				<a href="/leagues" class="flex-1 rounded-lg border border-wire px-4 py-2.5 text-center text-sm text-muted hover:border-wire-hi transition-colors">
 					{t('cancel')}
 				</a>
-				<button type="submit" disabled={loading}
+				<button type="submit" disabled={loading || !nameValid}
 					class="flex-1 rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-4 py-2.5 font-bold text-canvas transition-colors">
 					{loading ? t('group_creating') : t('group_create_btn')}
 				</button>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { beforeNavigate } from '$app/navigation';
 	import { WC2026_TEAMS, COUNTRIES } from '$lib/wc2026';
 	import { t } from '$lib/i18n.svelte';
 
@@ -15,6 +16,48 @@
 	let scorerSearch   = $state('');
 	let editingTeam    = $state(false);
 	let editingScorer  = $state(false);
+	let justSaved      = $state(false);
+
+	const initial = {
+		display_name: data.profile?.display_name ?? '',
+		country: data.profile?.country ?? '',
+		favorite_team: data.profile?.favorite_team ?? '',
+		top_scorer: data.profile?.top_scorer ?? ''
+	};
+
+	const dirty = $derived(
+		!justSaved && (
+			displayName !== initial.display_name ||
+			countryValue !== initial.country ||
+			selectedTeam !== initial.favorite_team ||
+			selectedScorer !== initial.top_scorer
+		)
+	);
+
+	beforeNavigate(({ cancel, type }) => {
+		if (!dirty || type === 'leave') return;
+		if (!confirm(t('profile_unsaved_confirm'))) cancel();
+	});
+
+	$effect(() => {
+		const handler = (e: BeforeUnloadEvent) => {
+			if (dirty) { e.preventDefault(); e.returnValue = ''; }
+		};
+		window.addEventListener('beforeunload', handler);
+		return () => window.removeEventListener('beforeunload', handler);
+	});
+
+	$effect(() => {
+		if (form?.success) {
+			justSaved = true;
+			// Reset baseline after a successful save
+			initial.display_name = displayName;
+			initial.country = countryValue;
+			initial.favorite_team = selectedTeam;
+			initial.top_scorer = selectedScorer;
+			setTimeout(() => (justSaved = false), 100);
+		}
+	});
 
 	const filteredScorers = $derived(
 		(data.scorers ?? []).filter((s) =>
@@ -27,7 +70,15 @@
 		const t = _T.find((x) => x.name === name);
 		return t ? `https://flagcdn.com/w40/${t.flag.toLowerCase()}.png` : '';
 	}
+
+	function onPickerKey(e: KeyboardEvent) {
+		if (e.key !== 'Escape') return;
+		if (editingTeam)   { editingTeam = false; e.preventDefault(); }
+		if (editingScorer) { editingScorer = false; e.preventDefault(); }
+	}
 </script>
+
+<svelte:window onkeydown={onPickerKey} />
 
 <div class="max-w-lg mx-auto space-y-6">
 
@@ -110,7 +161,11 @@
 			<!-- Favourite team -->
 			<div>
 				<div class="flex items-center justify-between mb-2">
-					<label class="block text-sm text-muted">{t('fav_team')}</label>
+					<label class="flex items-baseline gap-1.5 text-sm text-muted">
+						{t('fav_team')}
+						<span class="cursor-help text-faint hover:text-fg transition-colors text-[11px]"
+							title={t('multiplier_help')} aria-label={t('multiplier_help')}>(?)</span>
+					</label>
 					{#if data.teamLocked}
 						<span class="text-xs text-err font-medium border border-err/30 rounded px-1.5 py-0.5">{t('team_locked')}</span>
 					{:else}
@@ -187,7 +242,11 @@
 			{#if data.scorers && data.scorers.length > 0}
 				<div>
 					<div class="flex items-center justify-between mb-2">
-						<label class="block text-sm text-muted">{t('top_scorer_label')}</label>
+						<label class="flex items-baseline gap-1.5 text-sm text-muted">
+							{t('top_scorer_label')}
+							<span class="cursor-help text-faint hover:text-fg transition-colors text-[11px]"
+								title={t('multiplier_help')} aria-label={t('multiplier_help')}>(?)</span>
+						</label>
 						{#if data.scorerLocked}
 							<span class="text-xs text-err font-medium border border-err/30 rounded px-1.5 py-0.5">{t('team_locked')}</span>
 						{:else if selectedScorerData}

@@ -19,7 +19,7 @@
 	{#if showFallback}
 		<div class="mt-8 border-t border-wire pt-6">
 			<p class="text-sm text-faint mb-3">{t('join_fallback')}</p>
-			<a href="/groups"
+			<a href="/leagues"
 				class="inline-block rounded-lg border border-wire hover:border-wire-hi text-fg text-sm px-4 py-2 transition-colors">
 				{t('join_open_groups')}
 			</a>

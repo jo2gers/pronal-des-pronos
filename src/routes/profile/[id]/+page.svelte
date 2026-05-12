@@ -49,7 +49,7 @@
 
 			<!-- Identity -->
 			<div class="flex-1 min-w-0 pt-0.5">
-				<h1 class="text-xl font-bold text-fg truncate leading-tight">
+				<h1 class="text-2xl font-bold text-fg truncate leading-tight" style="font-family: var(--font-display); letter-spacing: 0.02em">
 					{data.profile.display_name ?? data.profile.username}
 				</h1>
 				<p class="text-sm text-muted mt-0.5">@{data.profile.username}</p>

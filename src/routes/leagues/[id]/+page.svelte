@@ -9,7 +9,7 @@
 	let addingId = $state<string | null>(null);
 	let confirmLeave = $state(false);
 
-	const inviteUrl = $derived(`${typeof window !== 'undefined' ? window.location.origin : ''}/groups/join/${data.group.invite_code}`);
+	const inviteUrl = $derived(`${typeof window !== 'undefined' ? window.location.origin : ''}/leagues/join/${data.group.invite_code}`);
 
 	function copyInvite() {
 		navigator.clipboard.writeText(inviteUrl);
@@ -86,29 +86,19 @@
 		</div>
 	{/if}
 
-	<!-- Invite link + code -->
-	<div class="rounded-xl bg-panel border border-wire p-4 space-y-3">
-		<div>
-			<p class="text-sm text-muted mb-2">{t('group_invite_link')}</p>
-			<div class="flex gap-2">
-				<code class="flex-1 rounded bg-raised px-3 py-2 text-sm text-muted font-mono truncate">
-					{inviteUrl}
-				</code>
+	<!-- Invite — single row with two copy actions -->
+	<div class="rounded-xl bg-panel border border-wire p-4">
+		<p class="text-sm text-muted mb-2">{t('group_invite_link')}</p>
+		<div class="flex flex-wrap items-center gap-2">
+			<code class="flex-1 min-w-0 rounded bg-raised px-3 py-2 text-sm text-muted font-mono truncate">{inviteUrl}</code>
+			<div class="inline-flex rounded border border-wire overflow-hidden shrink-0">
 				<button onclick={copyInvite}
-					class="rounded bg-raised hover:bg-wire px-3 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
-					{copied ? t('group_copied') : t('group_copy')}
+					class="bg-raised hover:bg-wire px-3 py-2 text-xs text-fg transition-colors cursor-pointer whitespace-nowrap border-r border-wire">
+					{copied ? t('group_copied') : t('group_copy_link')}
 				</button>
-			</div>
-		</div>
-		<div>
-			<p class="text-sm text-muted mb-2">Code</p>
-			<div class="flex gap-2">
-				<code class="flex-1 rounded bg-raised px-3 py-2 text-sm text-fg font-mono tracking-widest font-semibold">
-					{data.group.invite_code}
-				</code>
 				<button onclick={copyCode}
-					class="rounded bg-raised hover:bg-wire px-3 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
-					{codeCopied ? t('group_copied') : t('group_copy')}
+					class="bg-raised hover:bg-wire px-3 py-2 text-xs text-fg transition-colors cursor-pointer whitespace-nowrap font-mono tracking-widest">
+					{codeCopied ? t('group_copied') : data.group.invite_code}
 				</button>
 			</div>
 		</div>
@@ -176,20 +166,29 @@
 			</thead>
 			<tbody>
 				{#each data.scoreboard as entry, i}
-					{@const isMe = (entry.profile as any)?.id === data.user.id}
+					{@const p = entry.profile as any}
+					{@const isMe = p?.id === data.user.id}
+					{@const name = p?.display_name ?? p?.username ?? p?.id?.slice(0, 6) ?? '—'}
 					<tr class="border-b border-wire/50 {isMe ? 'bg-accent-lo/60' : 'hover:bg-raised/30'} transition-colors">
-						<td class="px-4 py-3 text-sm text-faint">{i + 1}</td>
+						<td class="px-4 py-3 text-sm text-faint tabular-nums">{i + 1}</td>
 						<td class="px-4 py-3">
-							<a href="/profile/{(entry.profile as any)?.id}" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-								<span class="{isMe ? 'text-accent font-semibold' : 'text-fg'} text-sm">
-									{(entry.profile as any)?.display_name ?? (entry.profile as any)?.username ?? '?'}
+							<a href="/profile/{p?.id}" class="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+								{#if p?.avatar_url}
+									<img src={p.avatar_url} alt="" class="w-7 h-7 rounded-full object-cover shrink-0 {isMe ? 'ring-1 ring-accent' : ''}" />
+								{:else}
+									<span class="w-7 h-7 rounded-full bg-raised border border-wire flex items-center justify-center text-xs font-bold text-muted shrink-0">
+										{name[0]?.toUpperCase()}
+									</span>
+								{/if}
+								<span class="{isMe ? 'text-accent font-semibold' : 'text-fg'} text-sm truncate">
+									{name}
 								</span>
 								{#if entry.role === 'admin'}
-									<span class="text-xs text-accent">★</span>
+									<span class="text-xs text-accent" title="admin">★</span>
 								{/if}
 							</a>
 						</td>
-						<td class="px-4 py-3 text-right font-bold text-accent">{entry.points.toFixed(2)}</td>
+						<td class="px-4 py-3 text-right font-bold text-accent tabular-nums">{entry.points.toFixed(2)}</td>
 					</tr>
 				{/each}
 			</tbody>

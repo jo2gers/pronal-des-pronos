@@ -16,8 +16,9 @@
 	const navLinks = $derived([
 		{ href: '/',            label: t('nav_home') },
 		{ href: '/matches',     label: t('nav_matches') },
+		{ href: '/schedule',    label: t('nav_schedule') },
 		{ href: '/leaderboard', label: t('nav_leaderboard') },
-		{ href: '/groups',      label: t('nav_groups') },
+		{ href: '/leagues',      label: t('nav_groups') },
 		{ href: '/friends',     label: t('nav_friends') },
 		{ href: '/rules',       label: t('nav_rules') },
 	]);
@@ -148,14 +149,14 @@
 											</a>
 										{/if}
 										{#if (data.groupNotifCount ?? 0) > 0}
-											<a href="/groups" onclick={closeNotif}
+											<a href="/leagues" onclick={closeNotif}
 												class="flex items-center justify-between px-4 py-2.5 hover:bg-raised transition-colors">
 												<span class="text-sm text-fg">{data.groupNotifCount} {t('notif_group')}</span>
 												<span class="text-xs text-accent">{t('notif_go_groups')}</span>
 											</a>
 										{/if}
 										{#if (data.inviteCount ?? 0) > 0}
-											<a href="/groups" onclick={closeNotif}
+											<a href="/leagues" onclick={closeNotif}
 												class="flex items-center justify-between px-4 py-2.5 hover:bg-raised transition-colors">
 												<span class="text-sm text-fg">{data.inviteCount} {(data.inviteCount ?? 0) > 1 ? t('groups_invite_plural') : t('groups_invite_singular')}</span>
 												<span class="text-xs text-accent">{t('notif_go_groups')}</span>
@@ -196,7 +197,9 @@
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
 					</svg>
 					{#if totalNotif > 0}
-						<span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-err"></span>
+						<span class="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full bg-err text-canvas text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
+							{totalNotif}
+						</span>
 					{/if}
 				{/if}
 			</button>
@@ -223,14 +226,14 @@
 							</a>
 						{/if}
 						{#if (data.groupNotifCount ?? 0) > 0}
-							<a href="/groups" onclick={closeMenu}
+							<a href="/leagues" onclick={closeMenu}
 								class="flex items-center gap-2 py-2 text-sm text-fg">
 								<span class="w-5 h-5 rounded-full bg-err text-canvas text-[9px] font-bold flex items-center justify-center shrink-0">{data.groupNotifCount}</span>
 								{data.groupNotifCount} {t('notif_group')}
 							</a>
 						{/if}
 						{#if (data.inviteCount ?? 0) > 0}
-							<a href="/groups" onclick={closeMenu}
+							<a href="/leagues" onclick={closeMenu}
 								class="flex items-center gap-2 py-2 text-sm text-fg">
 								<span class="w-5 h-5 rounded-full bg-err text-canvas text-[9px] font-bold flex items-center justify-center shrink-0">{data.inviteCount}</span>
 								{data.inviteCount} {(data.inviteCount ?? 0) > 1 ? t('groups_invite_plural') : t('groups_invite_singular')}

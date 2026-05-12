@@ -6,6 +6,13 @@
 
 	let showJoinInput = $state(false);
 	let joiningCode   = $state(false);
+	let showActivity  = $state(false);
+
+	// Personal activity = your pending requests + your pending invites.
+	// Collapse into one notice bar; expand to reveal full cards.
+	const myActivityCount = $derived(
+		(data.myPendingRequests?.length ?? 0) + (data.myPendingInvites?.length ?? 0)
+	);
 </script>
 
 <div class="space-y-6">
@@ -20,7 +27,7 @@
 				class="rounded-lg border border-wire hover:border-accent px-4 py-2 text-sm font-semibold text-muted hover:text-fg transition-colors cursor-pointer">
 				{t('groups_join_code')}
 			</button>
-			<a href="/groups/new"
+			<a href="/leagues/new"
 				class="rounded-lg bg-accent hover:bg-accent-hi px-4 py-2 text-sm font-bold text-canvas transition-colors">
 				{t('groups_create')}
 			</a>
@@ -53,7 +60,15 @@
 			{:else if form?.joinError === 'already_member'}
 				<p class="mt-2 text-sm text-muted">{t('groups_already_member')}</p>
 			{:else if form?.joinError}
-				<p class="mt-2 text-sm text-err">{form.joinError}</p>
+				<div class="mt-2">
+					<p class="text-sm text-err">{t('groups_join_generic_error')}</p>
+					<details class="mt-1">
+						<summary class="text-[11px] text-faint hover:text-muted cursor-pointer select-none transition-colors">
+							{t('join_error_details')}
+						</summary>
+						<p class="mt-1 text-[11px] text-faint font-mono break-all">{form.joinError}</p>
+					</details>
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -105,34 +120,53 @@
 		</div>
 	{/if}
 
-	<!-- User's own pending requests (not yet a member) -->
-	{#if data.myPendingRequests.length > 0}
-		<div class="rounded-xl bg-panel border border-wire/60 p-4">
-			<h2 class="text-base font-semibold text-fg mb-3" style="font-family: var(--font-display)">{t('groups_my_requests')}</h2>
-			<div class="space-y-2">
-				{#each data.myPendingRequests as req}
-					<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">
-						<div class="flex-1">
-							<p class="text-sm text-fg font-medium">{req.group_name}</p>
-							<p class="text-xs text-faint">{t('groups_awaiting')}</p>
-						</div>
-						<span class="text-[10px] text-faint border border-wire rounded px-2 py-0.5 font-mono">
-							{t('groups_request_pending')}
-						</span>
-					</div>
-				{/each}
-			</div>
-		</div>
-	{/if}
+	<!-- Personal activity: collapsed notice strip → expand to show requests + invites -->
+	{#if myActivityCount > 0}
+		<div class="rounded-xl bg-panel border border-accent/30 overflow-hidden">
+			<button
+				type="button"
+				onclick={() => (showActivity = !showActivity)}
+				aria-expanded={showActivity}
+				class="w-full flex items-center justify-between gap-2 px-4 py-2.5 hover:bg-raised/30 transition-colors cursor-pointer">
+				<span class="text-sm font-semibold text-accent" style="font-family: var(--font-display)">
+					{t('leagues_activity_label')}
+					<span class="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-accent text-canvas text-[10px] font-bold px-1 leading-none">
+						{myActivityCount}
+					</span>
+				</span>
+				<svg class="w-3.5 h-3.5 text-accent/70 transition-transform duration-200 {showActivity ? 'rotate-180' : ''}"
+					fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+				</svg>
+			</button>
 
-	<!-- User's pending group invites -->
-	{#if data.myPendingInvites.length > 0}
-		<div class="rounded-xl bg-panel border border-accent/30 p-4">
-			<h2 class="text-base font-semibold text-accent mb-3 flex items-baseline gap-2" style="font-family: var(--font-display)">
-				{t('groups_invitations')}
-				<span class="text-xs text-accent/70 font-normal tabular-nums">{data.myPendingInvites.length}</span>
-			</h2>
-			<div class="space-y-3">
+			{#if showActivity}
+				<div class="border-t border-wire/60 p-4 space-y-3">
+					<!-- My own pending requests -->
+					{#if data.myPendingRequests.length > 0}
+						<div>
+							<p class="text-xs text-faint mb-1.5">{t('groups_my_requests')}</p>
+							<div class="space-y-2">
+								{#each data.myPendingRequests as req}
+									<div class="flex items-center gap-3 rounded-lg bg-raised px-3 py-2">
+										<div class="flex-1">
+											<p class="text-sm text-fg font-medium">{req.group_name}</p>
+											<p class="text-xs text-faint">{t('groups_awaiting')}</p>
+										</div>
+										<span class="text-[10px] text-faint border border-wire rounded px-2 py-0.5 font-mono">
+											{t('groups_request_pending')}
+										</span>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Invites to accept/decline -->
+					{#if data.myPendingInvites.length > 0}
+						<div>
+							<p class="text-xs text-faint mb-1.5">{t('groups_invitations')}</p>
+							<div class="space-y-3">
 				{#each data.myPendingInvites as invite}
 					<div class="rounded-lg bg-raised border border-wire p-4">
 						<div class="flex items-start justify-between gap-3">
@@ -164,11 +198,15 @@
 						</div>
 					</div>
 				{/each}
-			</div>
+							</div>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	{/if}
 
-	<!-- Groups list -->
+	<!-- Leagues list -->
 	{#if data.groups.length === 0}
 		<div class="rounded-xl bg-panel border border-wire p-8 text-center">
 			<p class="text-muted mb-4">{t('groups_empty')}</p>
@@ -177,12 +215,12 @@
 	{:else}
 		<div class="grid gap-4 sm:grid-cols-2">
 			{#each data.groups as group}
-				<a href="/groups/{group.id}"
+				<a href="/leagues/{group.id}"
 					class="rounded-xl bg-panel border border-wire hover:border-accent p-5 transition-colors block">
 					<div class="flex items-start justify-between mb-2">
 						<h3 class="font-semibold text-fg text-lg">{group.name}</h3>
 						{#if group.role === 'admin'}
-							<span class="text-xs bg-accent-lo text-accent rounded px-2 py-0.5">Admin</span>
+							<span class="text-xs bg-accent-lo text-accent rounded px-2 py-0.5">{t('role_admin')}</span>
 						{/if}
 					</div>
 					{#if group.description}

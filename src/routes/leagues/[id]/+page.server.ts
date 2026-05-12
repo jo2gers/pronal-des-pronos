@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		.eq('id', params.id)
 		.single();
 
-	if (!group) error(404, 'Groupe introuvable');
+	if (!group) error(404, 'Ligue introuvable');
 
 	const [{ data: members }, pronosticsResult, friendshipsResult] = await Promise.all([
 		supabase
@@ -35,7 +35,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	const memberIds = (members ?? []).map((m) => (m.profiles as any)?.id);
 	const isMember = memberIds.includes(user.id);
-	if (!isMember) redirect(303, '/groups');
+	if (!isMember) redirect(303, '/leagues');
 
 	const myMembership = (members ?? []).find((m) => (m.profiles as any)?.id === user.id);
 	const isAdmin = myMembership?.role === 'admin';
@@ -93,28 +93,15 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const requestId = form.get('request_id') as string;
+		if (!requestId) return fail(400, { error: 'Demande invalide' });
 
-		const { data: membership } = await supabase
-			.from('group_members')
-			.select('role')
-			.eq('group_id', params.id)
-			.eq('user_id', user.id)
-			.maybeSingle();
-
-		if (!membership || membership.role !== 'admin') return fail(403, { error: 'Non autorisé' });
-
-		const { data: req } = await supabase
-			.from('group_join_requests')
-			.select('user_id')
-			.eq('id', requestId)
-			.single();
-
-		if (!req) return fail(404, { error: 'Demande introuvable' });
-
-		await Promise.all([
-			supabase.from('group_members').insert({ group_id: params.id, user_id: req.user_id, role: 'member' }),
-			supabase.from('group_join_requests').update({ status: 'approved' }).eq('id', requestId)
-		]);
+		const { data: rpcResult, error: rpcErr } = await supabase
+			.rpc('approve_join_request', { p_request_id: requestId });
+		if (rpcErr) return fail(500, { error: rpcErr.message });
+		const status = (rpcResult as any)?.status;
+		if (status === 'not_admin') return fail(403, { error: 'Non autorisé' });
+		if (status === 'invalid')   return fail(404, { error: 'Demande introuvable' });
+		if (status !== 'approved')  return fail(500, { error: 'Erreur inconnue' });
 
 		return { approved: true };
 	},
@@ -125,17 +112,15 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const requestId = form.get('request_id') as string;
+		if (!requestId) return fail(400, { error: 'Demande invalide' });
 
-		const { data: membership } = await supabase
-			.from('group_members')
-			.select('role')
-			.eq('group_id', params.id)
-			.eq('user_id', user.id)
-			.maybeSingle();
-
-		if (!membership || membership.role !== 'admin') return fail(403, { error: 'Non autorisé' });
-
-		await supabase.from('group_join_requests').update({ status: 'declined' }).eq('id', requestId);
+		const { data: rpcResult, error: rpcErr } = await supabase
+			.rpc('decline_join_request', { p_request_id: requestId });
+		if (rpcErr) return fail(500, { error: rpcErr.message });
+		const status = (rpcResult as any)?.status;
+		if (status === 'not_admin') return fail(403, { error: 'Non autorisé' });
+		if (status === 'invalid')   return fail(404, { error: 'Demande introuvable' });
+		if (status !== 'declined')  return fail(500, { error: 'Erreur inconnue' });
 
 		return { declined: true };
 	},
@@ -144,27 +129,13 @@ export const actions: Actions = {
 		const { user } = await safeGetSession();
 		if (!user) return fail(401, { error: 'Non authentifié' });
 
-		await supabase
-			.from('group_members')
-			.delete()
-			.eq('group_id', params.id)
-			.eq('user_id', user.id);
+		// Atomic RPC: deletes membership, counts remaining server-side (bypassing RLS),
+		// and only cascades the group delete when truly empty. Previously this was
+		// counted client-side after self-delete — RLS made the count return 0 even
+		// when other members remained, wrongly deleting populated groups.
+		await supabase.rpc('leave_group', { p_group_id: params.id });
 
-		// If no members remain, delete the empty group + all dependent rows.
-		const { count } = await supabase
-			.from('group_members')
-			.select('user_id', { count: 'exact', head: true })
-			.eq('group_id', params.id);
-
-		if ((count ?? 0) === 0) {
-			await Promise.all([
-				supabase.from('group_invites').delete().eq('group_id', params.id),
-				supabase.from('group_join_requests').delete().eq('group_id', params.id)
-			]);
-			await supabase.from('groups').delete().eq('id', params.id);
-		}
-
-		redirect(303, '/groups');
+		redirect(303, '/leagues');
 	},
 
 	addFriend: async ({ params, request, locals: { supabase, safeGetSession } }) => {
@@ -175,66 +146,22 @@ export const actions: Actions = {
 		const friendId = form.get('friend_id') as string;
 		if (!friendId) return fail(400, { error: 'Ami introuvable' });
 
-		// Verify current user is member and check group privacy
-		const [{ data: myMembership }, { data: group }] = await Promise.all([
-			supabase
-				.from('group_members')
-				.select('role')
-				.eq('group_id', params.id)
-				.eq('user_id', user.id)
-				.maybeSingle(),
-			supabase
-				.from('groups')
-				.select('is_public')
-				.eq('id', params.id)
-				.single()
-		]);
+		// Single SECURITY DEFINER RPC enforces every precondition atomically.
+		const { data: rpcResult, error: rpcErr } = await supabase
+			.rpc('invite_friend_to_group', { p_group_id: params.id, p_friend_id: friendId });
 
-		if (!myMembership) return fail(403, { error: 'Tu n\'es pas membre de ce groupe' });
-
-		// If private group, only admin can add
-		const isPrivate = group && group.is_public === false;
-		if (isPrivate && myMembership.role !== 'admin') {
-			return fail(403, { error: 'Seul l\'admin peut ajouter des membres à un groupe privé' });
+		if (rpcErr) return fail(500, { error: rpcErr.message });
+		const status = (rpcResult as any)?.status;
+		switch (status) {
+			case 'invited':
+			case 'invite_pending':
+				return { inviteSent: true };
+			case 'not_member':    return fail(403, { error: "Tu n'es pas membre de cette ligue" });
+			case 'not_admin':     return fail(403, { error: "Seul l'admin peut ajouter des membres à une ligue privée" });
+			case 'not_friend':    return fail(403, { error: "Cet utilisateur n'est pas dans ta liste d'amis" });
+			case 'already_member':return fail(400, { error: 'Cet ami est déjà dans la ligue' });
+			default:              return fail(500, { error: 'Erreur inconnue' });
 		}
+	},
 
-		// Verify the person to add is actually a friend
-		const { data: friendship } = await supabase
-			.from('friendships')
-			.select('id')
-			.or(`and(requester_id.eq.${user.id},addressee_id.eq.${friendId}),and(requester_id.eq.${friendId},addressee_id.eq.${user.id})`)
-			.eq('status', 'accepted')
-			.maybeSingle();
-
-		if (!friendship) return fail(403, { error: 'Cet utilisateur n\'est pas dans ta liste d\'amis' });
-
-		// Check not already a member
-		const { data: existing } = await supabase
-			.from('group_members')
-			.select('id')
-			.eq('group_id', params.id)
-			.eq('user_id', friendId)
-			.maybeSingle();
-
-		if (existing) return fail(400, { error: 'Cet ami est déjà dans le groupe' });
-
-		// Check not already invited
-		const { data: existingInvite } = await supabase
-			.from('group_invites')
-			.select('id')
-			.eq('group_id', params.id)
-			.eq('user_id', friendId)
-			.eq('status', 'pending')
-			.maybeSingle();
-
-		if (existingInvite) return fail(400, { error: 'Cet ami a déjà une invitation en attente' });
-
-		const { error: insertError } = await supabase
-			.from('group_invites')
-			.insert({ group_id: params.id, user_id: friendId, invited_by: user.id, status: 'pending' });
-
-		if (insertError) return fail(500, { error: insertError.message });
-
-		return { inviteSent: true };
-	}
 };

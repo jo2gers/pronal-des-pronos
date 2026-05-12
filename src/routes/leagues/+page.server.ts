@@ -90,54 +90,35 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const code = (form.get('code') as string ?? '').trim().toLowerCase();
-
 		if (!code) return fail(400, { joinError: 'Code requis', code });
 
-		// Find the group
-		const { data: group } = await supabase
-			.from('groups')
-			.select('id, name, is_public')
-			.eq('invite_code', code)
-			.maybeSingle();
+		// Atomic SECURITY DEFINER RPC — handles invalid_code / already_member /
+		// public-join / pending_created / pending_existing in one round trip.
+		const { data: rpcResult, error: rpcErr } = await supabase
+			.rpc('join_group_by_code', { code_input: code });
 
-		if (!group) return fail(404, { joinError: 'invalid_code', code });
+		if (rpcErr) return fail(500, { joinError: rpcErr.message, code });
 
-		// Already a member?
-		const { data: existing } = await supabase
-			.from('group_members')
-			.select('id')
-			.eq('group_id', group.id)
-			.eq('user_id', user.id)
-			.maybeSingle();
+		const result = rpcResult as {
+			status: 'joined' | 'already_member' | 'pending_created' | 'pending_existing' | 'invalid_code' | 'unauthenticated';
+			group_id?: string;
+			group_name?: string;
+		};
 
-		if (existing) return fail(400, { joinError: 'already_member', code });
-
-		// Public group → join directly.
-		if (group.is_public !== false) {
-			const { error: insertErr } = await supabase
-				.from('group_members')
-				.insert({ group_id: group.id, user_id: user.id, role: 'member' });
-			if (insertErr) return fail(500, { joinError: insertErr.message, code });
-			redirect(303, `/groups/${group.id}`);
+		switch (result.status) {
+			case 'invalid_code':
+				return fail(404, { joinError: 'invalid_code', code });
+			case 'already_member':
+				return fail(400, { joinError: 'already_member', code });
+			case 'joined':
+				redirect(303, `/leagues/${result.group_id}`);
+			case 'pending_created':
+				return { joinSuccess: true, groupName: result.group_name, alreadyPending: false };
+			case 'pending_existing':
+				return { joinSuccess: true, groupName: result.group_name, alreadyPending: true };
+			default:
+				return fail(500, { joinError: 'unknown', code });
 		}
-
-		// Private group → create a pending request (idempotent).
-		const { data: existingReq } = await supabase
-			.from('group_join_requests')
-			.select('id')
-			.eq('group_id', group.id)
-			.eq('user_id', user.id)
-			.maybeSingle();
-
-		if (existingReq) return { joinSuccess: true, groupName: group.name, alreadyPending: true };
-
-		const { error: insertErr } = await supabase
-			.from('group_join_requests')
-			.insert({ group_id: group.id, user_id: user.id });
-
-		if (insertErr) return fail(500, { joinError: insertErr.message, code });
-
-		return { joinSuccess: true, groupName: group.name, alreadyPending: false };
 	},
 
 	approveRequest: async ({ request, locals: { supabase, safeGetSession } }) => {
@@ -146,32 +127,16 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const requestId = form.get('request_id') as string;
+		if (!requestId) return fail(400, { error: 'Demande invalide' });
 
-		// Load the request
-		const { data: req } = await supabase
-			.from('group_join_requests')
-			.select('group_id, user_id')
-			.eq('id', requestId)
-			.single();
+		const { data: rpcResult, error: rpcErr } = await supabase
+			.rpc('approve_join_request', { p_request_id: requestId });
 
-		if (!req) return fail(404, { error: 'Demande introuvable' });
-
-		// Verify current user is admin of that group
-		const { data: membership } = await supabase
-			.from('group_members')
-			.select('role')
-			.eq('group_id', req.group_id)
-			.eq('user_id', user.id)
-			.maybeSingle();
-
-		if (!membership || membership.role !== 'admin')
-			return fail(403, { error: 'Non autorisé' });
-
-		// Add to group + mark approved (in parallel)
-		await Promise.all([
-			supabase.from('group_members').insert({ group_id: req.group_id, user_id: req.user_id, role: 'member' }),
-			supabase.from('group_join_requests').update({ status: 'approved' }).eq('id', requestId)
-		]);
+		if (rpcErr) return fail(500, { error: rpcErr.message });
+		const status = (rpcResult as any)?.status;
+		if (status === 'not_admin')   return fail(403, { error: 'Non autorisé' });
+		if (status === 'invalid')     return fail(404, { error: 'Demande introuvable' });
+		if (status !== 'approved')    return fail(500, { error: 'Erreur inconnue' });
 
 		return { approved: true };
 	},
@@ -182,26 +147,16 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const requestId = form.get('request_id') as string;
+		if (!requestId) return fail(400, { error: 'Demande invalide' });
 
-		const { data: req } = await supabase
-			.from('group_join_requests')
-			.select('group_id')
-			.eq('id', requestId)
-			.single();
+		const { data: rpcResult, error: rpcErr } = await supabase
+			.rpc('decline_join_request', { p_request_id: requestId });
 
-		if (!req) return fail(404, { error: 'Demande introuvable' });
-
-		const { data: membership } = await supabase
-			.from('group_members')
-			.select('role')
-			.eq('group_id', req.group_id)
-			.eq('user_id', user.id)
-			.maybeSingle();
-
-		if (!membership || membership.role !== 'admin')
-			return fail(403, { error: 'Non autorisé' });
-
-		await supabase.from('group_join_requests').update({ status: 'declined' }).eq('id', requestId);
+		if (rpcErr) return fail(500, { error: rpcErr.message });
+		const status = (rpcResult as any)?.status;
+		if (status === 'not_admin') return fail(403, { error: 'Non autorisé' });
+		if (status === 'invalid')   return fail(404, { error: 'Demande introuvable' });
+		if (status !== 'declined')  return fail(500, { error: 'Erreur inconnue' });
 
 		return { declined: true };
 	},
@@ -216,35 +171,12 @@ export const actions: Actions = {
 
 		if (!inviteId || !action) return fail(400, { error: 'Données invalides' });
 
-		// Get the invite
-		const { data: invite } = await supabase
-			.from('group_invites')
-			.select('id, group_id, user_id, status')
-			.eq('id', inviteId)
-			.maybeSingle();
+		const { data: rpcResult, error: rpcErr } = await supabase
+			.rpc('respond_to_invite', { p_invite_id: inviteId, p_accept: action === 'accepted' });
 
-		if (!invite || invite.user_id !== user.id || invite.status !== 'pending') {
-			return fail(403, { error: 'Invitation invalide' });
-		}
-
-		if (action === 'accepted') {
-			// Add user to group and mark invite as accepted
-			await Promise.all([
-				supabase
-					.from('group_members')
-					.insert({ group_id: invite.group_id, user_id: user.id, role: 'member' }),
-				supabase
-					.from('group_invites')
-					.update({ status: 'accepted' })
-					.eq('id', inviteId)
-			]);
-		} else {
-			// Just mark as declined
-			await supabase
-				.from('group_invites')
-				.update({ status: 'declined' })
-				.eq('id', inviteId);
-		}
+		if (rpcErr) return fail(500, { error: rpcErr.message });
+		const status = (rpcResult as any)?.status;
+		if (status === 'invalid') return fail(403, { error: 'Invitation invalide' });
 
 		return { responded: true };
 	}

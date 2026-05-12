@@ -250,6 +250,13 @@ export const GET: RequestHandler = async ({ request }) => {
 
 	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+	// 1. Propagate group standings → R32 → R16 → ... BEFORE syncing odds.
+	//    Newly-resolved knockout matches will then pick up their Polymarket odds
+	//    in the same cron tick.
+	const { data: bracketResolved, error: bracketErr } = await supabase.rpc('resolve_bracket');
+
+	// 2. Sync odds for every known match (group + newly-resolved knockouts) and
+	//    the WC-winner / top-scorer markets in parallel.
 	const [matchRes, wcRes, scorerRes] = await Promise.all([
 		syncMatchOdds(supabase),
 		syncWcWinnerOdds(supabase),
@@ -258,6 +265,7 @@ export const GET: RequestHandler = async ({ request }) => {
 
 	return json({
 		ts: new Date().toISOString(),
+		bracket: bracketErr ? { ok: false, error: bracketErr.message } : { ok: true, ...(bracketResolved as object) },
 		matchOdds: matchRes,
 		wcWinnerOdds: wcRes,
 		topScorerOdds: scorerRes

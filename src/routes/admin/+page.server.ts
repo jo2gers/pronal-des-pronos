@@ -3,6 +3,11 @@ import { fail, redirect } from '@sveltejs/kit';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
 import type { Actions, PageServerLoad } from './$types';
+import {
+	syncMatchOdds as runSyncMatchOdds,
+	syncWCWinnerOdds as runSyncWCWinnerOdds,
+	syncTopScorerOdds as runSyncTopScorerOdds
+} from '$lib/server/sync-odds';
 
 function adminClient() {
 	return createServerClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -16,7 +21,10 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
 
 	const supabase = adminClient();
 
-	const [{ data: matches }, { data: scorers }, { data: groups }] = await Promise.all([
+	const [
+		{ data: matches }, { data: scorers }, { data: groups },
+		oddsTs, wcTs, scorerTs
+	] = await Promise.all([
 		supabase
 			.from('matches')
 			.select('id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, status, home_score, away_score')
@@ -29,7 +37,14 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
 		supabase
 			.from('groups')
 			.select('id, name, description, invite_code, is_public, created_at, group_members(count)')
-			.order('created_at', { ascending: false })
+			.order('created_at', { ascending: false }),
+		supabase.from('matches')
+			.select('odds_updated_at').not('odds_updated_at','is',null)
+			.order('odds_updated_at', { ascending: false }).limit(1).maybeSingle(),
+		supabase.from('wc_winner_odds')
+			.select('updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+		supabase.from('wc_top_scorers')
+			.select('updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle()
 	]);
 
 	const groupsWithCount = (groups ?? []).map((g: any) => ({
@@ -42,7 +57,16 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
 		member_count: g.group_members?.[0]?.count ?? 0
 	}));
 
-	return { matches: matches ?? [], scorers: scorers ?? [], groups: groupsWithCount };
+	return {
+		matches: matches ?? [],
+		scorers: scorers ?? [],
+		groups: groupsWithCount,
+		oddsFreshness: {
+			matchOdds: (oddsTs.data as any)?.odds_updated_at ?? null,
+			wcWinnerOdds: (wcTs.data as any)?.updated_at ?? null,
+			topScorerOdds: (scorerTs.data as any)?.updated_at ?? null
+		}
+	};
 };
 
 export const actions: Actions = {
@@ -89,276 +113,33 @@ export const actions: Actions = {
 		const data = await res.json();
 		if (!res.ok) return fail(500, { error: data.error ?? 'Erreur calcul' });
 
+		// After scoring: the AFTER-UPDATE trigger on `matches` has already auto-run
+		// resolve_bracket() when the match went finished. But if this completed
+		// match unlocked a new knockout slot (TBD → real team), fetch fresh odds
+		// for it from Polymarket right now instead of waiting for the next 6-hour
+		// cron tick. Failure here is non-fatal — cron will retry later.
+		const supabase = adminClient();
+		try { await runSyncMatchOdds(supabase); } catch { /* swallow */ }
+
 		return { calculated: true, scored: data.scored };
 	},
 
 	syncWCWinnerOdds: async () => {
-		const supabase = adminClient();
-
-		const res = await fetch(
-			'https://gamma-api.polymarket.com/events?slug=2026-fifa-world-cup-winner-595',
-			{ headers: { Accept: 'application/json' } }
-		);
-		if (!res.ok) return fail(500, { error: `Polymarket: ${res.status}` });
-
-		const raw = await res.json();
-
-		// Gamma API returns an array; event may have markets embedded
-		const events: any[] = Array.isArray(raw) ? raw : [raw];
-		const event = events[0];
-		const markets: any[] = Array.isArray(event?.markets) ? event.markets : [];
-
-		// If markets not embedded, try fetching via event_id
-		if (markets.length === 0 && event?.id) {
-			const mRes = await fetch(
-				`https://gamma-api.polymarket.com/markets?event_id=${event.id}&limit=100`,
-				{ headers: { Accept: 'application/json' } }
-			);
-			if (mRes.ok) markets.push(...(await mRes.json()));
-		}
-
-		if (markets.length === 0) {
-			return fail(500, { error: `Polymarket: aucun marché trouvé (${JSON.stringify(raw).slice(0, 200)})` });
-		}
-
-		// Polymarket name → DB English name
-		const WC_NAME_MAP: Record<string, string> = {
-			'Korea Republic': 'South Korea',
-			'Czechia': 'Czech Republic',
-			'United States': 'USA',
-			"Côte d'Ivoire": 'Ivory Coast',
-			'Congo DR': 'DR Congo',
-			'Democratic Republic of Congo': 'DR Congo',
-			'Türkiye': 'Turkey',
-			'Cabo Verde': 'Cape Verde',
-			'IR Iran': 'Iran',
-			'Islamic Republic of Iran': 'Iran'
-		};
-
-		// DB English name → French name (for upsert when row doesn't exist yet)
-		const FR_NAMES: Record<string, string> = {
-			'Mexico': 'Mexique', 'South Africa': 'Afrique du Sud', 'South Korea': 'Corée du Sud',
-			'Czech Republic': 'République tchèque', 'Canada': 'Canada',
-			'Bosnia and Herzegovina': 'Bosnie-Herzégovine', 'Qatar': 'Qatar',
-			'Switzerland': 'Suisse', 'USA': 'Etats-Unis', 'Paraguay': 'Paraguay',
-			'Australia': 'Australie', 'Turkey': 'Turquie', 'Brazil': 'Brésil',
-			'Morocco': 'Maroc', 'Haiti': 'Haïti', 'Scotland': 'Ecosse',
-			'Germany': 'Allemagne', 'Curaçao': 'Curaçao', 'Ecuador': 'Equateur',
-			'Ivory Coast': "Côte d'Ivoire", 'Netherlands': 'Pays-Bas', 'Japan': 'Japon',
-			'Sweden': 'Suède', 'Tunisia': 'Tunisie', 'Spain': 'Espagne',
-			'Cape Verde': 'Cap-Vert', 'Saudi Arabia': 'Arabie Saoudite', 'Uruguay': 'Uruguay',
-			'Belgium': 'Belgique', 'Egypt': 'Egypte', 'Iran': 'Iran',
-			'New Zealand': 'Nouvelle-Zélande', 'France': 'France', 'Senegal': 'Sénégal',
-			'Iraq': 'Irak', 'Norway': 'Norvège', 'Argentina': 'Argentine',
-			'Algeria': 'Algérie', 'Austria': 'Autriche', 'Jordan': 'Jordanie',
-			'England': 'Angleterre', 'Croatia': 'Croatie', 'Ghana': 'Ghana',
-			'Panama': 'Panama', 'Portugal': 'Portugal', 'Uzbekistan': 'Ouzbékistan',
-			'Colombia': 'Colombie', 'DR Congo': 'Congo RD'
-		};
-
-		function wcNorm(name: string) { return WC_NAME_MAP[name] ?? name; }
-		function wcPrice(market: any): number {
-			let p = market.outcomePrices;
-			if (typeof p === 'string') { try { p = JSON.parse(p); } catch { return 0; } }
-			return Array.isArray(p) ? parseFloat(p[0] ?? '0') || 0 : 0;
-		}
-
-		let updated = 0;
-		const unmatched: string[] = [];
-
-		for (const market of markets) {
-			const q = market.question as string | undefined;
-			const m = q?.match(/^Will (.+) win the 2026 FIFA World Cup\?$/);
-			if (!m) continue;
-
-			const dbName = wcNorm(m[1]);
-			const prob = wcPrice(market);
-			if (prob <= 0) { unmatched.push(`${dbName} (prob=0)`); continue; }
-
-			const odds = parseFloat(Math.min(3001, 1 / prob).toFixed(2));
-			const team_name_fr = FR_NAMES[dbName] ?? dbName;
-
-			// Upsert so it works even if the table is empty
-			const { error } = await supabase
-				.from('wc_winner_odds')
-				.upsert(
-					{ team_name_en: dbName, team_name_fr, odds },
-					{ onConflict: 'team_name_en' }
-				);
-
-			if (!error) updated++;
-			else unmatched.push(`${dbName} (${error.message})`);
-		}
-
-		return { wcOddsSync: true, updated, unmatched };
+		const r = await runSyncWCWinnerOdds(adminClient());
+		if (!r.ok) return fail(500, { error: r.error });
+		return { wcOddsSync: true, updated: r.updated, unmatched: r.unmatched };
 	},
 
 	syncOdds: async () => {
-		const supabase = adminClient();
-
-		// Polymarket FIFA WC 2026 series ID
-		const res = await fetch(
-			'https://gamma-api.polymarket.com/events?series_id=11433&limit=200',
-			{ headers: { Accept: 'application/json' } }
-		);
-		if (!res.ok) return fail(500, { error: `Polymarket API: ${res.status}` });
-
-		const raw = await res.json();
-		const events: any[] = Array.isArray(raw) ? raw : (raw.events ?? []);
-		if (!events.length) return fail(500, { error: 'Aucun match reçu de Polymarket' });
-
-		// Polymarket team name → DB name mapping
-		const NAME_MAP: Record<string, string> = {
-			'Korea Republic': 'South Korea',
-			'Czechia': 'Czech Republic',
-			'United States': 'USA',
-			"Côte d'Ivoire": 'Ivory Coast',
-			'Congo DR': 'DR Congo',
-			'Democratic Republic of Congo': 'DR Congo',
-			'Türkiye': 'Turkey',
-			'Cabo Verde': 'Cape Verde',
-			'IR Iran': 'Iran',
-			'Islamic Republic of Iran': 'Iran'
-		};
-		function norm(name: string): string {
-			return NAME_MAP[name] ?? name;
-		}
-		// Parse outcomePrices — Polymarket API sometimes returns a JSON string instead of an array
-		function parsePrice(market: any, index: number): number {
-			let prices = market.outcomePrices;
-			if (typeof prices === 'string') {
-				try { prices = JSON.parse(prices); } catch { return 0; }
-			}
-			if (!Array.isArray(prices)) return 0;
-			return parseFloat(prices[index] ?? '0') || 0;
-		}
-		// Convert probability (0-1) to decimal odds, 2 decimal places, capped at 15
-		function toOdds(p: number): number {
-			if (!p || p <= 0) return 1.0;
-			return Math.min(15, parseFloat((1 / p).toFixed(2)));
-		}
-
-		// Fetch all non-TBD matches from DB
-		const { data: dbMatches } = await supabase
-			.from('matches')
-			.select('id, home_team, away_team')
-			.neq('home_team', 'TBD');
-		if (!dbMatches) return fail(500, { error: 'Impossible de charger les matchs' });
-
-		let updated = 0;
-		const unmatched: string[] = [];
-
-		for (const event of events) {
-			const title = event.title as string;
-			const markets = event.markets as any[];
-			if (!title || !Array.isArray(markets) || markets.length < 3) continue;
-
-			// Parse "Mexico vs. South Africa" → pmHome + pmAway
-			const parts = title.split(' vs. ');
-			if (parts.length !== 2) continue;
-			const pmHome = parts[0].trim();
-			const pmAway = parts[1].trim();
-			const dbHomeName = norm(pmHome);
-			const dbAwayName = norm(pmAway);
-
-			// Find DB match (try both orderings)
-			const dbMatch = dbMatches.find(
-				(m) =>
-					(m.home_team === dbHomeName && m.away_team === dbAwayName) ||
-					(m.home_team === dbAwayName && m.away_team === dbHomeName)
-			);
-			if (!dbMatch) {
-				unmatched.push(title);
-				continue;
-			}
-
-			const isSwapped = dbMatch.home_team === dbAwayName;
-
-			// Identify the three markets
-			const pmHomeWin = markets.find((m) => m.question?.startsWith(`Will ${pmHome} win`));
-			const pmAwayWin = markets.find((m) => m.question?.startsWith(`Will ${pmAway} win`));
-			const drawMkt   = markets.find((m) => m.question?.toLowerCase().includes('draw'));
-
-			if (!pmHomeWin || !pmAwayWin || !drawMkt) {
-				unmatched.push(`${title} (marchés manquants)`);
-				continue;
-			}
-
-			const pmHomeProb = parsePrice(pmHomeWin, 0);
-			const drawProb   = parsePrice(drawMkt, 0);
-			const pmAwayProb = parsePrice(pmAwayWin, 0);
-
-			// Assign probabilities respecting DB home/away order
-			const odds_home = toOdds(isSwapped ? pmAwayProb : pmHomeProb);
-			const odds_draw = toOdds(drawProb);
-			const odds_away = toOdds(isSwapped ? pmHomeProb : pmAwayProb);
-
-			const { error } = await supabase
-				.from('matches')
-				.update({ odds_home, odds_draw, odds_away })
-				.eq('id', dbMatch.id);
-
-			if (!error) updated++;
-		}
-
-		return { oddsSync: true, updated, unmatched };
+		const r = await runSyncMatchOdds(adminClient());
+		if (!r.ok) return fail(500, { error: r.error });
+		return { oddsSync: true, updated: r.updated, unmatched: r.unmatched };
 	},
 
 	syncTopScorerOdds: async () => {
-		const supabase = adminClient();
-
-		const res = await fetch(
-			'https://gamma-api.polymarket.com/events?slug=2026-fifa-world-cup-top-goalscorer',
-			{ headers: { Accept: 'application/json' } }
-		);
-		if (!res.ok) return fail(500, { error: `Polymarket: ${res.status}` });
-
-		const raw = await res.json();
-		const events: any[] = Array.isArray(raw) ? raw : [raw];
-		const event = events[0];
-		const markets: any[] = Array.isArray(event?.markets) ? event.markets : [];
-
-		if (markets.length === 0 && event?.id) {
-			const mRes = await fetch(
-				`https://gamma-api.polymarket.com/markets?event_id=${event.id}&limit=200`,
-				{ headers: { Accept: 'application/json' } }
-			);
-			if (mRes.ok) markets.push(...(await mRes.json()));
-		}
-
-		if (markets.length === 0) {
-			return fail(500, { error: 'Polymarket: aucun marché trouvé' });
-		}
-
-		function priceOf(market: any): number {
-			let p = market.outcomePrices;
-			if (typeof p === 'string') { try { p = JSON.parse(p); } catch { return 0; } }
-			return Array.isArray(p) ? parseFloat(p[0] ?? '0') || 0 : 0;
-		}
-
-		let updated = 0;
-		const skipped: string[] = [];
-
-		for (const market of markets) {
-			const q = market.question as string | undefined;
-			const m = q?.match(/^Will (.+?) be the top goalscorer at the 2026 FIFA World Cup\?$/i);
-			if (!m) continue;
-
-			const playerName = m[1].trim();
-			const prob = priceOf(market);
-			if (prob <= 0) { skipped.push(`${playerName} (prob=0)`); continue; }
-
-			const odds = parseFloat(Math.min(3001, 1 / prob).toFixed(2));
-
-			const { error } = await supabase
-				.from('wc_top_scorers')
-				.upsert({ player_name: playerName, odds }, { onConflict: 'player_name' });
-
-			if (!error) updated++;
-			else skipped.push(`${playerName} (${error.message})`);
-		}
-
-		return { topScorerSync: true, updated, skipped };
+		const r = await runSyncTopScorerOdds(adminClient());
+		if (!r.ok) return fail(500, { error: r.error });
+		return { topScorerSync: true, updated: r.updated, skipped: r.skipped };
 	},
 
 	updateScorerGoals: async ({ request }) => {
@@ -396,6 +177,14 @@ export const actions: Actions = {
 		return { goalsUpdated: true, player: playerName, goals, bonus };
 	},
 
+	resolveBracket: async () => {
+		const supabase = adminClient();
+		const { data, error } = await supabase.rpc('resolve_bracket');
+		if (error) return fail(500, { error: error.message });
+		const result = data as { inspected: number; updated: number };
+		return { bracketResolved: true, inspected: result.inspected, updated: result.updated };
+	},
+
 	resetAll: async () => {
 		const supabase = adminClient();
 
@@ -429,7 +218,7 @@ export const actions: Actions = {
 		const supabase = adminClient();
 		const form = await request.formData();
 		const groupId = form.get('group_id') as string;
-		if (!groupId) return fail(400, { error: 'Group ID requis' });
+		if (!groupId) return fail(400, { error: 'ID de ligue requis' });
 
 		await Promise.all([
 			supabase.from('group_invites').delete().eq('group_id', groupId),

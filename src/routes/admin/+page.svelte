@@ -38,22 +38,77 @@
 	let wcOddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 	let scorerOddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 	let goalsFeedback = $state<{ ok: boolean; msg: string } | null>(null);
+	let bracketLoading = $state(false);
+	let bracketFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let confirmDeleteGroupId = $state<string | null>(null);
+
+	function ago(ts: string | null): string {
+		if (!ts) return 'jamais';
+		const diff = Date.now() - new Date(ts).getTime();
+		const m = Math.floor(diff / 60000);
+		if (m < 1) return "à l'instant";
+		if (m < 60) return `il y a ${m} min`;
+		const h = Math.floor(m / 60);
+		if (h < 24) return `il y a ${h} h`;
+		const d = Math.floor(h / 24);
+		return `il y a ${d} j`;
+	}
+
+	// Color-code freshness: ≤6h = fg, 6–24h = warn, >24h or never = err.
+	// Lets operators spot a broken sync at a glance instead of reading every "il y a N" string.
+	function staleClass(ts: string | null): string {
+		if (!ts) return 'text-err';
+		const hours = (Date.now() - new Date(ts).getTime()) / 3_600_000;
+		if (hours <= 6) return 'text-fg';
+		if (hours <= 24) return 'text-warn';
+		return 'text-err';
+	}
 	let deleteGroupLoadingId = $state<string | null>(null);
 	let groupFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center gap-3">
+	<div class="flex items-baseline justify-between flex-wrap gap-2">
 		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Simulateur de matchs</h1>
-		<span class="rounded bg-live/10 border border-live/30 px-2 py-0.5 text-xs text-live">ADMIN</span>
+		<p class="text-xs text-faint">Cron auto-sync: toutes les 6 h</p>
 	</div>
+
+	<!-- KPI status strip — at-a-glance freshness for every sync source -->
+	{@const liveCount = data.matches.filter(m => m.status === 'live').length}
+	{@const finishedCount = data.matches.filter(m => m.status === 'finished').length}
+	<dl class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+		<div class="rounded-lg bg-panel border border-wire px-3 py-2.5">
+			<dt class="text-[11px] text-faint">Cotes matchs</dt>
+			<dd class="text-sm font-semibold mt-0.5 {staleClass(data.oddsFreshness?.matchOdds ?? null)}">
+				{ago(data.oddsFreshness?.matchOdds ?? null)}
+			</dd>
+		</div>
+		<div class="rounded-lg bg-panel border border-wire px-3 py-2.5">
+			<dt class="text-[11px] text-faint">Cotes vainqueur</dt>
+			<dd class="text-sm font-semibold mt-0.5 {staleClass(data.oddsFreshness?.wcWinnerOdds ?? null)}">
+				{ago(data.oddsFreshness?.wcWinnerOdds ?? null)}
+			</dd>
+		</div>
+		<div class="rounded-lg bg-panel border border-wire px-3 py-2.5">
+			<dt class="text-[11px] text-faint">Cotes buteur</dt>
+			<dd class="text-sm font-semibold mt-0.5 {staleClass(data.oddsFreshness?.topScorerOdds ?? null)}">
+				{ago(data.oddsFreshness?.topScorerOdds ?? null)}
+			</dd>
+		</div>
+		<div class="rounded-lg bg-panel border border-wire px-3 py-2.5">
+			<dt class="text-[11px] text-faint">Matchs</dt>
+			<dd class="text-sm font-semibold mt-0.5 tabular-nums">
+				{#if liveCount > 0}<span class="text-live">{liveCount} en direct</span> · {/if}<span class="text-fg">{finishedCount}</span><span class="text-faint">/{data.matches.length}</span>
+			</dd>
+		</div>
+	</dl>
 
 	<!-- Sync WC winner odds from Polymarket -->
 	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
 		<div class="flex-1 min-w-0">
 			<p class="text-sm font-semibold text-fg">Cotes vainqueur CM · Polymarket</p>
 			<p class="text-xs text-faint mt-0.5">Met à jour les cotes « Qui va gagner la Coupe du Monde » dans wc_winner_odds (utilisées pour les bonus équipe).</p>
+			<p class="text-[11px] text-faint mt-1">Dernière mise à jour : <span class="text-muted">{ago(data.oddsFreshness?.wcWinnerOdds ?? null)}</span></p>
 		</div>
 		<form method="POST" action="?/syncWCWinnerOdds" use:enhance={() => {
 			wcOddsLoading = true;
@@ -63,7 +118,7 @@
 				if (result.type === 'success' && result.data) {
 					const d = result.data as any;
 					const detail = d.unmatched?.length ? `Non trouvés : ${d.unmatched.join(', ')}` : undefined;
-					wcOddsFeedback = { ok: true, msg: `✓ ${d.updated} équipe(s) mises à jour`, detail };
+					wcOddsFeedback = { ok: true, msg: `${d.updated} équipe(s) mises à jour`, detail };
 					setTimeout(() => wcOddsFeedback = null, 8000);
 				} else if (result.type === 'failure') {
 					wcOddsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
@@ -90,6 +145,7 @@
 		<div class="flex-1 min-w-0">
 			<p class="text-sm font-semibold text-fg">Cotes meilleur buteur · Polymarket</p>
 			<p class="text-xs text-faint mt-0.5">Met à jour les cotes « Meilleur buteur de la CM » dans wc_top_scorers (utilisées pour le bonus buteur).</p>
+			<p class="text-[11px] text-faint mt-1">Dernière mise à jour : <span class="text-muted">{ago(data.oddsFreshness?.topScorerOdds ?? null)}</span></p>
 		</div>
 		<form method="POST" action="?/syncTopScorerOdds" use:enhance={() => {
 			scorerOddsLoading = true;
@@ -99,7 +155,7 @@
 				if (result.type === 'success' && result.data) {
 					const d = result.data as any;
 					const detail = d.skipped?.length ? `Ignorés : ${d.skipped.join(', ')}` : undefined;
-					scorerOddsFeedback = { ok: true, msg: `✓ ${d.updated} buteur(s) mis à jour`, detail };
+					scorerOddsFeedback = { ok: true, msg: `${d.updated} buteur(s) mis à jour`, detail };
 					setTimeout(() => scorerOddsFeedback = null, 8000);
 				} else if (result.type === 'failure') {
 					scorerOddsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
@@ -160,7 +216,7 @@
 											goalLoadingPlayer = null;
 											if (result.type === 'success' && result.data) {
 												const d = result.data as any;
-												goalsFeedback = { ok: true, msg: `✓ ${d.player} : ${d.goals} but(s) · bonus ${d.bonus} pts` };
+												goalsFeedback = { ok: true, msg: `${d.player} : ${d.goals} but(s) · bonus ${d.bonus} pts` };
 												setTimeout(() => goalsFeedback = null, 5000);
 											} else if (result.type === 'failure') {
 												goalsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
@@ -194,6 +250,7 @@
 		<div class="flex-1 min-w-0">
 			<p class="text-sm font-semibold text-fg">Syncer les cotes Polymarket</p>
 			<p class="text-xs text-faint mt-0.5">Récupère les probabilités de victoire/nul/défaite pour chaque match depuis Polymarket et les enregistre en base.</p>
+			<p class="text-[11px] text-faint mt-1">Dernière mise à jour : <span class="text-muted">{ago(data.oddsFreshness?.matchOdds ?? null)}</span></p>
 		</div>
 		<form method="POST" action="?/syncOdds" use:enhance={() => {
 			oddsLoading = true;
@@ -205,7 +262,7 @@
 					const detail = d.unmatched?.length
 						? `Non trouvés : ${d.unmatched.join(', ')}`
 						: undefined;
-					oddsFeedback = { ok: true, msg: `✓ ${d.updated} match(s) mis à jour`, detail };
+					oddsFeedback = { ok: true, msg: `${d.updated} match(s) mis à jour`, detail };
 					setTimeout(() => oddsFeedback = null, 8000);
 				} else if (result.type === 'failure') {
 					oddsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
@@ -229,12 +286,49 @@
 		</div>
 	{/if}
 
-	<!-- Groups management -->
+	<!-- Resolve knockout bracket from standings -->
+	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
+		<div class="flex-1 min-w-0">
+			<p class="text-sm font-semibold text-fg">Bracket — propager les résultats</p>
+			<p class="text-xs text-faint mt-0.5">
+				Calcule les classements de groupe (W/R + T1..T8) et remplit les matchs des phases finales (R32 → Final).
+				Cascade automatiquement : finir un R32 remplit le R16 correspondant au prochain clic.
+			</p>
+		</div>
+		<form method="POST" action="?/resolveBracket" use:enhance={() => {
+			bracketLoading = true;
+			bracketFeedback = null;
+			return async ({ result, update }) => {
+				bracketLoading = false;
+				if (result.type === 'success' && result.data) {
+					const d = result.data as any;
+					bracketFeedback = { ok: true, msg: `${d.updated} match(s) mis à jour (${d.inspected} inspectés)` };
+					setTimeout(() => bracketFeedback = null, 6000);
+				} else if (result.type === 'failure') {
+					bracketFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+				}
+				await update({ reset: false });
+			};
+		}}>
+			<button type="submit" disabled={bracketLoading}
+				class="rounded-lg bg-raised border border-wire hover:border-wire-hi disabled:opacity-40 px-4 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
+				{bracketLoading ? '...' : 'Propager bracket'}
+			</button>
+		</form>
+	</div>
+
+	{#if bracketFeedback}
+		<div class="rounded px-4 py-3 text-sm {bracketFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+			{bracketFeedback.msg}
+		</div>
+	{/if}
+
+	<!-- Leagues management -->
 	{#if data.groups && data.groups.length > 0}
 		<div class="rounded-xl bg-panel border border-wire p-4">
 			<div class="mb-3">
-				<p class="text-sm font-semibold text-fg">Groupes ({data.groups.length})</p>
-				<p class="text-xs text-faint mt-0.5">Supprimer un groupe efface aussi ses membres, invitations et demandes en attente.</p>
+				<p class="text-sm font-semibold text-fg">Ligues ({data.groups.length})</p>
+				<p class="text-xs text-faint mt-0.5">Supprimer une ligue efface aussi ses membres, invitations et demandes en attente.</p>
 			</div>
 			{#if groupFeedback}
 				<div class="rounded px-3 py-2 text-xs mb-3 {groupFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
@@ -317,7 +411,7 @@
 					return async ({ result, update }) => {
 						resetLoading = false;
 						if (result.type === 'success') {
-							resetFeedback = { ok: true, msg: '✓ Tout a été réinitialisé' };
+							resetFeedback = { ok: true, msg: 'Tout a été réinitialisé' };
 							setTimeout(() => resetFeedback = null, 6000);
 						} else if (result.type === 'failure') {
 							resetFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
@@ -384,7 +478,7 @@
 							return async ({ result, update }) => {
 								loadingId = null;
 								if (result.type === 'success') {
-									feedback = { id: match.id, msg: `✓ ${match.home_team} – ${match.away_team} mis à jour` };
+									feedback = { id: match.id, msg: `${match.home_team} – ${match.away_team} mis à jour` };
 									setTimeout(() => feedback = null, 3000);
 								}
 								await update({ reset: false });
@@ -434,7 +528,7 @@
 									return async ({ result, update }) => {
 										calcLoadingId = null;
 										if (result.type === 'success' && result.data) {
-											feedback = { id: match.id, msg: `✓ ${(result.data as any).scored} pronostic(s) calculé(s)` };
+											feedback = { id: match.id, msg: `${(result.data as any).scored} pronostic(s) calculé(s)` };
 											setTimeout(() => feedback = null, 4000);
 										}
 										await update({ reset: false });

@@ -8,6 +8,21 @@
 	let selectedTeam = $state(form?.favorite_team ?? '');
 	let selectedScorer = $state(form?.top_scorer ?? '');
 	let scorerSearch = $state('');
+	let password = $state('');
+
+	const pwScore = $derived.by(() => {
+		const v = password;
+		if (!v) return 0;
+		let s = 0;
+		if (v.length >= 6) s++;
+		if (v.length >= 10) s++;
+		if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++;
+		if (/\d/.test(v) && /[^A-Za-z0-9]/.test(v)) s++;
+		return s; // 0..4
+	});
+	const pwLabelKey = $derived(
+		pwScore <= 1 ? 'pw_weak' : pwScore === 2 ? 'pw_ok' : pwScore === 3 ? 'pw_good' : 'pw_strong'
+	);
 
 	const filteredScorers = $derived(
 		(data.scorers ?? []).filter((s) =>
@@ -56,14 +71,35 @@
 				<label for="password" class="block text-sm text-muted mb-1">{t('auth_password_label')}</label>
 				<input
 					id="password" name="password" type="password" required minlength="6"
+					bind:value={password}
 					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg placeholder:text-faint focus:border-accent focus:outline-none"
 					placeholder="••••••••"
 				/>
+				{#if password.length > 0}
+					<div class="mt-2 flex items-center gap-2">
+						<div class="flex-1 grid grid-cols-4 gap-1">
+							{#each Array(4) as _, i}
+								<span class="h-1 rounded-full transition-colors
+									{i < pwScore
+										? (pwScore <= 1 ? 'bg-err' : pwScore === 2 ? 'bg-warn' : 'bg-success')
+										: 'bg-wire'}"
+									style={i < pwScore && pwScore >= 3 ? 'background: var(--color-success)' : ''}></span>
+							{/each}
+						</div>
+						<span class="text-[11px] tabular-nums shrink-0
+							{pwScore <= 1 ? 'text-err' : pwScore === 2 ? 'text-warn' : 'text-success'}"
+							style={pwScore >= 3 ? 'color: var(--color-success)' : ''}>
+							{t(pwLabelKey)}
+						</span>
+					</div>
+				{/if}
 			</div>
 			<div>
 				<div class="flex items-center justify-between mb-2">
-					<label class="block text-sm text-muted">
-						{t('fav_team')} <span class="text-accent">*</span>
+					<label class="flex items-baseline gap-1.5 text-sm text-muted">
+						<span>{t('fav_team')} <span class="text-accent">*</span></span>
+						<span class="cursor-help text-faint hover:text-fg transition-colors text-[11px]"
+							title={t('multiplier_help')} aria-label={t('multiplier_help')}>(?)</span>
 					</label>
 					{#if selectedTeam && data.oddsMap[selectedTeam]}
 						<span class="text-xs text-accent font-semibold tabular-nums">
@@ -100,8 +136,10 @@
 			{#if data.scorers && data.scorers.length > 0}
 				<div>
 					<div class="flex items-center justify-between mb-2">
-						<label class="block text-sm text-muted">
-							{t('top_scorer_label')} <span class="text-faint">{t('auth_optional')}</span>
+						<label class="flex items-baseline gap-1.5 text-sm text-muted">
+							<span>{t('top_scorer_label')} <span class="text-faint">{t('auth_optional')}</span></span>
+							<span class="cursor-help text-faint hover:text-fg transition-colors text-[11px]"
+								title={t('multiplier_help')} aria-label={t('multiplier_help')}>(?)</span>
 						</label>
 						{#if selectedScorerData}
 							<span class="text-xs text-accent font-semibold tabular-nums">
