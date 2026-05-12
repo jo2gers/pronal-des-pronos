@@ -4,6 +4,7 @@
 	import { formatDate, timeUntilMatch } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
+	import HexFlag from '$lib/components/HexFlag.svelte';
 
 	let { data, form } = $props();
 
@@ -116,11 +117,8 @@
 						class="rounded-lg bg-canvas border border-live/30 hover:border-live transition-colors px-4 py-5 text-center block">
 						<p class="text-xs text-muted mb-3">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
 						<div class="flex items-center justify-between gap-3">
-							<div class="flex-1 text-center">
-								{#if match.home_flag}
-									<img src="https://flagcdn.com/w40/{match.home_flag.toLowerCase()}.png"
-										alt={match.home_team} class="w-10 h-7 object-cover rounded mx-auto mb-1" />
-								{/if}
+							<div class="flex-1 text-center flex flex-col items-center">
+								<HexFlag code={match.home_flag} size={36} alt={match.home_team} class="mb-1" />
 								<p class="text-sm font-semibold text-fg leading-tight">{match.home_team}</p>
 							</div>
 							<div class="text-center shrink-0 px-3">
@@ -130,11 +128,8 @@
 								</p>
 								<span class="inline-block mt-2 rounded bg-live px-2 py-0.5 text-xs font-bold text-fg tracking-wider">LIVE</span>
 							</div>
-							<div class="flex-1 text-center">
-								{#if match.away_flag}
-									<img src="https://flagcdn.com/w40/{match.away_flag.toLowerCase()}.png"
-										alt={match.away_team} class="w-10 h-7 object-cover rounded mx-auto mb-1" />
-								{/if}
+							<div class="flex-1 text-center flex flex-col items-center">
+								<HexFlag code={match.away_flag} size={36} alt={match.away_team} class="mb-1" />
 								<p class="text-sm font-semibold text-fg leading-tight">{match.away_team}</p>
 							</div>
 						</div>
@@ -246,10 +241,7 @@
 							class="px-4 py-3 flex items-center gap-2 hover:bg-raised/60 transition-colors group">
 							<!-- Home -->
 							<div class="flex-1 min-w-0 flex items-center gap-2">
-								{#if match.home_flag}
-									<img src="https://flagcdn.com/w20/{match.home_flag.toLowerCase()}.png"
-										alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
-								{/if}
+								<HexFlag code={match.home_flag} size={20} />
 								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate">{match.home_team}</span>
 							</div>
 
@@ -273,10 +265,7 @@
 							<!-- Away -->
 							<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
 								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate text-right">{match.away_team}</span>
-								{#if match.away_flag}
-									<img src="https://flagcdn.com/w20/{match.away_flag.toLowerCase()}.png"
-										alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
-								{/if}
+								<HexFlag code={match.away_flag} size={20} />
 							</div>
 						</a>
 					{/each}
@@ -330,10 +319,7 @@
 							<div class="flex items-center gap-2">
 								<!-- Home -->
 								<div class="flex-1 min-w-0 flex items-center gap-2">
-									{#if match.home_flag}
-										<img src="https://flagcdn.com/w20/{match.home_flag.toLowerCase()}.png"
-											alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
-									{/if}
+									<HexFlag code={match.home_flag} size={20} />
 									<span class="text-sm font-medium text-fg truncate">{match.home_team}</span>
 								</div>
 
@@ -378,10 +364,7 @@
 								<!-- Away -->
 								<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
 									<span class="text-sm font-medium text-fg truncate text-right">{match.away_team}</span>
-									{#if match.away_flag}
-										<img src="https://flagcdn.com/w20/{match.away_flag.toLowerCase()}.png"
-											alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
-									{/if}
+									<HexFlag code={match.away_flag} size={20} />
 								</div>
 
 								<!-- Trailing -->

@@ -34,26 +34,40 @@
 	// ── Live notifications via Supabase Realtime ───────────────────────────────
 	// Subscribe to the 3 notification-source tables. RLS gates which events
 	// each client actually receives, so we don't need narrow column filters.
-	// On any change → invalidateAll() re-runs the layout server load, which
-	// recomputes friendNotifCount / groupNotifCount / inviteCount and the bell
-	// badge updates without a page refresh.
+	// Bursts of identical changes are coalesced into a single invalidateAll.
+	//
+	// IMPORTANT: the effect must depend ONLY on the stable user id. If we
+	// dereference `data.user` (object), the effect re-runs every time
+	// invalidateAll() returns a new data snapshot — tearing down and
+	// recreating the channel mid-handshake, which is what caused the
+	// WebSocket "failed" reconnect storm in the browser console.
 	let lastInvalidate = 0;
-	function debouncedInvalidate() {
+	function scheduleInvalidate() {
 		const now = Date.now();
-		if (now - lastInvalidate < 500) return; // coalesce bursts (e.g. INSERT+UPDATE in same RPC)
+		if (now - lastInvalidate < 1000) return; // coalesce bursts
 		lastInvalidate = now;
 		invalidateAll();
 	}
 
+	const userId = $derived(data.user?.id ?? null);
+
 	$effect(() => {
-		if (!data.user) return;
+		if (!userId) return;
+		// Only re-run when the actual user identity changes (login/logout),
+		// not when the data object reference changes from invalidate.
+		const uid = userId;
 
 		const channel = supabase
-			.channel('notif-stream')
-			.on('postgres_changes', { event: '*', schema: 'public', table: 'friendships'         }, debouncedInvalidate)
-			.on('postgres_changes', { event: '*', schema: 'public', table: 'group_invites'       }, debouncedInvalidate)
-			.on('postgres_changes', { event: '*', schema: 'public', table: 'group_join_requests' }, debouncedInvalidate)
-			.subscribe();
+			.channel(`notif-${uid}`)
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'friendships'         }, scheduleInvalidate)
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'group_invites'       }, scheduleInvalidate)
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'group_join_requests' }, scheduleInvalidate)
+			.subscribe((status) => {
+				// Helpful in dev; silent otherwise. Status: SUBSCRIBED | CHANNEL_ERROR | TIMED_OUT | CLOSED
+				if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+					console.warn('[realtime] channel status:', status);
+				}
+			});
 
 		return () => {
 			supabase.removeChannel(channel);
@@ -202,7 +216,19 @@
 
 				<!-- Auth -->
 				{#if data.user}
-					<a href="/profile/{data.user?.id}" class="text-sm text-muted hover:text-fg transition-colors">{t('nav_profile')}</a>
+					<a href="/profile/{data.user?.id}"
+					class="group inline-flex items-center gap-2 text-sm text-muted hover:text-fg transition-colors"
+					title={t('nav_profile')}>
+					{#if data.profile?.avatar_url}
+						<img src={data.profile.avatar_url} alt=""
+							class="w-7 h-7 rounded-full object-cover ring-1 ring-wire group-hover:ring-accent transition-all" />
+					{:else}
+						<span class="w-7 h-7 rounded-full bg-raised border border-wire group-hover:border-accent flex items-center justify-center text-xs font-bold text-muted transition-colors">
+							{(data.profile?.display_name ?? data.profile?.username ?? '?')[0]?.toUpperCase()}
+						</span>
+					{/if}
+					<span class="hidden lg:inline">{data.profile?.display_name ?? data.profile?.username ?? t('nav_profile')}</span>
+				</a>
 					<button onclick={logout} class="text-sm text-faint hover:text-err transition-colors cursor-pointer">
 						{t('nav_logout')}
 					</button>
@@ -290,7 +316,17 @@
 					<!-- Auth -->
 					<div class="flex items-center gap-3">
 						{#if data.user}
-							<a href="/profile/{data.user?.id}" onclick={closeMenu} class="text-sm text-muted hover:text-fg transition-colors">{t('nav_profile')}</a>
+							<a href="/profile/{data.user?.id}" onclick={closeMenu}
+							class="inline-flex items-center gap-2 text-sm text-muted hover:text-fg transition-colors">
+							{#if data.profile?.avatar_url}
+								<img src={data.profile.avatar_url} alt="" class="w-6 h-6 rounded-full object-cover ring-1 ring-wire" />
+							{:else}
+								<span class="w-6 h-6 rounded-full bg-raised border border-wire flex items-center justify-center text-[10px] font-bold text-muted">
+									{(data.profile?.display_name ?? data.profile?.username ?? '?')[0]?.toUpperCase()}
+								</span>
+							{/if}
+							<span>{data.profile?.display_name ?? data.profile?.username ?? t('nav_profile')}</span>
+						</a>
 							<button onclick={logout} class="text-sm text-faint hover:text-err transition-colors cursor-pointer">{t('nav_logout')}</button>
 						{:else}
 							<a href="/auth/login" onclick={closeMenu} class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>

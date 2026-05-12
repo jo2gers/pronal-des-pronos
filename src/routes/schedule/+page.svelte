@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t, getLang } from '$lib/i18n.svelte';
 	import { formatDate } from '$lib/utils';
+	import HexFlag from '$lib/components/HexFlag.svelte';
 
 	let { data } = $props();
 	let expanded = $state<string | null>(null);
@@ -135,10 +136,7 @@
 								<td class="px-2 py-2 text-xs text-faint tabular-nums">{row.pos}</td>
 								<td class="px-2 py-2">
 									<div class="flex items-center gap-1.5 min-w-0">
-										{#if row.flag}
-											<img src="https://flagcdn.com/w20/{row.flag.toLowerCase()}.png"
-												alt="" class="w-4 h-3 object-cover rounded-sm shrink-0" />
-										{/if}
+										<HexFlag code={row.flag} size={16} />
 										<span class="text-xs truncate {posColor(row.pos, g.played, g.total)}">{row.team}</span>
 									</div>
 								</td>
@@ -162,10 +160,7 @@
 							<a href="/matches/{m.id}"
 								class="flex items-center gap-2 px-4 py-2.5 hover:bg-raised/50 transition-colors text-xs">
 								<div class="flex-1 min-w-0 flex items-center gap-1.5">
-									{#if m.home_flag}
-										<img src="https://flagcdn.com/w20/{m.home_flag.toLowerCase()}.png"
-											alt="" class="w-4 h-3 object-cover rounded-sm shrink-0" />
-									{/if}
+									<HexFlag code={m.home_flag} size={16} />
 									<span class="truncate text-fg">{m.home_team}</span>
 								</div>
 
@@ -185,10 +180,7 @@
 
 								<div class="flex-1 min-w-0 flex items-center justify-end gap-1.5">
 									<span class="truncate text-fg text-right">{m.away_team}</span>
-									{#if m.away_flag}
-										<img src="https://flagcdn.com/w20/{m.away_flag.toLowerCase()}.png"
-											alt="" class="w-4 h-3 object-cover rounded-sm shrink-0" />
-									{/if}
+									<HexFlag code={m.away_flag} size={16} />
 								</div>
 							</a>
 						{/each}

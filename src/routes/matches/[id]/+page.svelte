@@ -4,6 +4,7 @@
 	import { formatDate, isMatchLocked } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
+	import HexFlag from '$lib/components/HexFlag.svelte';
 
 	function flagSrc(iso: string | null | undefined) {
 		return iso ? `https://flagcdn.com/w80/${iso.toLowerCase()}.png` : '';
@@ -103,11 +104,8 @@
 
 		<!-- Teams + score -->
 		<div class="flex items-center justify-center gap-6 sm:gap-10">
-			<div class="text-center flex-1">
-				{#if flagSrc(data.match.home_flag)}
-					<img src={flagSrc(data.match.home_flag)} alt={data.match.home_team}
-						class="w-16 h-11 object-cover rounded mx-auto mb-2" />
-				{/if}
+			<div class="text-center flex-1 flex flex-col items-center">
+				<HexFlag code={data.match.home_flag} size={64} alt={data.match.home_team} class="mb-2" />
 				<p class="font-bold text-base text-fg leading-tight">{data.match.home_team}</p>
 			</div>
 
@@ -152,11 +150,8 @@
 				{/if}
 			</div>
 
-			<div class="text-center flex-1">
-				{#if flagSrc(data.match.away_flag)}
-					<img src={flagSrc(data.match.away_flag)} alt={data.match.away_team}
-						class="w-16 h-11 object-cover rounded mx-auto mb-2" />
-				{/if}
+			<div class="text-center flex-1 flex flex-col items-center">
+				<HexFlag code={data.match.away_flag} size={64} alt={data.match.away_team} class="mb-2" />
 				<p class="font-bold text-base text-fg leading-tight">{data.match.away_team}</p>
 			</div>
 		</div>

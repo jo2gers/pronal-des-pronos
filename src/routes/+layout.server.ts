@@ -3,7 +3,7 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { session, user } = await safeGetSession();
 
-	if (!user) return { session, user, friendNotifCount: 0, groupNotifCount: 0 };
+	if (!user) return { session, user, profile: null, friendNotifCount: 0, groupNotifCount: 0 };
 
 	// Admin group IDs (needed to count pending join requests)
 	const { data: adminGroups } = await supabase
@@ -14,7 +14,7 @@ export const load: LayoutServerLoad = async ({ locals: { supabase, safeGetSessio
 
 	const adminGroupIds = (adminGroups ?? []).map((g) => g.group_id);
 
-	const [{ count: friendCount }, joinResult, { count: inviteCount }] = await Promise.all([
+	const [{ count: friendCount }, joinResult, { count: inviteCount }, { data: profile }] = await Promise.all([
 		supabase
 			.from('friendships')
 			.select('id', { count: 'exact', head: true })
@@ -31,12 +31,18 @@ export const load: LayoutServerLoad = async ({ locals: { supabase, safeGetSessio
 			.from('group_invites')
 			.select('id', { count: 'exact', head: true })
 			.eq('user_id', user.id)
-			.eq('status', 'pending')
+			.eq('status', 'pending'),
+		supabase
+			.from('profiles')
+			.select('id, username, display_name, avatar_url')
+			.eq('id', user.id)
+			.maybeSingle()
 	]);
 
 	return {
 		session,
 		user,
+		profile: profile ?? null,
 		friendNotifCount: friendCount ?? 0,
 		groupNotifCount:  (joinResult as { count: number | null }).count ?? 0,
 		inviteCount: inviteCount ?? 0

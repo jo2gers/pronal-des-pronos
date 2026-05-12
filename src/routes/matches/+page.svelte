@@ -4,6 +4,7 @@
 	import { formatDate, timeUntilMatch } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
+	import HexFlag from '$lib/components/HexFlag.svelte';
 
 	let { data, form } = $props();
 
@@ -182,10 +183,7 @@
 			<div class="flex items-center gap-2">
 				<!-- Home -->
 				<div class="flex-1 min-w-0 flex items-center gap-2">
-					{#if match.home_flag}
-						<img src="https://flagcdn.com/w20/{match.home_flag.toLowerCase()}.png"
-							alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
-					{/if}
+					<HexFlag code={match.home_flag} size={20} />
 					<span class="text-sm font-medium text-fg truncate">{match.home_team}</span>
 				</div>
 
@@ -248,10 +246,7 @@
 				<!-- Away -->
 				<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
 					<span class="text-sm font-medium text-fg truncate text-right">{match.away_team}</span>
-					{#if match.away_flag}
-						<img src="https://flagcdn.com/w20/{match.away_flag.toLowerCase()}.png"
-							alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />
-					{/if}
+					<HexFlag code={match.away_flag} size={20} />
 				</div>
 
 				<!-- Trailing indicators -->
