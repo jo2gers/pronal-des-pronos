@@ -1,6 +1,5 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { supabase } from '$lib/supabase';
@@ -99,7 +98,7 @@
 <svelte:head>
 	<title>Tifo — World Cup 2026 picks with your friends</title>
 	<meta name="description" content="Tifo · friends · leagues · scoreboard. Designed and built by Devsigny." />
-	<link rel="icon" href={favicon} />
+	<link rel="icon" type="image/png" href="/favicon.png" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 </svelte:head>
