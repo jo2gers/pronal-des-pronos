@@ -303,4 +303,25 @@
 	<main class="mx-auto max-w-6xl px-4 py-8">
 		{@render children()}
 	</main>
+
+	<!-- Devsigny attribution — appears on every page -->
+	<footer class="border-t border-wire mt-12">
+		<div class="mx-auto max-w-6xl px-4 py-6 flex items-center justify-between gap-3 flex-wrap">
+			<a href="https://devsigny.com" target="_blank" rel="noopener noreferrer"
+				class="group inline-flex items-baseline gap-1.5 text-xs text-faint hover:text-fg transition-colors"
+				aria-label="Devsigny — dev & AI consulting">
+				<span>{t('footer_built_by')}</span>
+				<span class="font-bold text-muted group-hover:text-accent transition-colors" style="font-family: var(--font-display); letter-spacing: 0.04em">
+					Devsigny
+				</span>
+				<svg class="w-3 h-3 text-faint/60 group-hover:text-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+				</svg>
+			</a>
+			<a href="https://devsigny.com" target="_blank" rel="noopener noreferrer"
+				class="text-[11px] text-faint hover:text-accent transition-colors">
+				{t('footer_consulting')}
+			</a>
+		</div>
+	</footer>
 </div>
