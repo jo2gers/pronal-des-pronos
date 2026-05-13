@@ -115,7 +115,7 @@
 			<!-- Wordmark — uses the PWA icon so the brand mark is identical
 			     in nav, browser tab, and home-screen install -->
 			<a href="/" onclick={closeMenu} class="shrink-0" aria-label="Tifo">
-				<img src="/icon-192.png?v=3" alt="Tifo"
+				<img src="/icon-maskable-512.png?v=3" alt="Tifo"
 					class="h-11 w-11 rounded-lg" />
 			</a>
 
