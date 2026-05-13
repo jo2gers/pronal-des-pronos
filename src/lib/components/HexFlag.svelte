@@ -1,8 +1,7 @@
 <script lang="ts">
-	// Flag thumbnail. Renders the flag in a 3:2 rectangular slot (matches
-	// most national flag ratios — France, Mexico, Brazil etc. fill perfectly).
-	// Outlier ratios (Switzerland 1:1, UK 1:2) are object-contained so no
-	// crop, with thin transparent letterboxing.
+	// Flag thumbnail. Renders the flag in a 3:2 rectangular slot — all flags
+	// share the same shape regardless of native aspect (Switzerland's square,
+	// UK's 1:2, etc. get centre-cropped via object-cover for visual consistency).
 	//
 	// `size` is the slot HEIGHT in px. Width = size × 1.5.
 	//
@@ -30,7 +29,7 @@
 </script>
 
 {#if src}
-	<img {src} {alt} class="object-contain shrink-0 ring-1 ring-fg/15 {extra}"
+	<img {src} {alt} class="object-cover shrink-0 ring-1 ring-fg/15 {extra}"
 		style="width: {width}px; height: {size}px; border-radius: {radius}px;" />
 {:else}
 	<span class="shrink-0 bg-raised ring-1 ring-fg/15 {extra}"
