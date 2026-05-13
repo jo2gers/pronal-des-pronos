@@ -128,7 +128,8 @@ async function syncMatchOdds(supabase: any) {
 }
 
 async function syncWcWinnerOdds(supabase: any) {
-	// Lock: stop refreshing 2 days before the first WC match
+	// Lock: stop refreshing 1 hour before the first WC match. Multipliers freeze
+	// at the last sync that ran before this cutoff.
 	const { data: firstMatch } = await supabase
 		.from('matches')
 		.select('match_datetime')
@@ -138,11 +139,11 @@ async function syncWcWinnerOdds(supabase: any) {
 		.limit(1)
 		.maybeSingle();
 
-	const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+	const LOCK_BEFORE_MS = 60 * 60 * 1000; // 1 hour
 	const firstMatchTime = (firstMatch as any)?.match_datetime
 		? new Date((firstMatch as any).match_datetime).getTime()
 		: null;
-	if (firstMatchTime && Date.now() >= firstMatchTime - TWO_DAYS_MS) {
+	if (firstMatchTime && Date.now() >= firstMatchTime - LOCK_BEFORE_MS) {
 		return { ok: true, locked: true, updated: 0 };
 	}
 
@@ -183,7 +184,8 @@ async function syncWcWinnerOdds(supabase: any) {
 }
 
 async function syncTopScorerOdds(supabase: any) {
-	// Lock: stop refreshing 2 days before the first WC match
+	// Lock: stop refreshing 1 hour before the first WC match. Multipliers freeze
+	// at the last sync that ran before this cutoff.
 	const { data: firstMatch } = await supabase
 		.from('matches')
 		.select('match_datetime')
@@ -193,11 +195,11 @@ async function syncTopScorerOdds(supabase: any) {
 		.limit(1)
 		.maybeSingle();
 
-	const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+	const LOCK_BEFORE_MS = 60 * 60 * 1000; // 1 hour
 	const firstMatchTime = (firstMatch as any)?.match_datetime
 		? new Date((firstMatch as any).match_datetime).getTime()
 		: null;
-	if (firstMatchTime && Date.now() >= firstMatchTime - TWO_DAYS_MS) {
+	if (firstMatchTime && Date.now() >= firstMatchTime - LOCK_BEFORE_MS) {
 		return { ok: true, locked: true, updated: 0 };
 	}
 

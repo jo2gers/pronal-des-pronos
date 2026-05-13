@@ -7,14 +7,14 @@
 		<h1 class="text-2xl font-bold text-fg mb-1" style="font-family: var(--font-display); letter-spacing: 0.02em">
 			{t('rules_title')}
 		</h1>
-		<p class="text-muted text-sm">{t('rules_subtitle')}</p>
+		<p class="text-muted text-sm sm:text-base">{t('rules_subtitle')}</p>
 	</header>
 
 	<!-- Scoring -->
 	<section class="space-y-5">
 		<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('rules_points_title')}</h2>
 
-		<p class="text-sm text-muted leading-relaxed">
+		<p class="text-sm sm:text-base text-muted leading-relaxed">
 			{t('rules_points_intro')}
 		</p>
 
@@ -26,8 +26,8 @@
 					</span>
 				</dt>
 				<dd>
-					<p class="text-sm font-semibold text-fg">{t('rules_exact_score')}</p>
-					<p class="text-xs text-faint mt-0.5">{t('rules_exact_hint')}</p>
+					<p class="text-sm sm:text-base font-semibold text-fg">{t('rules_exact_score')}</p>
+					<p class="text-xs sm:text-sm text-faint mt-0.5">{t('rules_exact_hint')}</p>
 				</dd>
 			</div>
 			<div class="flex items-start gap-4 py-3.5">
@@ -37,8 +37,8 @@
 					</span>
 				</dt>
 				<dd>
-					<p class="text-sm font-semibold text-fg">{t('rules_correct')}</p>
-					<p class="text-xs text-faint mt-0.5">{t('rules_correct_hint')}</p>
+					<p class="text-sm sm:text-base font-semibold text-fg">{t('rules_correct')}</p>
+					<p class="text-xs sm:text-sm text-faint mt-0.5">{t('rules_correct_hint')}</p>
 				</dd>
 			</div>
 			<div class="flex items-start gap-4 py-3.5">
@@ -48,13 +48,13 @@
 					</span>
 				</dt>
 				<dd>
-					<p class="text-sm font-semibold text-fg">{t('rules_wrong')}</p>
-					<p class="text-xs text-faint mt-0.5">{t('rules_wrong_hint')}</p>
+					<p class="text-sm sm:text-base font-semibold text-fg">{t('rules_wrong')}</p>
+					<p class="text-xs sm:text-sm text-faint mt-0.5">{t('rules_wrong_hint')}</p>
 				</dd>
 			</div>
 		</dl>
 
-		<p class="text-xs text-faint">
+		<p class="text-xs sm:text-sm text-faint">
 			{t('rules_odds_explain_pre')} <strong class="text-muted">{t('rules_odds_word')}</strong> {t('rules_odds_explain_post')}
 		</p>
 	</section>
@@ -63,7 +63,7 @@
 	<section class="space-y-5 border-t border-wire pt-10">
 		<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('rules_team_bonus_title')}</h2>
 
-		<p class="text-sm text-muted leading-relaxed">
+		<p class="text-sm sm:text-base text-muted leading-relaxed">
 			{t('rules_team_bonus_intro_pre')} <strong class="text-fg">{t('rules_team_bonus_intro_strong')}</strong> {t('rules_team_bonus_intro_post')}
 		</p>
 
@@ -94,7 +94,7 @@
 			</tbody>
 		</table>
 
-		<p class="text-xs text-faint">
+		<p class="text-xs sm:text-sm text-faint">
 			{t('rules_team_bonus_note')}
 		</p>
 	</section>
@@ -103,7 +103,7 @@
 	<section class="space-y-5 border-t border-wire pt-10">
 		<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('rules_scorer_title')}</h2>
 
-		<p class="text-sm text-muted leading-relaxed">
+		<p class="text-sm sm:text-base text-muted leading-relaxed">
 			{t('rules_scorer_intro_pre')} <strong class="text-fg">{t('rules_scorer_intro_strong')}</strong> {t('rules_scorer_intro_post')}
 		</p>
 
@@ -111,7 +111,7 @@
 			<p class="text-xs tabular-nums text-fg font-semibold" style="font-family: var(--font-display); letter-spacing: 0.02em">
 				{t('rules_scorer_formula')}
 			</p>
-			<p class="text-xs text-faint mt-1.5">{t('rules_scorer_formula_hint')}</p>
+			<p class="text-xs sm:text-sm text-faint mt-1.5">{t('rules_scorer_formula_hint')}</p>
 		</div>
 
 		<div>
@@ -146,13 +146,13 @@
 			</table>
 		</div>
 
-		<p class="text-xs text-faint">{t('rules_scorer_note')}</p>
+		<p class="text-xs sm:text-sm text-faint">{t('rules_scorer_note')}</p>
 	</section>
 
 	<!-- Deadlines -->
 	<section class="space-y-4 border-t border-wire pt-10">
 		<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('rules_deadlines_title')}</h2>
-		<ul class="space-y-3 text-sm text-muted">
+		<ul class="space-y-3 text-sm sm:text-base text-muted">
 			<li class="flex gap-3">
 				<span class="shrink-0 text-accent font-bold mt-0.5">·</span>
 				<span>{t('rules_deadline_1_a')} <strong class="text-fg">{t('rules_deadline_1_strong')}</strong>{t('rules_deadline_1_b')}</span>
@@ -175,7 +175,7 @@
 	<!-- Groups / Leagues -->
 	<section class="space-y-4 border-t border-wire pt-10">
 		<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('rules_groups_title')}</h2>
-		<p class="text-sm text-muted leading-relaxed">
+		<p class="text-sm sm:text-base text-muted leading-relaxed">
 			{t('rules_groups_p1_pre')} <strong class="text-fg">{t('rules_groups_p1_strong1')}</strong>{t('rules_groups_p1_mid')} <strong class="text-fg">{t('rules_groups_p1_strong2')}</strong> {t('rules_groups_p1_post')}
 		</p>
 		<p class="text-sm text-muted">

@@ -18,9 +18,10 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		supabase.from('wc_top_scorers').select('player_name, odds, multiplier').order('odds', { ascending: true })
 	]);
 
-	// Lock favorite_team & top_scorer permanently 2 days before the first WC match
+	// Lock favorite_team & top_scorer 1 hour before kick-off of the first WC match.
+	// Polymarket odds sync also stops at this cutoff, so multipliers freeze together.
 	const firstMatchTime = firstMatch?.match_datetime ? new Date(firstMatch.match_datetime) : null;
-	const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 24 * 60 * 60 * 1000) : null;
+	const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 60 * 60 * 1000) : null;
 	const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
 	const scorerLocked = teamLocked;
 
@@ -58,7 +59,7 @@ export const actions: Actions = {
 			.maybeSingle();
 
 		const firstMatchTime = firstMatch?.match_datetime ? new Date(firstMatch.match_datetime) : null;
-		const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 2 * 24 * 60 * 60 * 1000) : null;
+		const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 60 * 60 * 1000) : null;
 		const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
 		const scorerLocked = teamLocked;
 
