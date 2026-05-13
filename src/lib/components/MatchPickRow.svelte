@@ -201,13 +201,13 @@
 				<div class="grid grid-cols-2 gap-3">
 					<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
 						<HexFlag code={match.home_flag} size={flagSize} />
-						<span class="text-xs font-medium text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
+						<span class="text-sm font-semibold text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
 							{match.home_team}
 						</span>
 					</a>
 					<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
 						<HexFlag code={match.away_flag} size={flagSize} />
-						<span class="text-xs font-medium text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
+						<span class="text-sm font-semibold text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
 							{match.away_team}
 						</span>
 					</a>
@@ -219,7 +219,7 @@
 			<div class="hidden sm:flex items-center gap-4">
 				<a href="/matches/{match.id}" class="flex items-center gap-2.5 min-w-0 flex-1 group/team">
 					<HexFlag code={match.home_flag} size={flagSize} />
-					<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate">
+					<span class="text-base font-semibold text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate">
 						{match.home_team}
 					</span>
 				</a>
@@ -229,7 +229,7 @@
 				</div>
 
 				<a href="/matches/{match.id}" class="flex items-center gap-2.5 min-w-0 flex-1 justify-end group/team">
-					<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate text-right">
+					<span class="text-base font-semibold text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate text-right">
 						{match.away_team}
 					</span>
 					<HexFlag code={match.away_flag} size={flagSize} />
@@ -273,13 +273,13 @@
 			<div class="grid grid-cols-2 gap-3">
 				<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
 					<HexFlag code={match.home_flag} size={flagSize} />
-					<span class="text-xs font-medium text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
+					<span class="text-sm font-semibold text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
 						{match.home_team}
 					</span>
 				</a>
 				<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
 					<HexFlag code={match.away_flag} size={flagSize} />
-					<span class="text-xs font-medium text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
+					<span class="text-sm font-semibold text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
 						{match.away_team}
 					</span>
 				</a>
@@ -353,7 +353,7 @@
 			</a>
 
 			<a href="/matches/{match.id}" class="flex-1 min-w-0 group/team">
-				<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block">
+				<span class="text-base font-semibold text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block">
 					{match.home_team}
 				</span>
 			</a>
@@ -420,7 +420,7 @@
 			</div>
 
 			<a href="/matches/{match.id}" class="flex-1 min-w-0 group/team">
-				<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block text-right">
+				<span class="text-base font-semibold text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block text-right">
 					{match.away_team}
 				</span>
 			</a>
