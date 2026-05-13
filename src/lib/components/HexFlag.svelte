@@ -19,8 +19,9 @@
 	const cdnWidth = $derived(size <= 20 ? 40 : size <= 40 ? 80 : 160);
 	const src = $derived(code ? `https://flagcdn.com/w${cdnWidth}/${code.toLowerCase()}.png` : '');
 
-	// Flat-top regular hexagon
-	const clip = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+	// Shallow-corner hexagon — 15%/85% cuts (vs. the regular 25%/75%) shrink
+	// the corner triangles ~64% so more of the flag stays visible.
+	const clip = 'polygon(15% 0%, 85% 0%, 100% 50%, 85% 100%, 15% 100%, 0% 50%)';
 </script>
 
 {#if src}
