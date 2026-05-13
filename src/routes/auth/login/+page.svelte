@@ -18,6 +18,12 @@
 			</div>
 		{/if}
 
+		{#if data.oauthError}
+			<div class="mb-4 rounded bg-err/10 border border-err/30 px-4 py-3 text-sm text-err">
+				{data.oauthError}
+			</div>
+		{/if}
+
 		<GoogleSignInButton next={form?.next ?? data.next ?? '/'} />
 
 		<div class="my-5 flex items-center gap-3 text-[11px] uppercase tracking-widest text-faint">

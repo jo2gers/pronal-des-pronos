@@ -291,6 +291,7 @@ const FR = {
   match_draw: 'Nul',
   match_live: 'Live',
   match_details_title: 'Détails du match',
+  match_view_details: 'Voir le match →',
   match_odds_label: 'Cotes',
   match_draw_label: 'Draw',
 };
@@ -583,6 +584,7 @@ const EN: typeof FR = {
   match_draw: 'Draw',
   match_live: 'Live',
   match_details_title: 'Match details',
+  match_view_details: 'View match →',
   match_odds_label: 'Odds',
   match_draw_label: 'Draw',
 };

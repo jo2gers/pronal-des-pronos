@@ -5,7 +5,16 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) 
 	const { user } = await safeGetSession();
 	const next = url.searchParams.get('next') ?? '/';
 	if (user) redirect(303, next);
-	return { next };
+
+	const errorCode = url.searchParams.get('error');
+	const errorMap: Record<string, string> = {
+		oauth_no_code: 'Connexion Google annulée ou code manquant.',
+		oauth_exchange: 'Échec de la connexion Google. Vérifie que le fournisseur est activé dans Supabase.',
+		oauth: 'Connexion Google indisponible. Réessaie ou utilise email + mot de passe.'
+	};
+	const oauthError = errorCode ? (errorMap[errorCode] ?? `Erreur OAuth: ${errorCode}`) : null;
+
+	return { next, oauthError };
 };
 
 export const actions: Actions = {

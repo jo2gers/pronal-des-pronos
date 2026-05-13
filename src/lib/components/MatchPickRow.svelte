@@ -60,6 +60,7 @@
 
 	const u = $derived(urgency());
 	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked');
+	const outcome = $derived(Math.sign(home - away));
 
 	function bump(side: 'home' | 'away', dir: 1 | -1) {
 		if (!pickable) return;
@@ -135,7 +136,7 @@
 				<!-- Home column: name on top, stepper below -->
 				<div class="flex-1 min-w-0 flex flex-col gap-2 sm:gap-2.5">
 					<a href="/matches/{match.id}" class="block min-w-0 group/team">
-						<span class="text-sm font-medium text-fg group-hover/team:text-accent transition-colors truncate block">
+						<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block">
 							{match.home_team}
 						</span>
 					</a>
@@ -151,8 +152,8 @@
 					</div>
 				</div>
 
-				<!-- Centre: score + meta -->
-				<div class="text-center shrink-0 min-w-[88px] sm:min-w-[120px]">
+				<!-- Centre: score + meta + inline odds. Score doubles as a link to detail. -->
+				<a href="/matches/{match.id}" class="text-center shrink-0 min-w-[88px] sm:min-w-[140px] block group/centre">
 					<span class="text-2xl sm:text-3xl font-bold tabular-nums leading-none block
 						{hasProno || home > 0 || away > 0 ? 'text-accent' : 'text-faint'}"
 						style="font-family: var(--font-display)">
@@ -175,13 +176,28 @@
 								<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
 							{/if}
 						</span>
+						{#if match.odds_home && match.odds_draw && match.odds_away}
+							<span class="flex items-center gap-1.5 mt-1 tabular-nums">
+								<span class="{outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.home_team}>
+									{match.odds_home.toFixed(2)}
+								</span>
+								<span class="text-wire-hi">·</span>
+								<span class="{outcome === 0 ? 'text-accent font-bold' : 'text-faint'}" title={t('match_draw')}>
+									{match.odds_draw.toFixed(2)}
+								</span>
+								<span class="text-wire-hi">·</span>
+								<span class="{outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.away_team}>
+									{match.odds_away.toFixed(2)}
+								</span>
+							</span>
+						{/if}
 					</div>
-				</div>
+				</a>
 
 				<!-- Away column: name on top (right-aligned), stepper below -->
 				<div class="flex-1 min-w-0 flex flex-col gap-2 sm:gap-2.5 items-end">
 					<a href="/matches/{match.id}" class="block min-w-0 max-w-full group/team">
-						<span class="text-sm font-medium text-fg group-hover/team:text-accent transition-colors truncate block text-right">
+						<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block text-right">
 							{match.away_team}
 						</span>
 					</a>
@@ -200,6 +216,14 @@
 				<!-- Away flag (full-height anchor) -->
 				<a href="/matches/{match.id}" aria-label={match.away_team} class="shrink-0">
 					<HexFlag code={match.away_flag} size={flagSize} />
+				</a>
+
+				<!-- Explicit detail-page affordance -->
+				<a href="/matches/{match.id}" aria-label={t('match_view_details')} title={t('match_view_details')}
+					class="shrink-0 w-7 h-7 -mr-1 flex items-center justify-center text-faint hover:text-accent hover:bg-raised rounded-md transition-colors">
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+					</svg>
 				</a>
 			</div>
 
@@ -235,7 +259,7 @@
 			</a>
 
 			<a href="/matches/{match.id}" class="flex-1 min-w-0 group/team">
-				<span class="text-sm font-medium text-fg group-hover/team:text-accent transition-colors truncate block">
+				<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block">
 					{match.home_team}
 				</span>
 			</a>
@@ -305,13 +329,21 @@
 			</div>
 
 			<a href="/matches/{match.id}" class="flex-1 min-w-0 group/team">
-				<span class="text-sm font-medium text-fg group-hover/team:text-accent transition-colors truncate block text-right">
+				<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block text-right">
 					{match.away_team}
 				</span>
 			</a>
 
 			<a href="/matches/{match.id}" aria-label={match.away_team} class="shrink-0">
 				<HexFlag code={match.away_flag} size={flagSize} />
+			</a>
+
+			<!-- Explicit detail-page affordance -->
+			<a href="/matches/{match.id}" aria-label={t('match_view_details')} title={t('match_view_details')}
+				class="shrink-0 w-7 h-7 -mr-1 flex items-center justify-center text-faint hover:text-accent hover:bg-raised rounded-md transition-colors">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+				</svg>
 			</a>
 		</div>
 	{/if}
