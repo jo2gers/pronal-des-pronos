@@ -98,60 +98,72 @@
 	const flagSize = 56;
 </script>
 
-{#snippet centreContent()}
-	<a href="/matches/{match.id}" class="text-center shrink-0 block group/centre">
-		<span class="text-2xl sm:text-3xl font-bold tabular-nums leading-none block
-			{hasProno || home > 0 || away > 0 ? 'text-accent' : 'text-faint'}"
-			style="font-family: var(--font-display)">
-			{home}<span class="text-wire-hi mx-1">–</span>{away}
-		</span>
-		<div class="flex flex-col items-center text-[10px] leading-tight mt-1.5">
-			<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
-			<span class="flex items-center gap-1.5 mt-0.5">
-				<span class="tabular-nums font-semibold
-					{u === 'critical' ? 'text-live' :
-					 u === 'warning'  ? 'text-warn'  :
-					                    'text-accent'}">
-					{timeUntilMatch(match.match_datetime)}
-				</span>
-				{#if match.group_label}
-					<span class="text-wire-hi">·</span>
-					<span class="text-faint">{t('group_short')} {match.group_label}</span>
-				{/if}
-				{#if u === 'critical' && !hasProno}
-					<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
-				{/if}
+{#snippet metaLine()}
+	<div class="flex flex-col items-center text-[10px] leading-tight">
+		<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
+		<span class="flex items-center gap-1.5 mt-0.5">
+			<span class="tabular-nums font-semibold
+				{u === 'critical' ? 'text-live' :
+				 u === 'warning'  ? 'text-warn'  :
+				                    'text-accent'}">
+				{timeUntilMatch(match.match_datetime)}
 			</span>
-			{#if match.odds_home && match.odds_draw && match.odds_away}
-				<span class="flex items-center gap-1.5 mt-1 tabular-nums">
-					<span class="{outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.home_team}>
-						{match.odds_home.toFixed(2)}
-					</span>
-					<span class="text-wire-hi">·</span>
-					<span class="{outcome === 0 ? 'text-accent font-bold' : 'text-faint'}" title={t('match_draw')}>
-						{match.odds_draw.toFixed(2)}
-					</span>
-					<span class="text-wire-hi">·</span>
-					<span class="{outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.away_team}>
-						{match.odds_away.toFixed(2)}
-					</span>
-				</span>
+			{#if match.group_label}
+				<span class="text-wire-hi">·</span>
+				<span class="text-faint">{t('group_short')} {match.group_label}</span>
 			{/if}
-		</div>
-	</a>
+			{#if u === 'critical' && !hasProno}
+				<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
+			{/if}
+		</span>
+	</div>
 {/snippet}
 
-{#snippet stepperButtons(side: 'home' | 'away')}
+{#snippet oddsLine()}
+	{#if match.odds_home && match.odds_draw && match.odds_away}
+		<div class="flex items-center justify-center gap-1.5 text-[11px] tabular-nums mt-1.5">
+			<span class="{outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.home_team}>
+				{match.odds_home.toFixed(2)}
+			</span>
+			<span class="text-wire-hi">·</span>
+			<span class="{outcome === 0 ? 'text-accent font-bold' : 'text-faint'}" title={t('match_draw')}>
+				{match.odds_draw.toFixed(2)}
+			</span>
+			<span class="text-wire-hi">·</span>
+			<span class="{outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.away_team}>
+				{match.odds_away.toFixed(2)}
+			</span>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet stepperButton(side: 'home' | 'away', dir: 1 | -1)}
 	{@const value = side === 'home' ? home : away}
-	<div class="flex items-center gap-2">
-		<button type="button" onclick={(e) => { e.stopPropagation(); bump(side, -1); }}
-			disabled={value === 0}
-			aria-label="−"
-			class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">−</button>
-		<button type="button" onclick={(e) => { e.stopPropagation(); bump(side, 1); }}
-			disabled={value === 20}
-			aria-label="+"
-			class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">+</button>
+	{@const label = dir === 1 ? '+' : '−'}
+	{@const disabled = dir === 1 ? value === 20 : value === 0}
+	<button type="button" onclick={(e) => { e.stopPropagation(); bump(side, dir); }}
+		{disabled}
+		aria-label={label}
+		class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">{label}</button>
+{/snippet}
+
+{#snippet pickableCentre()}
+	<div class="text-center">
+		{@render metaLine()}
+		<div class="flex items-center justify-center gap-2 sm:gap-2.5 mt-2">
+			{@render stepperButton('home', -1)}
+			{@render stepperButton('home', 1)}
+			<a href="/matches/{match.id}" class="px-1 sm:px-2 hover:opacity-80 transition-opacity">
+				<span class="text-3xl sm:text-4xl font-bold tabular-nums leading-none block
+					{hasProno || home > 0 || away > 0 ? 'text-accent' : 'text-faint'}"
+					style="font-family: var(--font-display)">
+					{home}<span class="text-wire-hi mx-1">–</span>{away}
+				</span>
+			</a>
+			{@render stepperButton('away', -1)}
+			{@render stepperButton('away', 1)}
+		</div>
+		{@render oddsLine()}
 	</div>
 {/snippet}
 
@@ -184,7 +196,7 @@
 			<input type="hidden" name="predicted_home" value={home} />
 			<input type="hidden" name="predicted_away" value={away} />
 
-			<!-- ── Mobile layout: flag+name pair stacked above stepper row ───────── -->
+			<!-- ── Mobile layout: flag+name pair stacked above centre block ─────── -->
 			<div class="sm:hidden space-y-3">
 				<div class="grid grid-cols-2 gap-3">
 					<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
@@ -200,42 +212,26 @@
 						</span>
 					</a>
 				</div>
-				<div class="flex items-center justify-between gap-2">
-					{@render stepperButtons('home')}
-					{@render centreContent()}
-					{@render stepperButtons('away')}
-				</div>
+				{@render pickableCentre()}
 			</div>
 
-			<!-- ── Desktop layout: single horizontal row ─────────────────────────── -->
-			<div class="hidden sm:flex items-center gap-3">
-				<a href="/matches/{match.id}" aria-label={match.home_team} class="shrink-0">
+			<!-- ── Desktop layout: flag+name on each side, centre block in middle ── -->
+			<div class="hidden sm:flex items-center gap-4">
+				<a href="/matches/{match.id}" class="flex items-center gap-2.5 min-w-0 flex-1 group/team">
 					<HexFlag code={match.home_flag} size={flagSize} />
+					<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate">
+						{match.home_team}
+					</span>
 				</a>
 
-				<div class="flex-1 min-w-0 flex flex-col gap-2.5">
-					<a href="/matches/{match.id}" class="block min-w-0 group/team">
-						<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block">
-							{match.home_team}
-						</span>
-					</a>
-					{@render stepperButtons('home')}
+				<div class="shrink-0">
+					{@render pickableCentre()}
 				</div>
 
-				<div class="min-w-[140px]">
-					{@render centreContent()}
-				</div>
-
-				<div class="flex-1 min-w-0 flex flex-col gap-2.5 items-end">
-					<a href="/matches/{match.id}" class="block min-w-0 max-w-full group/team">
-						<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block text-right">
-							{match.away_team}
-						</span>
-					</a>
-					{@render stepperButtons('away')}
-				</div>
-
-				<a href="/matches/{match.id}" aria-label={match.away_team} class="shrink-0">
+				<a href="/matches/{match.id}" class="flex items-center gap-2.5 min-w-0 flex-1 justify-end group/team">
+					<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate text-right">
+						{match.away_team}
+					</span>
 					<HexFlag code={match.away_flag} size={flagSize} />
 				</a>
 
