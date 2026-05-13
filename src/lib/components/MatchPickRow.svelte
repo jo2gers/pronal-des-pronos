@@ -95,8 +95,65 @@
 	}
 	const verdict = $derived(finishedVerdict());
 
-	const flagSize = 64;
+	const flagSize = 56;
 </script>
+
+{#snippet centreContent()}
+	<a href="/matches/{match.id}" class="text-center shrink-0 block group/centre">
+		<span class="text-2xl sm:text-3xl font-bold tabular-nums leading-none block
+			{hasProno || home > 0 || away > 0 ? 'text-accent' : 'text-faint'}"
+			style="font-family: var(--font-display)">
+			{home}<span class="text-wire-hi mx-1">–</span>{away}
+		</span>
+		<div class="flex flex-col items-center text-[10px] leading-tight mt-1.5">
+			<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
+			<span class="flex items-center gap-1.5 mt-0.5">
+				<span class="tabular-nums font-semibold
+					{u === 'critical' ? 'text-live' :
+					 u === 'warning'  ? 'text-warn'  :
+					                    'text-accent'}">
+					{timeUntilMatch(match.match_datetime)}
+				</span>
+				{#if match.group_label}
+					<span class="text-wire-hi">·</span>
+					<span class="text-faint">{t('group_short')} {match.group_label}</span>
+				{/if}
+				{#if u === 'critical' && !hasProno}
+					<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
+				{/if}
+			</span>
+			{#if match.odds_home && match.odds_draw && match.odds_away}
+				<span class="flex items-center gap-1.5 mt-1 tabular-nums">
+					<span class="{outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.home_team}>
+						{match.odds_home.toFixed(2)}
+					</span>
+					<span class="text-wire-hi">·</span>
+					<span class="{outcome === 0 ? 'text-accent font-bold' : 'text-faint'}" title={t('match_draw')}>
+						{match.odds_draw.toFixed(2)}
+					</span>
+					<span class="text-wire-hi">·</span>
+					<span class="{outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.away_team}>
+						{match.odds_away.toFixed(2)}
+					</span>
+				</span>
+			{/if}
+		</div>
+	</a>
+{/snippet}
+
+{#snippet stepperButtons(side: 'home' | 'away')}
+	{@const value = side === 'home' ? home : away}
+	<div class="flex items-center gap-2">
+		<button type="button" onclick={(e) => { e.stopPropagation(); bump(side, -1); }}
+			disabled={value === 0}
+			aria-label="−"
+			class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">−</button>
+		<button type="button" onclick={(e) => { e.stopPropagation(); bump(side, 1); }}
+			disabled={value === 20}
+			aria-label="+"
+			class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">+</button>
+	</div>
+{/snippet}
 
 <div class="px-4 py-3 transition-colors {pickable ? 'hover:bg-raised/30' : 'hover:bg-raised/60'}">
 
@@ -127,98 +184,61 @@
 			<input type="hidden" name="predicted_home" value={home} />
 			<input type="hidden" name="predicted_away" value={away} />
 
-			<div class="flex items-center gap-2 sm:gap-3">
-				<!-- Home flag (full-height anchor) -->
+			<!-- ── Mobile layout: flag+name pair stacked above stepper row ───────── -->
+			<div class="sm:hidden space-y-3">
+				<div class="grid grid-cols-2 gap-3">
+					<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
+						<HexFlag code={match.home_flag} size={flagSize} />
+						<span class="text-xs font-medium text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
+							{match.home_team}
+						</span>
+					</a>
+					<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
+						<HexFlag code={match.away_flag} size={flagSize} />
+						<span class="text-xs font-medium text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
+							{match.away_team}
+						</span>
+					</a>
+				</div>
+				<div class="flex items-center justify-between gap-2">
+					{@render stepperButtons('home')}
+					{@render centreContent()}
+					{@render stepperButtons('away')}
+				</div>
+			</div>
+
+			<!-- ── Desktop layout: single horizontal row ─────────────────────────── -->
+			<div class="hidden sm:flex items-center gap-3">
 				<a href="/matches/{match.id}" aria-label={match.home_team} class="shrink-0">
 					<HexFlag code={match.home_flag} size={flagSize} />
 				</a>
 
-				<!-- Home column: name on top, stepper below -->
-				<div class="flex-1 min-w-0 flex flex-col gap-2 sm:gap-2.5">
+				<div class="flex-1 min-w-0 flex flex-col gap-2.5">
 					<a href="/matches/{match.id}" class="block min-w-0 group/team">
 						<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block">
 							{match.home_team}
 						</span>
 					</a>
-					<div class="flex items-center gap-2">
-						<button type="button" onclick={(e) => { e.stopPropagation(); bump('home', -1); }}
-							disabled={home === 0}
-							aria-label="−"
-							class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">−</button>
-						<button type="button" onclick={(e) => { e.stopPropagation(); bump('home', 1); }}
-							disabled={home === 20}
-							aria-label="+"
-							class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">+</button>
-					</div>
+					{@render stepperButtons('home')}
 				</div>
 
-				<!-- Centre: score + meta + inline odds. Score doubles as a link to detail. -->
-				<a href="/matches/{match.id}" class="text-center shrink-0 min-w-[88px] sm:min-w-[140px] block group/centre">
-					<span class="text-2xl sm:text-3xl font-bold tabular-nums leading-none block
-						{hasProno || home > 0 || away > 0 ? 'text-accent' : 'text-faint'}"
-						style="font-family: var(--font-display)">
-						{home}<span class="text-wire-hi mx-1">–</span>{away}
-					</span>
-					<div class="flex flex-col items-center text-[10px] leading-tight mt-1.5">
-						<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
-						<span class="flex items-center gap-1.5 mt-0.5">
-							<span class="tabular-nums font-semibold
-								{u === 'critical' ? 'text-live' :
-								 u === 'warning'  ? 'text-warn'  :
-								                    'text-accent'}">
-								{timeUntilMatch(match.match_datetime)}
-							</span>
-							{#if match.group_label}
-								<span class="text-wire-hi">·</span>
-								<span class="text-faint">{t('group_short')} {match.group_label}</span>
-							{/if}
-							{#if u === 'critical' && !hasProno}
-								<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
-							{/if}
-						</span>
-						{#if match.odds_home && match.odds_draw && match.odds_away}
-							<span class="flex items-center gap-1.5 mt-1 tabular-nums">
-								<span class="{outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.home_team}>
-									{match.odds_home.toFixed(2)}
-								</span>
-								<span class="text-wire-hi">·</span>
-								<span class="{outcome === 0 ? 'text-accent font-bold' : 'text-faint'}" title={t('match_draw')}>
-									{match.odds_draw.toFixed(2)}
-								</span>
-								<span class="text-wire-hi">·</span>
-								<span class="{outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.away_team}>
-									{match.odds_away.toFixed(2)}
-								</span>
-							</span>
-						{/if}
-					</div>
-				</a>
+				<div class="min-w-[140px]">
+					{@render centreContent()}
+				</div>
 
-				<!-- Away column: name on top (right-aligned), stepper below -->
-				<div class="flex-1 min-w-0 flex flex-col gap-2 sm:gap-2.5 items-end">
+				<div class="flex-1 min-w-0 flex flex-col gap-2.5 items-end">
 					<a href="/matches/{match.id}" class="block min-w-0 max-w-full group/team">
 						<span class="text-sm font-medium text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block text-right">
 							{match.away_team}
 						</span>
 					</a>
-					<div class="flex items-center gap-2">
-						<button type="button" onclick={(e) => { e.stopPropagation(); bump('away', -1); }}
-							disabled={away === 0}
-							aria-label="−"
-							class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">−</button>
-						<button type="button" onclick={(e) => { e.stopPropagation(); bump('away', 1); }}
-							disabled={away === 20}
-							aria-label="+"
-							class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">+</button>
-					</div>
+					{@render stepperButtons('away')}
 				</div>
 
-				<!-- Away flag (full-height anchor) -->
 				<a href="/matches/{match.id}" aria-label={match.away_team} class="shrink-0">
 					<HexFlag code={match.away_flag} size={flagSize} />
 				</a>
 
-				<!-- Explicit detail-page affordance -->
 				<a href="/matches/{match.id}" aria-label={t('match_view_details')} title={t('match_view_details')}
 					class="shrink-0 w-7 h-7 -mr-1 flex items-center justify-center text-faint hover:text-accent hover:bg-raised rounded-md transition-colors">
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -227,7 +247,7 @@
 				</a>
 			</div>
 
-			<!-- Save status line -->
+			<!-- Save status line (shared) -->
 			<div class="mt-1.5 flex items-center justify-center gap-2 h-4 text-[11px]">
 				{#if saveStatus === 'saving'}
 					<span class="text-faint flex items-center gap-1.5">
@@ -252,8 +272,86 @@
 		</form>
 
 	{:else}
-		<!-- Non-pickable row: finished / live / locked / not-logged-in — single horizontal line with full-height flags -->
-		<div class="flex items-center gap-2 sm:gap-3">
+		<!-- ── Mobile non-pickable: flag+name pair + center info below ───────── -->
+		<div class="sm:hidden space-y-3">
+			<div class="grid grid-cols-2 gap-3">
+				<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
+					<HexFlag code={match.home_flag} size={flagSize} />
+					<span class="text-xs font-medium text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
+						{match.home_team}
+					</span>
+				</a>
+				<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
+					<HexFlag code={match.away_flag} size={flagSize} />
+					<span class="text-xs font-medium text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
+						{match.away_team}
+					</span>
+				</a>
+			</div>
+
+			<div class="flex justify-center">
+				{#if match.status === 'finished' && match.home_score != null}
+					<a href="/matches/{match.id}" class="text-center block">
+						<span class="font-bold text-fg tabular-nums hover:text-accent transition-colors text-2xl block"
+							style="font-family: var(--font-display)">
+							{match.home_score} – {match.away_score}
+						</span>
+						{#if existingProno}
+							<span class="block tabular-nums text-xs mt-1
+								{verdict === 'exact' ? 'text-accent font-bold' :
+								 verdict === 'correct' ? 'text-fg/70' : 'text-faint'}">
+								{existingProno.predicted_home}–{existingProno.predicted_away}
+								{#if existingProno.is_scored}
+									· {existingProno.points_earned != null
+										? (existingProno.points_earned > 0 ? '+' : '') + Number(existingProno.points_earned).toFixed(2)
+										: '–'}
+								{/if}
+							</span>
+						{/if}
+					</a>
+				{:else if match.status === 'live'}
+					<a href="/matches/{match.id}" class="text-center block">
+						<span class="font-bold text-live tabular-nums leading-none block text-2xl"
+							style="font-family: var(--font-display)">
+							{match.home_score ?? 0} – {match.away_score ?? 0}
+						</span>
+						<span class="inline-flex items-center gap-1 rounded bg-live px-1.5 py-0.5 text-[10px] font-bold text-fg mt-1.5">
+							<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>
+							{t('match_live')}
+						</span>
+					</a>
+				{:else}
+					<a href="/matches/{match.id}" class="text-center block">
+						{#if hasProno}
+							<span class="font-bold tabular-nums text-fg/80 block text-2xl"
+								style="font-family: var(--font-display)">{home} – {away}</span>
+						{:else}
+							<span class="text-sm text-faint italic">— · —</span>
+						{/if}
+						<div class="flex items-center justify-center gap-1.5 text-[10px] mt-1.5 leading-tight">
+							<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
+							{#if u === 'locked'}
+								<span class="text-wire-hi">·</span>
+								<span class="inline-flex items-center gap-0.5 text-faint">
+									<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+											d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+									</svg>
+									{t('locked_short')}
+								</span>
+							{/if}
+							{#if match.group_label}
+								<span class="text-wire-hi">·</span>
+								<span class="text-faint">{t('group_short')} {match.group_label}</span>
+							{/if}
+						</div>
+					</a>
+				{/if}
+			</div>
+		</div>
+
+		<!-- ── Desktop non-pickable: single horizontal row ───────────────────── -->
+		<div class="hidden sm:flex items-center gap-3">
 			<a href="/matches/{match.id}" aria-label={match.home_team} class="shrink-0">
 				<HexFlag code={match.home_flag} size={flagSize} />
 			</a>
@@ -264,10 +362,10 @@
 				</span>
 			</a>
 
-			<div class="text-center shrink-0 min-w-[88px] sm:min-w-[120px]">
+			<div class="text-center shrink-0 min-w-[120px]">
 				{#if match.status === 'finished' && match.home_score != null}
 					<a href="/matches/{match.id}"
-						class="font-bold text-fg tabular-nums hover:text-accent transition-colors text-xl sm:text-2xl block"
+						class="font-bold text-fg tabular-nums hover:text-accent transition-colors text-2xl block"
 						style="font-family: var(--font-display)">
 						{match.home_score} – {match.away_score}
 					</a>
@@ -283,10 +381,9 @@
 							{/if}
 						</span>
 					{/if}
-
 				{:else if match.status === 'live'}
 					<a href="/matches/{match.id}" class="block">
-						<span class="font-bold text-live tabular-nums leading-none block text-xl sm:text-2xl"
+						<span class="font-bold text-live tabular-nums leading-none block text-2xl"
 							style="font-family: var(--font-display)">
 							{match.home_score ?? 0} – {match.away_score ?? 0}
 						</span>
@@ -295,12 +392,10 @@
 							{t('match_live')}
 						</span>
 					</a>
-
 				{:else}
-					<!-- Locked / not-yet-pickable -->
 					{#if hasProno}
 						<a href="/matches/{match.id}" class="block">
-							<span class="font-bold tabular-nums text-fg/80 block text-xl sm:text-2xl"
+							<span class="font-bold tabular-nums text-fg/80 block text-2xl"
 								style="font-family: var(--font-display)">{home} – {away}</span>
 						</a>
 					{:else}
@@ -338,7 +433,6 @@
 				<HexFlag code={match.away_flag} size={flagSize} />
 			</a>
 
-			<!-- Explicit detail-page affordance -->
 			<a href="/matches/{match.id}" aria-label={t('match_view_details')} title={t('match_view_details')}
 				class="shrink-0 w-7 h-7 -mr-1 flex items-center justify-center text-faint hover:text-accent hover:bg-raised rounded-md transition-colors">
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
