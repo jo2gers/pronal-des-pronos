@@ -4,7 +4,7 @@
 	import { formatDate, isMatchLocked } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
-	import HexFlag from '$lib/components/HexFlag.svelte';
+	import Flag from '$lib/components/Flag.svelte';
 
 	function flagSrc(iso: string | null | undefined) {
 		return iso ? `https://flagcdn.com/w80/${iso.toLowerCase()}.png` : '';
@@ -105,7 +105,7 @@
 		<!-- Teams + score -->
 		<div class="flex items-center justify-center gap-6 sm:gap-10">
 			<div class="text-center flex-1 flex flex-col items-center">
-				<HexFlag code={data.match.home_flag} size={88} alt={data.match.home_team} class="mb-2" />
+				<Flag code={data.match.home_flag} size={88} alt={data.match.home_team} class="mb-2" />
 				<p class="font-bold text-base text-fg leading-tight">{data.match.home_team}</p>
 			</div>
 
@@ -151,7 +151,7 @@
 			</div>
 
 			<div class="text-center flex-1 flex flex-col items-center">
-				<HexFlag code={data.match.away_flag} size={88} alt={data.match.away_team} class="mb-2" />
+				<Flag code={data.match.away_flag} size={88} alt={data.match.away_team} class="mb-2" />
 				<p class="font-bold text-base text-fg leading-tight">{data.match.away_team}</p>
 			</div>
 		</div>
@@ -252,15 +252,15 @@
 					loading = true;
 					return async ({ update }) => { loading = false; await update(); };
 				}}>
-					<div class="flex items-center justify-center gap-8 mb-5">
+					<div class="flex items-center justify-center gap-4 sm:gap-5 mb-5">
 						<div class="text-center">
 							<p class="text-xs text-muted mb-3">{data.match.home_team}</p>
-							<div class="flex items-center gap-3">
+							<div class="flex items-center gap-2 sm:gap-2.5">
 								<button type="button" disabled={locked || home === 0} onclick={() => home--}
-									class="w-9 h-9 rounded-full bg-raised hover:bg-wire-hi disabled:opacity-20 text-fg text-lg font-bold transition-colors cursor-pointer">−</button>
-								<span class="text-4xl font-bold text-fg w-12 text-center tabular-nums" style="font-family: var(--font-display)">{home}</span>
+									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">−</button>
+								<span class="text-4xl font-bold text-fg w-10 sm:w-12 text-center tabular-nums" style="font-family: var(--font-display)">{home}</span>
 								<button type="button" disabled={locked || home >= 20} onclick={() => home++}
-									class="w-9 h-9 rounded-full bg-raised hover:bg-wire-hi disabled:opacity-20 text-fg text-lg font-bold transition-colors cursor-pointer">+</button>
+									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">+</button>
 							</div>
 							<input type="hidden" name="predicted_home" value={home} />
 						</div>
@@ -269,12 +269,12 @@
 
 						<div class="text-center">
 							<p class="text-xs text-muted mb-3">{data.match.away_team}</p>
-							<div class="flex items-center gap-3">
+							<div class="flex items-center gap-2 sm:gap-2.5">
 								<button type="button" disabled={locked || away === 0} onclick={() => away--}
-									class="w-9 h-9 rounded-full bg-raised hover:bg-wire-hi disabled:opacity-20 text-fg text-lg font-bold transition-colors cursor-pointer">−</button>
-								<span class="text-4xl font-bold text-fg w-12 text-center tabular-nums" style="font-family: var(--font-display)">{away}</span>
+									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">−</button>
+								<span class="text-4xl font-bold text-fg w-10 sm:w-12 text-center tabular-nums" style="font-family: var(--font-display)">{away}</span>
 								<button type="button" disabled={locked || away >= 20} onclick={() => away++}
-									class="w-9 h-9 rounded-full bg-raised hover:bg-wire-hi disabled:opacity-20 text-fg text-lg font-bold transition-colors cursor-pointer">+</button>
+									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">+</button>
 							</div>
 							<input type="hidden" name="predicted_away" value={away} />
 						</div>

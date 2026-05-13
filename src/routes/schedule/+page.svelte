@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t, getLang } from '$lib/i18n.svelte';
 	import { formatDate } from '$lib/utils';
-	import HexFlag from '$lib/components/HexFlag.svelte';
+	import Flag from '$lib/components/Flag.svelte';
 
 	let { data } = $props();
 	let expanded = $state<string | null>(null);
@@ -144,7 +144,7 @@
 								</td>
 								<td class="px-2 py-2">
 									<div class="flex items-center gap-1.5 min-w-0">
-										<HexFlag code={row.flag} size={20} />
+										<Flag code={row.flag} size={20} />
 										<span class="text-xs truncate {posColor(row.pos, g.played, g.total)}">{row.team}</span>
 									</div>
 								</td>
@@ -168,7 +168,7 @@
 							<a href="/matches/{m.id}"
 								class="flex items-center gap-2 px-4 py-2.5 hover:bg-raised/50 transition-colors text-xs">
 								<div class="flex-1 min-w-0 flex items-center gap-1.5">
-									<HexFlag code={m.home_flag} size={20} />
+									<Flag code={m.home_flag} size={20} />
 									<span class="truncate text-fg">{m.home_team}</span>
 								</div>
 
@@ -188,7 +188,7 @@
 
 								<div class="flex-1 min-w-0 flex items-center justify-end gap-1.5">
 									<span class="truncate text-fg text-right">{m.away_team}</span>
-									<HexFlag code={m.away_flag} size={20} />
+									<Flag code={m.away_flag} size={20} />
 								</div>
 							</a>
 						{/each}

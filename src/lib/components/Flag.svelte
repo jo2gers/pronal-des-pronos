@@ -6,7 +6,7 @@
 	// `size` is the slot HEIGHT in px. Width = size × 1.5.
 	//
 	// Usage:
-	//   <HexFlag code="FR" size={48} alt="France" />
+	//   <Flag code="FR" size={48} alt="France" />
 
 	type Props = {
 		code: string | null | undefined;
@@ -23,15 +23,18 @@
 	// consistent from a 16px schedule chip up to an 88px detail-page hero.
 	const radius = $derived(Math.max(2, Math.round(size * 0.12)));
 
+	// Ring is too loud at schedule-chip density (size <= 28); skip it there.
+	const ringClass = $derived(size >= 32 ? 'ring-1 ring-fg/15' : '');
+
 	// flagcdn ships sizes w20, w40, w80, w160 — pick the next-larger for crisp DPR
 	const cdnWidth = $derived(width <= 40 ? 80 : width <= 80 ? 160 : 320);
 	const src = $derived(code ? `https://flagcdn.com/w${cdnWidth}/${code.toLowerCase()}.png` : '');
 </script>
 
 {#if src}
-	<img {src} {alt} class="object-cover shrink-0 ring-1 ring-fg/15 {extra}"
+	<img {src} {alt} class="object-cover shrink-0 {ringClass} {extra}"
 		style="width: {width}px; height: {size}px; border-radius: {radius}px;" />
 {:else}
-	<span class="shrink-0 bg-raised ring-1 ring-fg/15 {extra}"
+	<span class="shrink-0 bg-raised {ringClass} {extra}"
 		style="width: {width}px; height: {size}px; border-radius: {radius}px;"></span>
 {/if}
