@@ -116,7 +116,7 @@
 {/snippet}
 
 {#snippet metaLine()}
-	<div class="flex flex-col items-center text-[10px] leading-tight">
+	<a href="/matches/{match.id}" class="flex flex-col items-center text-[10px] leading-tight hover:opacity-80 transition-opacity">
 		<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
 		<span class="flex items-center gap-1.5 mt-0.5">
 			<span class="tabular-nums font-semibold
@@ -133,7 +133,7 @@
 				<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
 			{/if}
 		</span>
-	</div>
+	</a>
 {/snippet}
 
 {#snippet oddsLine()}

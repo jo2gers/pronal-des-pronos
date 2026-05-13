@@ -116,6 +116,7 @@ const FR = {
   // Profile view
   profile_edit: 'Modifier le profil',
   profile_back: '← Mon profil',
+  back: 'Retour',
   profile_updated: 'Profil mis à jour !',
   profile_picks_played: 'Pronos joués',
   profile_exact: 'Exacts',
@@ -421,6 +422,7 @@ const EN: typeof FR = {
   // Profile view
   profile_edit: 'Edit profile',
   profile_back: '← My profile',
+  back: 'Back',
   profile_updated: 'Profile updated!',
   profile_picks_played: 'Picks played',
   profile_exact: 'Exact scores',

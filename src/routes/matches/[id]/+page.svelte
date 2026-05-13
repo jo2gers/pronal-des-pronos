@@ -90,6 +90,15 @@
 
 <div class="max-w-2xl mx-auto space-y-5">
 
+	<!-- Back to where the user came from (homepage, /matches, etc.) -->
+	<button type="button" onclick={() => history.back()}
+		class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg transition-colors cursor-pointer -mb-1 group/back">
+		<svg class="w-4 h-4 group-hover/back:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+			<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+		</svg>
+		<span>{t('back')}</span>
+	</button>
+
 	<!-- Match header -->
 	<div class="rounded-xl bg-panel border border-wire p-6">
 		<div class="flex items-center justify-between mb-5 text-xs text-faint">
