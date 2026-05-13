@@ -7,12 +7,15 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) 
 	if (user) redirect(303, next);
 
 	const errorCode = url.searchParams.get('error');
+	const detail = url.searchParams.get('detail');
 	const errorMap: Record<string, string> = {
 		oauth_no_code: 'Connexion Google annulée ou code manquant.',
-		oauth_exchange: 'Échec de la connexion Google. Vérifie que le fournisseur est activé dans Supabase.',
+		oauth_exchange: 'Échec de l\'échange du code OAuth.',
+		oauth_no_user: 'L\'échange Google a réussi mais aucune session n\'a été créée — souvent un souci de cookies tiers.',
 		oauth: 'Connexion Google indisponible. Réessaie ou utilise email + mot de passe.'
 	};
-	const oauthError = errorCode ? (errorMap[errorCode] ?? `Erreur OAuth: ${errorCode}`) : null;
+	const baseMsg = errorCode ? (errorMap[errorCode] ?? `Erreur OAuth: ${errorCode}`) : null;
+	const oauthError = baseMsg ? (detail ? `${baseMsg} (${detail})` : baseMsg) : null;
 
 	return { next, oauthError };
 };
