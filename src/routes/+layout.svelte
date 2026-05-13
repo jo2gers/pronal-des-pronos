@@ -114,9 +114,10 @@
 		<div class="mx-auto flex h-14 max-w-6xl items-center px-4 gap-4">
 			<!-- Wordmark — uses the PWA icon so the brand mark is identical
 			     in nav, browser tab, and home-screen install -->
-			<a href="/" onclick={closeMenu} class="shrink-0" aria-label="Tifo">
+			<a href="/" onclick={closeMenu} class="shrink-0 h-14 w-14 overflow-hidden flex items-center justify-center" aria-label="Tifo">
 				<img src="/icon-maskable-512.png?v=3" alt="Tifo"
-					class="h-11 w-11 rounded-lg" />
+					class="h-full w-full object-cover scale-150"
+					style="mix-blend-mode: screen;" />
 			</a>
 
 			<!-- Desktop nav -->
