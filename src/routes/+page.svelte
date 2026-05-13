@@ -1,14 +1,12 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { formatDate, timeUntilMatch } from '$lib/utils';
+	import { formatDate } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import HexFlag from '$lib/components/HexFlag.svelte';
+	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
 
-	let { data, form } = $props();
-
-	type Match = NonNullable<typeof data.upcomingMatches>[number];
+	let { data } = $props();
 
 	let liveMatches = $derived(data.liveMatches ?? []);
 	let nextMatch   = $derived(data.nextMatch ?? null);
@@ -18,35 +16,6 @@
 		if (!liveMatches.length) return;
 		const interval = setInterval(() => invalidateAll(), 30_000);
 		return () => clearInterval(interval);
-	});
-
-	// ── Accordion state (mirrors matches page) ───────────────────────────────────
-	let openId      = $state<string | null>(null);
-	let submittingId = $state<string | null>(null);
-	let savedIds    = $state<Set<string>>(new Set());
-
-	const scores = $state<Record<string, { home: number; away: number }>>(
-		Object.fromEntries(
-			(data.upcomingMatches ?? []).map((m) => [
-				m.id,
-				{
-					home: data.pronosticsMap[m.id]?.predicted_home ?? 0,
-					away: data.pronosticsMap[m.id]?.predicted_away ?? 0
-				}
-			])
-		)
-	);
-
-	$effect(() => {
-		if (form?.success && form?.match_id) {
-			const id = form.match_id as string;
-			savedIds.add(id);
-			if (form.predicted_home != null && form.predicted_away != null) {
-				scores[id] = { home: form.predicted_home as number, away: form.predicted_away as number };
-			}
-			if (openId === id) openId = null;
-			setTimeout(() => { savedIds.delete(id); }, 3000);
-		}
 	});
 
 	// ── Countdown ────────────────────────────────────────────────────────────────
@@ -68,125 +37,139 @@
 		return () => clearInterval(interval);
 	});
 
-	// ── Urgency + pickability ────────────────────────────────────────────────────
-	function urgency(match: Match) {
-		if (match.status !== 'upcoming') return 'none';
-		const ms = new Date(match.match_datetime).getTime() - Date.now();
-		if (ms <= 0) return 'none';
-		if (ms < 5 * 60000)    return 'locked';
-		if (ms < 6 * 3600000)  return 'critical';
-		if (ms < 24 * 3600000) return 'warning';
-		return 'normal';
-	}
-	function isPickable(match: Match) {
-		return data.user && match.status === 'upcoming' && urgency(match) !== 'locked';
-	}
-	function toggle(match: Match) {
-		if (!isPickable(match)) return;
-		openId = openId === match.id ? null : match.id;
-	}
-
-	// Keyboard shortcuts for the open accordion picker
-	function onPickerKey(e: KeyboardEvent) {
-		if (!openId) return;
-		const sc = scores[openId];
-		if (!sc) return;
-		if (e.key === 'Escape')      { openId = null; e.preventDefault(); return; }
-		if (e.key === 'ArrowUp')     { if (sc.home < 20) sc.home++; e.preventDefault(); return; }
-		if (e.key === 'ArrowDown')   { if (sc.home > 0)  sc.home--; e.preventDefault(); return; }
-		if (e.key === 'ArrowRight')  { if (sc.away < 20) sc.away++; e.preventDefault(); return; }
-		if (e.key === 'ArrowLeft')   { if (sc.away > 0)  sc.away--; e.preventDefault(); return; }
+	// Circular dial geometry
+	const DIAL_RADIUS = 28;
+	const DIAL_CIRC = 2 * Math.PI * DIAL_RADIUS;
+	function dialOffset(value: number, max: number): number {
+		const pct = Math.max(0, Math.min(1, value / max));
+		return DIAL_CIRC * (1 - pct);
 	}
 </script>
 
-<svelte:window onkeydown={onPickerKey} />
-
 <div class="space-y-8">
 
-	<!-- Hero -->
-	<div class="rounded-xl bg-panel border border-wire px-6 py-8 sm:px-10">
+	<!-- ── Hero: circular countdown dials over a tinted canvas ───────────────── -->
+	<section class="relative overflow-hidden rounded-2xl border border-wire bg-panel">
+		<!-- Single subtle accent glow in top-right corner (purposeful, not decorative noise) -->
+		<div class="pointer-events-none absolute -top-32 -right-24 w-96 h-96 rounded-full opacity-[0.07]"
+			style="background: radial-gradient(closest-side, var(--color-accent), transparent 70%)" aria-hidden="true"></div>
 
-		{#if liveMatches.length > 0}
-			<div class="flex items-center justify-center gap-2 mb-5">
-				<span class="animate-pulse inline-block w-2 h-2 rounded-full bg-live"></span>
-				<span class="text-live text-xs font-bold uppercase tracking-widest">{t('live_label')}</span>
-			</div>
-			<div class="grid gap-3 {liveMatches.length > 1 ? 'sm:grid-cols-2' : 'max-w-sm mx-auto'}">
-				{#each liveMatches as match}
-					<a href="/matches/{match.id}"
-						class="rounded-lg bg-canvas border border-live/30 hover:border-live transition-colors px-4 py-5 text-center block">
-						<p class="text-xs text-muted mb-3">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
-						<div class="flex items-center justify-between gap-3">
-							<div class="flex-1 text-center flex flex-col items-center">
-								<HexFlag code={match.home_flag} size={36} alt={match.home_team} class="mb-1" />
-								<p class="text-sm font-semibold text-fg leading-tight">{match.home_team}</p>
-							</div>
-							<div class="text-center shrink-0 px-3">
-								<p class="text-4xl font-bold text-accent tabular-nums leading-none"
-									style="font-family: var(--font-display)">
-									{match.home_score ?? 0}<span class="text-muted text-2xl mx-1">–</span>{match.away_score ?? 0}
-								</p>
-								<span class="inline-block mt-2 rounded bg-live px-2 py-0.5 text-xs font-bold text-fg tracking-wider">LIVE</span>
-							</div>
-							<div class="flex-1 text-center flex flex-col items-center">
-								<HexFlag code={match.away_flag} size={36} alt={match.away_team} class="mb-1" />
-								<p class="text-sm font-semibold text-fg leading-tight">{match.away_team}</p>
-							</div>
-						</div>
-					</a>
-				{/each}
-			</div>
+		<div class="relative px-6 py-8 sm:px-10 sm:py-10">
 
-		{:else if nextMatch}
-			<p class="text-muted text-xs font-bold uppercase tracking-widest mb-4 text-center">{t('next_match')}</p>
-			{#if countdown}
-				<div class="flex justify-center gap-2 sm:gap-8 mb-5">
-					{#each [
-						{ v: countdown.days,  label: t('days') },
-						{ v: countdown.hours, label: t('hours') },
-						{ v: countdown.mins,  label: t('mins') },
-						{ v: countdown.secs,  label: t('secs') }
-					] as unit}
-						<div class="flex flex-col items-center min-w-[52px] sm:min-w-[72px]">
-							<span class="text-4xl sm:text-6xl font-bold text-accent tabular-nums leading-none"
-								style="font-family: var(--font-display)">
-								{String(unit.v).padStart(2, '0')}
-							</span>
-							<span class="text-xs text-faint mt-2 uppercase tracking-widest">{unit.label}</span>
-						</div>
+			{#if liveMatches.length > 0}
+				<!-- ── LIVE state ── -->
+				<div class="flex items-center justify-center gap-2 mb-6">
+					<span class="animate-pulse inline-block w-2 h-2 rounded-full bg-live"></span>
+					<span class="text-live text-xs font-bold uppercase tracking-widest">{t('live_label')}</span>
+				</div>
+				<div class="grid gap-3 {liveMatches.length > 1 ? 'sm:grid-cols-2' : 'max-w-sm mx-auto'}">
+					{#each liveMatches as match}
+						<a href="/matches/{match.id}"
+							class="rounded-xl bg-canvas border border-live/30 hover:border-live transition-colors px-4 py-5 text-center block">
+							<p class="text-[11px] text-muted mb-3 uppercase tracking-widest">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
+							<div class="flex items-center justify-between gap-3">
+								<div class="flex-1 flex flex-col items-center">
+									<HexFlag code={match.home_flag} size={48} alt={match.home_team} class="mb-1.5" />
+									<p class="text-sm font-semibold text-fg leading-tight">{match.home_team}</p>
+								</div>
+								<div class="text-center shrink-0 px-3">
+									<p class="text-4xl font-bold text-accent tabular-nums leading-none"
+										style="font-family: var(--font-display)">
+										{match.home_score ?? 0}<span class="text-muted text-2xl mx-1">–</span>{match.away_score ?? 0}
+									</p>
+									<span class="inline-block mt-2 rounded bg-live px-2 py-0.5 text-[10px] font-bold text-fg tracking-wider">LIVE</span>
+								</div>
+								<div class="flex-1 flex flex-col items-center">
+									<HexFlag code={match.away_flag} size={48} alt={match.away_team} class="mb-1.5" />
+									<p class="text-sm font-semibold text-fg leading-tight">{match.away_team}</p>
+								</div>
+							</div>
+						</a>
 					{/each}
 				</div>
+
+			{:else if nextMatch}
+				<!-- ── COUNTDOWN state ── -->
+				<p class="text-faint text-[10px] font-bold uppercase tracking-[0.25em] mb-6 text-center">{t('next_match')}</p>
+
+				{#if countdown}
+					<!-- Four circular dials -->
+					<div class="flex justify-center gap-3 sm:gap-6 mb-6">
+						{#each [
+							{ v: countdown.days,  max: 30, label: t('days') },
+							{ v: countdown.hours, max: 24, label: t('hours') },
+							{ v: countdown.mins,  max: 60, label: t('mins') },
+							{ v: countdown.secs,  max: 60, label: t('secs') }
+						] as unit, i}
+							<div class="relative flex flex-col items-center">
+								<div class="relative w-[68px] h-[68px] sm:w-[88px] sm:h-[88px]">
+									<svg viewBox="0 0 64 64" class="w-full h-full -rotate-90" aria-hidden="true">
+										<!-- track -->
+										<circle cx="32" cy="32" r={DIAL_RADIUS}
+											fill="none" stroke="var(--color-wire)" stroke-width="3" />
+										<!-- progress (filling clockwise) -->
+										<circle cx="32" cy="32" r={DIAL_RADIUS}
+											fill="none" stroke="var(--color-accent)" stroke-width="3"
+											stroke-linecap="round"
+											stroke-dasharray={DIAL_CIRC}
+											stroke-dashoffset={dialOffset(unit.v, unit.max)}
+											style="transition: stroke-dashoffset {i === 3 ? '0.3s' : '0.8s'} cubic-bezier(0.16, 1, 0.3, 1)" />
+									</svg>
+									<div class="absolute inset-0 flex items-center justify-center">
+										<span class="text-2xl sm:text-4xl font-bold text-fg tabular-nums leading-none"
+											style="font-family: var(--font-display)">
+											{String(unit.v).padStart(2, '0')}
+										</span>
+									</div>
+								</div>
+								<span class="text-[10px] text-faint mt-2 uppercase tracking-widest">{unit.label}</span>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-3xl font-bold text-accent text-center mb-5" style="font-family: var(--font-display)">
+						{t('kickoff')}
+					</p>
+				{/if}
+
+				<!-- Teams + venue (single line, no decorative card) -->
+				<div class="flex items-center justify-center gap-3 sm:gap-4">
+					<div class="flex items-center gap-2 min-w-0">
+						<HexFlag code={nextMatch.home_flag} size={36} />
+						<span class="font-semibold text-fg truncate" style="font-family: var(--font-display); letter-spacing: 0.01em">
+							{nextMatch.home_team}
+						</span>
+					</div>
+					<span class="text-faint text-xs uppercase tracking-widest">vs</span>
+					<div class="flex items-center gap-2 min-w-0">
+						<span class="font-semibold text-fg truncate" style="font-family: var(--font-display); letter-spacing: 0.01em">
+							{nextMatch.away_team}
+						</span>
+						<HexFlag code={nextMatch.away_flag} size={36} />
+					</div>
+				</div>
+				<p class="text-[11px] text-faint mt-2 text-center">
+					{formatDate(nextMatch.match_datetime)}{nextMatch.venue ? ` · ${nextMatch.venue}` : ''}
+				</p>
+
 			{:else}
-				<p class="text-3xl font-bold text-accent text-center mb-5" style="font-family: var(--font-display)">
-					{t('kickoff')}
-				</p>
+				<p class="text-center text-muted py-4">{t('wc_over')}</p>
 			{/if}
-			<div class="text-center">
-				<p class="text-muted text-sm">
-					<span class="font-medium text-fg">{nextMatch.home_team}</span>
-					<span class="text-faint mx-2">vs</span>
-					<span class="font-medium text-fg">{nextMatch.away_team}</span>
-				</p>
-				<p class="text-xs text-faint mt-1">{formatDate(nextMatch.match_datetime)}{nextMatch.venue ? ` · ${nextMatch.venue}` : ''}</p>
-			</div>
 
-		{:else}
-			<p class="text-center text-muted py-4">{t('wc_over')}</p>
-		{/if}
+			{#if !data.user}
+				<div class="mt-7 flex gap-3 justify-center flex-wrap">
+					<a href="/auth/register" class="bg-accent hover:bg-accent-hi text-canvas font-bold px-6 py-2.5 rounded-lg transition-colors text-sm">
+						{t('start_free')}
+					</a>
+					<a href="/auth/login" class="border border-wire text-muted hover:text-fg hover:border-wire-hi px-6 py-2.5 rounded-lg transition-colors text-sm">
+						{t('login_cta')}
+					</a>
+				</div>
+			{/if}
+		</div>
+	</section>
 
-		{#if !data.user}
-			<div class="mt-6 flex gap-3 justify-center flex-wrap">
-				<a href="/auth/register" class="bg-accent hover:bg-accent-hi text-canvas font-bold px-6 py-2.5 rounded-lg transition-colors text-sm">
-					{t('start_free')}
-				</a>
-				<a href="/auth/login" class="border border-wire text-muted hover:text-fg hover:border-wire-hi px-6 py-2.5 rounded-lg transition-colors text-sm">
-					{t('login_cta')}
-				</a>
-			</div>
-		{/if}
-	</div>
-
-	<!-- User stats -->
+	<!-- ── User stats (single hairline strip, kept) ───────────────────────────── -->
 	{#if data.user && data.stats}
 		<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 px-1">
 			<div class="flex items-baseline gap-1.5">
@@ -220,67 +203,25 @@
 		</div>
 	{/if}
 
-	<!-- Finished matches — flat hairline list, full-bleed on mobile -->
+	<!-- ── Finished matches (hairline list) ───────────────────────────────────── -->
 	{#if data.user && data.finishedMatches?.length}
 		<section class="border-t border-wire pt-5">
 			<h2 class="text-base font-semibold text-fg mb-3 px-1">{t('last_matches')}</h2>
-
-			{#if data.finishedMatches.length}
-				<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40">
-					{#each data.finishedMatches as match}
-						{@const prono = data.pronosticsMap[match.id]}
-						{@const label = prono?.is_scored
-							? (prono.predicted_home === match.home_score && prono.predicted_away === match.away_score
-								? 'exact'
-								: Math.sign(prono.predicted_home - prono.predicted_away) === Math.sign(match.home_score - match.away_score)
-									? 'correct'
-									: 'wrong')
-							: null}
-
-						<a href="/matches/{match.id}"
-							class="px-4 py-3 flex items-center gap-2 hover:bg-raised/60 transition-colors group">
-							<!-- Home -->
-							<div class="flex-1 min-w-0 flex items-center gap-2">
-								<HexFlag code={match.home_flag} size={32} />
-								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate">{match.home_team}</span>
-							</div>
-
-							<!-- Centre -->
-							<div class="text-center shrink-0 min-w-[96px]">
-								<span class="font-bold text-fg group-hover:text-accent transition-colors tabular-nums"
-									style="font-family: var(--font-display)">
-									{match.home_score} – {match.away_score}
-								</span>
-								{#if prono}
-									<span class="block tabular-nums text-xs mt-0.5
-										{label === 'exact' ? 'text-accent font-bold' : label === 'correct' ? 'text-fg/70' : 'text-faint'}">
-										{prono.predicted_home}–{prono.predicted_away}
-										{#if prono.is_scored}
-											· {prono.points_earned != null ? (prono.points_earned > 0 ? '+' : '') + Number(prono.points_earned).toFixed(2) : '–'}
-										{/if}
-									</span>
-								{/if}
-							</div>
-
-							<!-- Away -->
-							<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
-								<span class="text-sm font-medium text-fg group-hover:text-accent transition-colors truncate text-right">{match.away_team}</span>
-								<HexFlag code={match.away_flag} size={32} />
-							</div>
-						</a>
-					{/each}
-				</div>
-			{/if}
+			<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40">
+				{#each data.finishedMatches as match}
+					<MatchPickRow {match}
+						existingProno={data.pronosticsMap[match.id] ?? null}
+						loggedIn={!!data.user} />
+				{/each}
+			</div>
 		</section>
 	{/if}
 
-	<!-- Upcoming matches — accordion, same pattern as matches page -->
-	<div>
-		<div class="flex items-baseline justify-between mb-4">
+	<!-- ── Upcoming matches — inline-pick rows ────────────────────────────────── -->
+	<section>
+		<div class="flex items-baseline justify-between mb-4 px-1">
 			<h2 class="text-base font-semibold text-fg" style="font-family: var(--font-display)">{t('upcoming_matches')}</h2>
-			{#if data.user}
-				<span class="text-xs text-faint">{t('click_to_pick')}</span>
-			{:else}
+			{#if !data.user}
 				<a href="/auth/login" class="text-xs text-accent hover:text-accent-hi transition-colors">{t('login_to_pick')}</a>
 			{/if}
 		</div>
@@ -290,213 +231,19 @@
 		{/if}
 
 		{#if data.upcomingMatches?.length}
-			<div class="rounded-xl bg-panel border border-wire overflow-hidden">
+			<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40">
 				{#each data.upcomingMatches as match}
-					{@const u        = urgency(match)}
-					{@const pickable = isPickable(match)}
-					{@const isOpen   = openId === match.id}
-					{@const saved    = savedIds.has(match.id)}
-					{@const hasProno = !!data.pronosticsMap[match.id] || saved}
-					{@const sc       = scores[match.id] ?? { home: 0, away: 0 }}
-					{@const linkRow  = !pickable && match.status !== 'finished' && match.status !== 'live'}
-
-					<div class="border-b border-wire last:border-0">
-						<!-- Row -->
-						<div
-							role={pickable || linkRow ? 'button' : undefined}
-							tabindex={pickable || linkRow ? 0 : undefined}
-							onclick={() => {
-								if (pickable) toggle(match);
-								else if (linkRow) window.location.href = `/matches/${match.id}`;
-							}}
-							onkeydown={(e) => {
-								if (e.key !== 'Enter' && e.key !== ' ') return;
-								if (pickable) toggle(match);
-								else if (linkRow) window.location.href = `/matches/${match.id}`;
-							}}
-							class="px-4 py-3 transition-colors {pickable || linkRow ? 'cursor-pointer hover:bg-raised' : ''} {isOpen ? 'bg-raised' : ''}">
-
-							<div class="flex items-center gap-2">
-								<!-- Home -->
-								<div class="flex-1 min-w-0 flex items-center gap-2">
-									<HexFlag code={match.home_flag} size={32} />
-									<span class="text-sm font-medium text-fg truncate">{match.home_team}</span>
-								</div>
-
-								<!-- Centre -->
-								<div class="text-center shrink-0 min-w-[96px]">
-									{#if match.status === 'finished' && match.home_score != null}
-										<a href="/matches/{match.id}" onclick={(e) => e.stopPropagation()}
-											class="font-bold text-fg tabular-nums hover:text-accent transition-colors"
-											style="font-family: var(--font-display)">
-											{match.home_score} – {match.away_score}
-										</a>
-									{:else if match.status === 'live'}
-										<a href="/matches/{match.id}" onclick={(e) => e.stopPropagation()} class="block">
-											<span class="font-bold text-live tabular-nums leading-none block"
-												style="font-family: var(--font-display)">
-												{match.home_score ?? 0} – {match.away_score ?? 0}
-											</span>
-											<span class="inline-flex items-center gap-1 rounded bg-live px-1.5 py-0.5 text-[10px] font-bold text-fg mt-1">
-												<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>
-												LIVE
-											</span>
-										</a>
-									{:else}
-										{#if hasProno}
-											<span class="font-bold tabular-nums text-accent block"
-												style="font-family: var(--font-display)">{sc.home} – {sc.away}</span>
-											<span class="text-[11px] text-faint block mt-0.5">{formatDate(match.match_datetime)}</span>
-										{:else}
-											<span class="text-xs text-muted block">{formatDate(match.match_datetime)}</span>
-											<span class="text-xs block mt-0.5 {
-												u === 'critical' ? 'text-live font-semibold' :
-												u === 'warning'  ? 'text-warn' :
-												u === 'locked'   ? 'text-faint' : 'text-accent'
-											}">{timeUntilMatch(match.match_datetime)}</span>
-										{/if}
-									{/if}
-									{#if match.group_label}
-										<span class="text-[10px] text-faint/60 mt-0.5 block">Gr. {match.group_label}</span>
-									{/if}
-								</div>
-
-								<!-- Away -->
-								<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
-									<span class="text-sm font-medium text-fg truncate text-right">{match.away_team}</span>
-									<HexFlag code={match.away_flag} size={32} />
-								</div>
-
-								<!-- Trailing -->
-								<div class="flex items-center gap-1.5 ml-1 shrink-0 justify-end">
-									{#if u === 'locked' && match.status === 'upcoming'}
-										<span class="inline-flex items-center gap-1 rounded bg-raised border border-wire/60 px-1.5 py-0.5 text-[10px] text-faint" title={t('match_picks_closed')}>
-											<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-											</svg>
-											<span>{t('locked_short')}</span>
-										</span>
-									{:else if saved}
-										<span class="w-1.5 h-1.5 rounded-full shrink-0"
-											style="background: var(--color-success)"></span>
-									{:else if u === 'critical'}
-										<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
-									{:else if pickable}
-										<svg class="w-3.5 h-3.5 text-faint transition-transform duration-200 {isOpen ? 'rotate-180' : ''}"
-											fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-										</svg>
-									{/if}
-								</div>
-							</div>
-						</div>
-
-						<!-- Accordion picker -->
-						{#if isOpen}
-							<div class="px-4 pb-4 pt-1 bg-raised border-t border-wire/60">
-								{#if form?.error && form?.match_id === match.id}
-									<p class="text-xs text-err mb-3">{form.error}</p>
-								{/if}
-								<form method="POST" action="?/pronostic" use:enhance={({ formData }) => {
-									formData.set('match_id', match.id);
-									formData.set('predicted_home', String(sc.home));
-									formData.set('predicted_away', String(sc.away));
-									submittingId = match.id;
-									return async ({ update }) => {
-										submittingId = null;
-										await update({ reset: false });
-									};
-								}}>
-									<input type="hidden" name="match_id"       value={match.id} />
-									<input type="hidden" name="predicted_home" value={sc.home} />
-									<input type="hidden" name="predicted_away" value={sc.away} />
-
-									<div class="flex items-center justify-center gap-6 py-3">
-										<!-- Home stepper -->
-										<div class="flex flex-col items-center gap-2">
-											<span class="text-xs text-muted">{match.home_team}</span>
-											<div class="flex items-center gap-3">
-												<button type="button" onclick={() => { if (sc.home > 0) sc.home--; }}
-													disabled={sc.home === 0}
-													class="w-9 h-9 rounded-full bg-panel hover:bg-wire-hi disabled:opacity-20 text-fg text-lg font-bold transition-colors cursor-pointer border border-wire">−</button>
-												<span class="text-4xl font-bold text-fg w-10 text-center tabular-nums"
-													style="font-family: var(--font-display)">{sc.home}</span>
-												<button type="button" onclick={() => { if (sc.home < 20) sc.home++; }}
-													class="w-9 h-9 rounded-full bg-panel hover:bg-wire-hi text-fg text-lg font-bold transition-colors cursor-pointer border border-wire">+</button>
-											</div>
-										</div>
-										<span class="text-xl text-faint font-bold mt-4" style="font-family: var(--font-display)">–</span>
-										<!-- Away stepper -->
-										<div class="flex flex-col items-center gap-2">
-											<span class="text-xs text-muted">{match.away_team}</span>
-											<div class="flex items-center gap-3">
-												<button type="button" onclick={() => { if (sc.away > 0) sc.away--; }}
-													disabled={sc.away === 0}
-													class="w-9 h-9 rounded-full bg-panel hover:bg-wire-hi disabled:opacity-20 text-fg text-lg font-bold transition-colors cursor-pointer border border-wire">−</button>
-												<span class="text-4xl font-bold text-fg w-10 text-center tabular-nums"
-													style="font-family: var(--font-display)">{sc.away}</span>
-												<button type="button" onclick={() => { if (sc.away < 20) sc.away++; }}
-													class="w-9 h-9 rounded-full bg-panel hover:bg-wire-hi text-fg text-lg font-bold transition-colors cursor-pointer border border-wire">+</button>
-											</div>
-										</div>
-									</div>
-
-									<!-- Odds — home & away as primary (matches stepper sides), draw demoted between -->
-									{#if match.odds_home || match.odds_draw || match.odds_away}
-										<div class="mb-4 pt-3 mt-1 border-t border-wire/60">
-											<div class="flex items-end justify-between gap-3">
-												<!-- Home odds — left, mirrors home stepper -->
-												<div class="min-w-0 flex-1">
-													<p class="text-[11px] text-faint truncate">{match.home_team}</p>
-													<p class="text-lg font-bold text-accent tabular-nums leading-none mt-0.5"
-														style="font-family: var(--font-display)">
-														{match.odds_home?.toFixed(2) ?? '–'}
-													</p>
-												</div>
-												<!-- Draw — demoted, smaller, muted -->
-												<div class="text-center shrink-0">
-													<p class="text-[11px] text-faint">{t('match_draw')}</p>
-													<p class="text-sm font-semibold text-muted tabular-nums leading-none mt-1"
-														style="font-family: var(--font-display)">
-														{match.odds_draw?.toFixed(2) ?? '–'}
-													</p>
-												</div>
-												<!-- Away odds — right, mirrors away stepper -->
-												<div class="min-w-0 flex-1 text-right">
-													<p class="text-[11px] text-faint truncate">{match.away_team}</p>
-													<p class="text-lg font-bold text-accent tabular-nums leading-none mt-0.5"
-														style="font-family: var(--font-display)">
-														{match.odds_away?.toFixed(2) ?? '–'}
-													</p>
-												</div>
-											</div>
-											<p class="mt-2 text-[11px] text-faint">{t('odds_hint')}</p>
-										</div>
-									{/if}
-
-									<p class="hidden sm:block text-[11px] text-faint mb-2 tabular-nums">{t('picker_kbd_hint')}</p>
-									<div class="flex gap-2 mt-1">
-										<button type="button" onclick={() => openId = null}
-											class="flex-none rounded-lg border border-wire px-4 py-2 text-sm text-muted hover:text-fg hover:border-wire-hi transition-colors cursor-pointer">
-											{t('cancel')}
-										</button>
-										<button type="submit" disabled={submittingId === match.id}
-											class="flex-1 rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-4 py-2 text-sm font-bold text-canvas transition-colors cursor-pointer">
-											{submittingId === match.id ? t('saving') : hasProno ? t('update') : t('save')}
-										</button>
-									</div>
-								</form>
-							</div>
-						{/if}
-					</div>
+					<MatchPickRow {match}
+						existingProno={data.pronosticsMap[match.id] ?? null}
+						loggedIn={!!data.user} />
 				{/each}
 			</div>
-			<a href="/matches" class="mt-3 block text-right text-sm text-accent hover:text-accent-hi">
+			<a href="/matches" class="mt-3 block text-right text-sm text-accent hover:text-accent-hi px-1">
 				{t('view_all')}
 			</a>
 		{:else}
-			<p class="text-muted text-sm">{t('no_upcoming')}</p>
+			<p class="text-muted text-sm px-1">{t('no_upcoming')}</p>
 		{/if}
-	</div>
+	</section>
 
 </div>

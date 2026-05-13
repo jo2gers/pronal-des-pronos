@@ -11,12 +11,6 @@
 		return team ? `https://flagcdn.com/w${size}/${team.flag.toLowerCase()}.png` : '';
 	}
 
-	const rankColors: Record<number, { bg: string; text: string }> = {
-		1: { bg: 'bg-accent',   text: 'text-canvas' },
-		2: { bg: 'bg-wire-hi',  text: 'text-fg'     },
-		3: { bg: 'bg-raised',   text: 'text-muted'  },
-	};
-
 	const visible = $derived(
 		filter === 'friends' && data.currentUser
 			? data.leaderboard.filter(
@@ -27,7 +21,18 @@
 
 	const ranked = $derived(visible.map((r, i) => ({ ...r, displayRank: i + 1 })));
 
+	// Podium only kicks in with a real field (>= 3 players); otherwise everyone is in the table.
+	const hasPodium = $derived(ranked.length >= 3);
+	const podium = $derived(hasPodium ? ranked.slice(0, 3) : []);
+	const tableRows = $derived(hasPodium ? ranked.slice(3) : ranked);
+
 	const myEntry = $derived(ranked.find((r) => r.userId === data.currentUser?.id));
+
+	// Podium ordering: 2 · 1 · 3 (classic Olympic centre layout)
+	const podiumSlots = $derived(() => {
+		const byRank = new Map(podium.map(r => [r.displayRank, r]));
+		return [byRank.get(2), byRank.get(1), byRank.get(3)] as const;
+	});
 </script>
 
 <div class="space-y-4">
@@ -71,8 +76,79 @@
 			{/if}
 		</div>
 
-	<!-- Table — full-bleed on mobile -->
+	<!-- Podium + table -->
 	{:else}
+		<!-- ── Podium: 2 · 1 · 3 staggered, accent-tier hierarchy ─────────────── -->
+		{#if podium.length >= 3}
+			<section class="-mx-4 sm:mx-0 mb-2">
+				<div class="grid grid-cols-3 items-end gap-2 sm:gap-4 px-4 sm:px-0">
+					{#each podiumSlots() as p, i}
+						{@const slotRank = i === 0 ? 2 : i === 1 ? 1 : 3}
+						{@const isFirst = slotRank === 1}
+						{@const isMe = p?.userId === data.currentUser?.id}
+						{#if p}
+							<a href="/profile/{p.userId}"
+								class="group flex flex-col items-center text-center transition-transform hover:-translate-y-0.5
+									{isFirst ? 'pt-1' : 'pt-4 sm:pt-6'}">
+								<!-- Avatar with rank ring -->
+								<div class="relative">
+									{#if (p.user as any)?.avatar_url}
+										<img src={(p.user as any).avatar_url} alt=""
+											class="object-cover rounded-full
+												{isFirst ? 'w-20 h-20 sm:w-24 sm:h-24' : 'w-14 h-14 sm:w-16 sm:h-16'}"
+											style="box-shadow: 0 0 0 3px var(--color-canvas),
+												0 0 0 {isFirst ? '5px' : '4px'} {slotRank === 1 ? 'var(--color-accent)' :
+												slotRank === 2 ? 'var(--color-wire-hi)' : 'var(--color-bonus)'}" />
+									{:else}
+										<span class="rounded-full bg-raised border border-wire flex items-center justify-center font-bold text-muted
+											{isFirst ? 'w-20 h-20 sm:w-24 sm:h-24 text-3xl' : 'w-14 h-14 sm:w-16 sm:h-16 text-xl'}"
+											style="box-shadow: 0 0 0 3px var(--color-canvas),
+												0 0 0 {isFirst ? '5px' : '4px'} {slotRank === 1 ? 'var(--color-accent)' :
+												slotRank === 2 ? 'var(--color-wire-hi)' : 'var(--color-bonus)'}">
+											{((p.user as any)?.display_name ?? (p.user as any)?.username ?? '?')[0]?.toUpperCase()}
+										</span>
+									{/if}
+									<!-- Rank chip -->
+									<span class="absolute -bottom-2 left-1/2 -translate-x-1/2 inline-flex items-center justify-center
+										rounded-full tabular-nums font-bold
+										{isFirst ? 'w-8 h-8 text-sm' : 'w-6 h-6 text-xs'}"
+										style="background: {slotRank === 1 ? 'var(--color-accent)' :
+											slotRank === 2 ? 'var(--color-wire-hi)' : 'var(--color-bonus)'};
+											color: {slotRank === 1 ? 'var(--color-canvas)' :
+												slotRank === 2 ? 'var(--color-fg)' : 'var(--color-canvas)'}">
+										{slotRank}
+									</span>
+								</div>
+								<!-- Name -->
+								<p class="mt-4 text-sm font-semibold truncate max-w-full px-1 {isMe ? 'text-accent' : 'text-fg'}">
+									{(p.user as any)?.display_name ?? (p.user as any)?.username ?? '?'}
+								</p>
+								<!-- Points -->
+								<p class="tabular-nums font-bold {isFirst ? 'text-2xl sm:text-3xl text-accent' : 'text-lg text-fg/80'}"
+									style="font-family: var(--font-display)">
+									{p.total.toFixed(2)}
+								</p>
+								{#if (p.user as any)?.favorite_team}
+									{@const url = flagUrl((p.user as any).favorite_team)}
+									{#if url}
+										<img src={url} alt={(p.user as any).favorite_team}
+											class="w-5 h-3.5 object-cover rounded-sm mt-1 opacity-80" />
+									{/if}
+								{/if}
+							</a>
+						{:else}
+							<span class="opacity-30 text-center {isFirst ? 'pt-1' : 'pt-4 sm:pt-6'} flex flex-col items-center">
+								<span class="rounded-full bg-raised border border-wire
+									{isFirst ? 'w-20 h-20 sm:w-24 sm:h-24' : 'w-14 h-14 sm:w-16 sm:h-16'}"></span>
+								<span class="mt-4 text-sm text-faint">—</span>
+							</span>
+						{/if}
+					{/each}
+				</div>
+			</section>
+		{/if}
+
+		{#if tableRows.length > 0}
 		<div class="-mx-4 sm:mx-0 sm:rounded-xl sm:bg-panel/40 sm:border sm:border-wire overflow-hidden border-y border-wire sm:border-y-0">
 			<table class="w-full">
 				<thead>
@@ -85,15 +161,13 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each ranked as row (row.userId)}
+					{#each tableRows as row (row.userId)}
 						{@const isMe = row.userId === data.currentUser?.id}
-						{@const rc = rankColors[row.displayRank]}
 						<tr class="border-b border-wire/40 last:border-0 transition-colors {isMe ? 'bg-accent-lo/60' : 'hover:bg-raised/40'}">
 
-							<!-- Rank badge -->
+							<!-- Rank -->
 							<td class="px-4 py-3 text-center w-12">
-								<span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold tabular-nums
-									{rc ? rc.bg + ' ' + rc.text : 'text-faint'}">
+								<span class="text-sm text-faint tabular-nums font-semibold">
 									{row.displayRank}
 								</span>
 							</td>
@@ -159,5 +233,6 @@
 				</tbody>
 			</table>
 		</div>
+		{/if}
 	{/if}
 </div>

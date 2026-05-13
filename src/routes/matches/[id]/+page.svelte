@@ -105,7 +105,7 @@
 		<!-- Teams + score -->
 		<div class="flex items-center justify-center gap-6 sm:gap-10">
 			<div class="text-center flex-1 flex flex-col items-center">
-				<HexFlag code={data.match.home_flag} size={64} alt={data.match.home_team} class="mb-2" />
+				<HexFlag code={data.match.home_flag} size={88} alt={data.match.home_team} class="mb-2" />
 				<p class="font-bold text-base text-fg leading-tight">{data.match.home_team}</p>
 			</div>
 
@@ -151,16 +151,17 @@
 			</div>
 
 			<div class="text-center flex-1 flex flex-col items-center">
-				<HexFlag code={data.match.away_flag} size={64} alt={data.match.away_team} class="mb-2" />
+				<HexFlag code={data.match.away_flag} size={88} alt={data.match.away_team} class="mb-2" />
 				<p class="font-bold text-base text-fg leading-tight">{data.match.away_team}</p>
 			</div>
 		</div>
 
-		<!-- Polymarket odds -->
+		<!-- Market odds — favourite in accent, underdog muted -->
 		{#if data.match.odds_home && data.match.odds_draw && data.match.odds_away}
 			{@const pHome = Math.round(100 / (data.match.odds_home ?? 1))}
 			{@const pDraw = Math.round(100 / (data.match.odds_draw ?? 1))}
 			{@const pAway = Math.round(100 / (data.match.odds_away ?? 1))}
+			{@const homeFav = (data.match.odds_home ?? 99) <= (data.match.odds_away ?? 99)}
 			<div class="mt-6 pt-4 border-t border-wire">
 				<p class="text-xs text-faint text-center mb-3">{t('match_polymarket')}</p>
 				<div class="flex items-end gap-2">
@@ -168,25 +169,25 @@
 					<div class="flex-1 text-center">
 						<p class="text-xs text-muted mb-1 truncate">{data.match.home_team}</p>
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
-							<div class="h-full rounded-full bg-accent transition-all" style="width: {pHome}%"></div>
+							<div class="h-full rounded-full transition-all {homeFav ? 'bg-accent' : 'bg-wire-hi'}" style="width: {pHome}%"></div>
 						</div>
-						<p class="text-lg font-bold text-accent tabular-nums leading-none" style="font-family: var(--font-display)">{data.match.odds_home.toFixed(2)}</p>
+						<p class="text-lg font-bold tabular-nums leading-none {homeFav ? 'text-accent' : 'text-muted'}" style="font-family: var(--font-display)">{data.match.odds_home.toFixed(2)}</p>
 					</div>
 					<!-- Draw bar -->
 					<div class="w-14 text-center shrink-0">
-						<p class="text-xs text-muted mb-1">{t('match_draw')}</p>
+						<p class="text-xs text-faint mb-1">{t('match_draw')}</p>
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
-							<div class="h-full rounded-full bg-wire-hi transition-all" style="width: {pDraw}%"></div>
+							<div class="h-full rounded-full bg-wire transition-all" style="width: {pDraw}%"></div>
 						</div>
-						<p class="text-lg font-bold text-muted tabular-nums leading-none" style="font-family: var(--font-display)">{data.match.odds_draw.toFixed(2)}</p>
+						<p class="text-sm font-semibold text-faint tabular-nums leading-none mt-1" style="font-family: var(--font-display)">{data.match.odds_draw.toFixed(2)}</p>
 					</div>
 					<!-- Away bar -->
 					<div class="flex-1 text-center">
 						<p class="text-xs text-muted mb-1 truncate">{data.match.away_team}</p>
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
-							<div class="h-full rounded-full bg-accent transition-all" style="width: {pAway}%"></div>
+							<div class="h-full rounded-full transition-all {homeFav ? 'bg-wire-hi' : 'bg-accent'}" style="width: {pAway}%"></div>
 						</div>
-						<p class="text-lg font-bold text-accent tabular-nums leading-none" style="font-family: var(--font-display)">{data.match.odds_away.toFixed(2)}</p>
+						<p class="text-lg font-bold tabular-nums leading-none {homeFav ? 'text-muted' : 'text-accent'}" style="font-family: var(--font-display)">{data.match.odds_away.toFixed(2)}</p>
 					</div>
 				</div>
 			</div>
@@ -195,9 +196,9 @@
 
 	<!-- My pronostic -->
 	{#if data.user}
-		<div class="rounded-xl bg-panel border border-wire p-6">
+		<section class="pt-2">
 			<div class="flex items-center justify-between mb-5">
-				<h2 class="text-base font-semibold text-fg" style="font-family: var(--font-display)">{t('match_my_pronostic')}</h2>
+				<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('match_my_pronostic')}</h2>
 				{#if locked || data.match.status !== 'upcoming'}
 					<span class="text-xs text-faint border border-wire rounded px-2 py-0.5">{t('match_closed')}</span>
 				{:else}
@@ -289,33 +290,49 @@
 								· {t('match_winner')} <span class="text-muted">{((oddsUsed ?? 1) * 1).toFixed(2)} {t('match_pts')}</span>
 							</p>
 						{/if}
+						{@const critical = urgency() === 'critical'}
 						<button type="submit" disabled={loading}
-							class="w-full rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-4 py-3 font-semibold text-canvas transition-colors cursor-pointer">
-							{loading ? t('saving') : data.userPronostic ? t('match_modify') : t('match_submit')}
+							class="w-full rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-4 py-3 font-semibold text-canvas transition-colors cursor-pointer {critical ? 'ring-2 ring-live/60' : ''}">
+							{#if loading}
+								{t('saving')}
+							{:else if critical}
+								{t('match_lock_now')}
+							{:else if data.userPronostic}
+								{t('match_modify')}
+							{:else}
+								{t('match_submit')}
+							{/if}
 						</button>
 					{:else}
+						<!-- Locked, but had/has a pick — picker is read-only above; just acknowledge -->
 						<p class="text-center text-sm text-faint">{t('match_picks_closed')}</p>
 					{/if}
 				</form>
+			{:else if locked}
+				<!-- Locked AND no pick on record — the user missed it -->
+				<div class="text-center py-2">
+					<p class="text-sm text-fg font-semibold mb-1">{t('match_missed_lock')}</p>
+					<p class="text-xs text-faint">{t('match_missed_lock_hint')}</p>
+				</div>
 			{:else}
 				<p class="text-sm text-faint text-center">{t('match_no_pick')}</p>
 			{/if}
-		</div>
+		</section>
 	{:else}
-		<div class="rounded-xl bg-panel border border-wire p-6 text-center">
+		<section class="border-t border-wire pt-6 text-center">
 			<p class="text-muted mb-3">{t('match_login_to_pick')}</p>
 			<a href="/auth/login" class="inline-block rounded-lg bg-accent hover:bg-accent-hi px-5 py-2 text-sm font-semibold text-canvas transition-colors">
 				{t('login_cta')}
 			</a>
-		</div>
+		</section>
 	{/if}
 
 	<!-- Post-match leaderboard -->
 	{#if data.allPronostics && data.allPronostics.length > 0}
-		<div>
+		<section class="border-t border-wire pt-6">
 			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-base font-semibold text-fg" style="font-family: var(--font-display)">
-					{t('match_pronostics')} <span class="text-faint font-normal text-sm tabular-nums">{data.allPronostics.length}</span>
+				<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs flex items-baseline gap-2">
+					{t('match_pronostics')} <span class="text-faint font-normal tabular-nums normal-case tracking-normal">{data.allPronostics.length}</span>
 				</h2>
 				<!-- Friends / All filter (only if user has friends) -->
 				{#if data.user && (data.friendIds ?? []).length > 0}
@@ -387,6 +404,6 @@
 					{/each}
 				{/if}
 			</div>
-		</div>
+		</section>
 	{/if}
 </div>

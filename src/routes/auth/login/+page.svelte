@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { t } from '$lib/i18n.svelte';
+	import GoogleSignInButton from '$lib/components/GoogleSignInButton.svelte';
 
 	let { data, form } = $props();
 	let loading = $state(false);
@@ -16,6 +17,14 @@
 				{form.error}
 			</div>
 		{/if}
+
+		<GoogleSignInButton next={form?.next ?? data.next ?? '/'} />
+
+		<div class="my-5 flex items-center gap-3 text-[11px] uppercase tracking-widest text-faint">
+			<span class="flex-1 h-px bg-wire"></span>
+			<span>{t('auth_or')}</span>
+			<span class="flex-1 h-px bg-wire"></span>
+		</div>
 
 		<form method="POST" use:enhance={() => {
 			loading = true;

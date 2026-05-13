@@ -43,12 +43,12 @@
 		return 'text-faint';
 	}
 
-	function posBorder(pos: number, played: number, total: number): string {
-		if (played < total) return '';
-		if (pos <= 2) return 'border-l-2 border-l-accent/60';
-		// Best-thirds path uses bonus color so it's actually visible (vs. previous border-wire-hi)
-		if (pos === 3) return 'border-l-2';
-		return '';
+	// Qualification status as a leading dot (no side-stripe — see absolute_bans)
+	function posDot(pos: number, played: number, total: number): { color: string; title: string } | null {
+		if (played < total) return null;
+		if (pos <= 2)  return { color: 'var(--color-accent)', title: 'Qualifié' };
+		if (pos === 3) return { color: 'var(--color-bonus)',  title: 'Meilleur 3ème' };
+		return null;
 	}
 </script>
 
@@ -76,15 +76,15 @@
 		<!-- Legend + kbd hint (desktop only) -->
 		<dl class="hidden sm:flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-faint">
 			<div class="flex items-center gap-1.5">
-				<span class="inline-block w-3 h-3 rounded-sm border-l-2 border-l-accent/60 bg-panel"></span>
+				<span class="inline-block w-1.5 h-1.5 rounded-full" style="background: var(--color-accent)"></span>
 				<dt>{t('schedule_legend_qualified')}</dt>
 			</div>
 			<div class="flex items-center gap-1.5">
-				<span class="inline-block w-3 h-3 rounded-sm border-l-2 bg-panel" style="border-left-color: var(--color-bonus)"></span>
+				<span class="inline-block w-1.5 h-1.5 rounded-full" style="background: var(--color-bonus)"></span>
 				<dt>{t('schedule_legend_thirds')}</dt>
 			</div>
 			<div class="flex items-center gap-1.5">
-				<span class="inline-block w-3 h-3 rounded-sm bg-panel border border-wire"></span>
+				<span class="inline-block w-1.5 h-1.5 rounded-full bg-wire"></span>
 				<dt>{t('schedule_legend_out')}</dt>
 			</div>
 			<div class="ml-auto text-faint/80 tabular-nums">
@@ -130,13 +130,21 @@
 					</thead>
 					<tbody>
 						{#each g.rows as row}
-							{@const thirdBonus = row.pos === 3 && g.played === g.total}
-							<tr class="border-b border-wire/40 last:border-0 {posBorder(row.pos, g.played, g.total)}"
-								style={thirdBonus ? 'border-left-color: var(--color-bonus)' : ''}>
-								<td class="px-2 py-2 text-xs text-faint tabular-nums">{row.pos}</td>
+							{@const dot = posDot(row.pos, g.played, g.total)}
+							<tr class="border-b border-wire/40 last:border-0">
+								<td class="pl-2 pr-1 py-2 text-xs text-faint tabular-nums">
+									<span class="inline-flex items-center gap-1.5">
+										{#if dot}
+											<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: {dot.color}" title={dot.title}></span>
+										{:else}
+											<span class="w-1.5 h-1.5 shrink-0" aria-hidden="true"></span>
+										{/if}
+										{row.pos}
+									</span>
+								</td>
 								<td class="px-2 py-2">
 									<div class="flex items-center gap-1.5 min-w-0">
-										<HexFlag code={row.flag} size={16} />
+										<HexFlag code={row.flag} size={20} />
 										<span class="text-xs truncate {posColor(row.pos, g.played, g.total)}">{row.team}</span>
 									</div>
 								</td>
@@ -160,7 +168,7 @@
 							<a href="/matches/{m.id}"
 								class="flex items-center gap-2 px-4 py-2.5 hover:bg-raised/50 transition-colors text-xs">
 								<div class="flex-1 min-w-0 flex items-center gap-1.5">
-									<HexFlag code={m.home_flag} size={16} />
+									<HexFlag code={m.home_flag} size={20} />
 									<span class="truncate text-fg">{m.home_team}</span>
 								</div>
 
@@ -180,7 +188,7 @@
 
 								<div class="flex-1 min-w-0 flex items-center justify-end gap-1.5">
 									<span class="truncate text-fg text-right">{m.away_team}</span>
-									<HexFlag code={m.away_flag} size={16} />
+									<HexFlag code={m.away_flag} size={20} />
 								</div>
 							</a>
 						{/each}

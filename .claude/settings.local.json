@@ -51,7 +51,15 @@
       "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__get_project",
       "Bash(node scripts/generate-icons.mjs)",
       "Bash(npm uninstall *)",
-      "Bash(rm -f \"I:/code/Devsigny global/un pronal des pronos/static/\"*.png~ 2>&1; ls \"I:/code/Devsigny global/un pronal des pronos/static\")"
+      "Bash(rm -f \"I:/code/Devsigny global/un pronal des pronos/static/\"*.png~ 2>&1; ls \"I:/code/Devsigny global/un pronal des pronos/static\")",
+      "Bash(npm_config_engine_strict=false npx impeccable --json --fast src)",
+      "Bash(grep -E \"MatchPickRow|routes.\\\\\\\\\\\\\\\\\\\\\\\\+page\\\\.svelte|routes.\\\\\\\\\\\\\\\\matches.\\\\\\\\\\\\\\\\\\\\\\\\+page\\\\.svelte|routes.\\\\\\\\\\\\\\\\matches.\\\\\\\\\\\\\\\\\\\\\\\\[id\\\\\\\\]|routes.\\\\\\\\\\\\\\\\schedule.\\\\\\\\\\\\\\\\\\\\\\\\+page\\\\.svelte|routes.\\\\\\\\\\\\\\\\leaderboard.\\\\\\\\\\\\\\\\\\\\\\\\+page\\\\.svelte|i18n\")",
+      "Bash(npx vite *)",
+      "Bash(sed -i.bak '407 s|</div>|</section>|' \"src/routes/matches/[id]/+page.svelte\")",
+      "Bash(rm \"src/routes/matches/[id]/+page.svelte.bak\")",
+      "Bash(grep -v \"leagues\\\\\\\\\\\\\\\\\\\\\\\\|register\")",
+      "mcp__14b1a1ee-0b5a-45af-9dc6-c2b83a76aada__execute_sql",
+      "Bash(grep -E \"auth/\\(callback|complete\\)|GoogleSignInButton|auth.login.\\\\\\\\\\\\\\\\\\\\\\\\+page|auth.register.\\\\\\\\\\\\\\\\\\\\\\\\+page\")"
     ]
   }
 }
