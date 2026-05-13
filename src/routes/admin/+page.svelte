@@ -180,21 +180,27 @@
 		</div>
 	{/if}
 
-	<!-- Goals scored editor -->
+	<!-- Goals scored editor (collapsible) -->
 	{#if data.scorers && data.scorers.length > 0}
-		<div class="rounded-xl bg-panel border border-wire p-4">
-			<div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-				<div>
+		<details open class="group/details rounded-xl bg-panel border border-wire overflow-hidden">
+			<summary class="cursor-pointer px-4 py-3 flex items-center justify-between hover:bg-raised/40 transition-colors gap-3 select-none">
+				<div class="min-w-0">
 					<p class="text-sm font-semibold text-fg">Buts marqués par buteur</p>
-					<p class="text-xs text-faint mt-0.5">Mettre à jour le nombre de buts. Le bonus = ROUND(LN(cote), 1) × buts.</p>
+					<p class="text-xs text-faint mt-0.5">{data.scorers.length} joueurs · cliquer pour replier/déplier</p>
 				</div>
-			</div>
-			{#if goalsFeedback}
-				<div class="rounded px-3 py-2 text-xs mb-3 {goalsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
-					{goalsFeedback.msg}
-				</div>
-			{/if}
-			<div class="overflow-x-auto">
+				<svg class="w-4 h-4 text-faint shrink-0 transition-transform group-open/details:rotate-180"
+					fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+				</svg>
+			</summary>
+			<div class="px-4 pb-4 pt-1 border-t border-wire/60">
+				<p class="text-xs text-faint mb-3">Mettre à jour le nombre de buts. Le bonus = ROUND(LN(cote), 1) × buts.</p>
+				{#if goalsFeedback}
+					<div class="rounded px-3 py-2 text-xs mb-3 {goalsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+						{goalsFeedback.msg}
+					</div>
+				{/if}
+				<div class="overflow-x-auto">
 				<table class="w-full text-sm">
 					<thead>
 						<tr class="text-left text-[11px] text-faint font-semibold border-b border-wire">
@@ -245,7 +251,8 @@
 					</tbody>
 				</table>
 			</div>
-		</div>
+			</div>
+		</details>
 	{/if}
 
 	<!-- Sync odds from Polymarket -->
@@ -326,19 +333,27 @@
 		</div>
 	{/if}
 
-	<!-- Leagues management -->
+	<!-- Leagues management (collapsible, default closed) -->
 	{#if data.groups && data.groups.length > 0}
-		<div class="rounded-xl bg-panel border border-wire p-4">
-			<div class="mb-3">
-				<p class="text-sm font-semibold text-fg">Ligues ({data.groups.length})</p>
-				<p class="text-xs text-faint mt-0.5">Supprimer une ligue efface aussi ses membres, invitations et demandes en attente.</p>
-			</div>
-			{#if groupFeedback}
-				<div class="rounded px-3 py-2 text-xs mb-3 {groupFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
-					{groupFeedback.msg}
+		<details class="group/details rounded-xl bg-panel border border-wire overflow-hidden">
+			<summary class="cursor-pointer px-4 py-3 flex items-center justify-between hover:bg-raised/40 transition-colors gap-3 select-none">
+				<div class="min-w-0">
+					<p class="text-sm font-semibold text-fg">Ligues ({data.groups.length})</p>
+					<p class="text-xs text-faint mt-0.5">Cliquer pour gérer la liste</p>
 				</div>
-			{/if}
-			<div class="overflow-x-auto">
+				<svg class="w-4 h-4 text-faint shrink-0 transition-transform group-open/details:rotate-180"
+					fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+				</svg>
+			</summary>
+			<div class="px-4 pb-4 pt-1 border-t border-wire/60">
+				<p class="text-xs text-faint mb-3">Supprimer une ligue efface aussi ses membres, invitations et demandes en attente.</p>
+				{#if groupFeedback}
+					<div class="rounded px-3 py-2 text-xs mb-3 {groupFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+						{groupFeedback.msg}
+					</div>
+				{/if}
+				<div class="overflow-x-auto">
 				<table class="w-full text-sm">
 					<thead>
 						<tr class="text-left text-[11px] text-faint font-semibold border-b border-wire">
@@ -395,7 +410,8 @@
 					</tbody>
 				</table>
 			</div>
-		</div>
+			</div>
+		</details>
 	{/if}
 
 	<!-- Reset all (destructive) -->
@@ -453,13 +469,24 @@
 		<div class="rounded bg-accent-lo border border-accent/30 px-4 py-3 text-sm text-accent">{feedback.msg}</div>
 	{/if}
 
-	{#each grouped as { stage, matches }}
-		<section>
-			<h2 class="text-base font-semibold text-fg mb-3" style="font-family: var(--font-display)">
-				{STAGE_LABELS_FR[stage] ?? stage}
-			</h2>
+	{#each grouped as { stage, matches }, sIdx}
+		{@const finishedInStage = matches.filter((m) => m.status === 'finished').length}
+		{@const liveInStage = matches.filter((m) => m.status === 'live').length}
+		<details open={sIdx === 0 || liveInStage > 0} class="group/details rounded-xl bg-panel border border-wire overflow-hidden">
+			<summary class="cursor-pointer px-4 py-3 flex items-center gap-3 hover:bg-raised/40 transition-colors select-none">
+				<h2 class="text-base font-semibold text-fg" style="font-family: var(--font-display)">
+					{STAGE_LABELS_FR[stage] ?? stage}
+				</h2>
+				<span class="text-xs text-faint tabular-nums">
+					{#if liveInStage > 0}<span class="text-live font-bold">{liveInStage} live</span> · {/if}{finishedInStage}/{matches.length}
+				</span>
+				<svg class="w-4 h-4 text-faint ml-auto shrink-0 transition-transform group-open/details:rotate-180"
+					fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+				</svg>
+			</summary>
 
-			<div class="rounded-xl bg-panel border border-wire overflow-hidden">
+			<div class="border-t border-wire/60">
 				{#each matches as match, i}
 					<div class="border-b border-wire last:border-0 p-4">
 						<!-- Match header -->
@@ -548,6 +575,11 @@
 					</div>
 				{/each}
 			</div>
-		</section>
+		</details>
 	{/each}
 </div>
+
+<style>
+	summary { list-style: none; }
+	summary::-webkit-details-marker { display: none; }
+</style>
