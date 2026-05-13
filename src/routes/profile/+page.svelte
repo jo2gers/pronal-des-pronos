@@ -2,15 +2,25 @@
 	import { enhance } from '$app/forms';
 	import { beforeNavigate } from '$app/navigation';
 	import { WC2026_TEAMS, COUNTRIES } from '$lib/wc2026';
-	import { t } from '$lib/i18n.svelte';
+	import { t, getLang } from '$lib/i18n.svelte';
 
 	import { WC2026_TEAMS as _T } from '$lib/wc2026';
 
 	let { data, form } = $props();
 	let loadingProfile = $state(false);
 	let loadingAvatar  = $state(false);
-	let displayName    = $state(data.profile?.display_name ?? '');
+	// Pre-fill display_name with username fallback so the field is never empty
+	// for a user who has already chosen a handle.
+	let displayName    = $state(data.profile?.display_name ?? data.profile?.username ?? '');
 	let countryValue   = $state(data.profile?.country ?? '');
+
+	// Localised + alphabetically-sorted country options for the dropdown.
+	// Value stays as the canonical French name (matches existing DB rows).
+	const countryOptions = $derived(
+		COUNTRIES
+			.map((c) => ({ value: c.value, label: getLang() === 'fr' ? c.fr : c.en }))
+			.sort((a, b) => a.label.localeCompare(b.label, getLang()))
+	);
 	let selectedTeam   = $state(data.profile?.favorite_team ?? '');
 	let selectedScorer = $state(data.profile?.top_scorer ?? '');
 	let scorerSearch   = $state('');
@@ -326,8 +336,8 @@
 				<select id="country" name="country" bind:value={countryValue}
 					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg focus:border-accent focus:outline-none">
 					<option value="">–</option>
-					{#each COUNTRIES as c}
-						<option value={c}>{c}</option>
+					{#each countryOptions as c}
+						<option value={c.value}>{c.label}</option>
 					{/each}
 				</select>
 			</div>
