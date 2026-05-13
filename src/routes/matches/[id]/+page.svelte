@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { formatDate, isMatchLocked } from '$lib/utils';
-	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
+	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import Flag from '$lib/components/Flag.svelte';
 
@@ -114,8 +114,8 @@
 		<!-- Teams + score -->
 		<div class="flex items-center justify-center gap-6 sm:gap-10">
 			<div class="text-center flex-1 flex flex-col items-center">
-				<Flag code={data.match.home_flag} size={88} alt={data.match.home_team} class="mb-2" />
-				<p class="font-bold text-base text-fg leading-tight">{data.match.home_team}</p>
+				<Flag code={data.match.home_flag} size={88} alt={teamLabel(data.match.home_team)} class="mb-2" />
+				<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.home_team)}</p>
 			</div>
 
 			<div class="text-center shrink-0">
@@ -160,8 +160,8 @@
 			</div>
 
 			<div class="text-center flex-1 flex flex-col items-center">
-				<Flag code={data.match.away_flag} size={88} alt={data.match.away_team} class="mb-2" />
-				<p class="font-bold text-base text-fg leading-tight">{data.match.away_team}</p>
+				<Flag code={data.match.away_flag} size={88} alt={teamLabel(data.match.away_team)} class="mb-2" />
+				<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.away_team)}</p>
 			</div>
 		</div>
 
@@ -176,7 +176,7 @@
 				<div class="flex items-end gap-2">
 					<!-- Home bar -->
 					<div class="flex-1 text-center">
-						<p class="text-xs text-muted mb-1 truncate">{data.match.home_team}</p>
+						<p class="text-xs text-muted mb-1 truncate">{teamLabel(data.match.home_team)}</p>
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
 							<div class="h-full rounded-full transition-all {homeFav ? 'bg-accent' : 'bg-wire-hi'}" style="width: {pHome}%"></div>
 						</div>
@@ -192,7 +192,7 @@
 					</div>
 					<!-- Away bar -->
 					<div class="flex-1 text-center">
-						<p class="text-xs text-muted mb-1 truncate">{data.match.away_team}</p>
+						<p class="text-xs text-muted mb-1 truncate">{teamLabel(data.match.away_team)}</p>
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
 							<div class="h-full rounded-full transition-all {homeFav ? 'bg-wire-hi' : 'bg-accent'}" style="width: {pAway}%"></div>
 						</div>
@@ -263,7 +263,7 @@
 				}}>
 					<div class="flex items-center justify-center gap-4 sm:gap-5 mb-5">
 						<div class="text-center">
-							<p class="text-xs text-muted mb-3">{data.match.home_team}</p>
+							<p class="text-xs text-muted mb-3">{teamLabel(data.match.home_team)}</p>
 							<div class="flex items-center gap-2 sm:gap-2.5">
 								<button type="button" disabled={locked || home === 0} onclick={() => home--}
 									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">−</button>
@@ -277,7 +277,7 @@
 						<span class="text-2xl text-faint font-bold mt-4" style="font-family: var(--font-display)">–</span>
 
 						<div class="text-center">
-							<p class="text-xs text-muted mb-3">{data.match.away_team}</p>
+							<p class="text-xs text-muted mb-3">{teamLabel(data.match.away_team)}</p>
 							<div class="flex items-center gap-2 sm:gap-2.5">
 								<button type="button" disabled={locked || away === 0} onclick={() => away--}
 									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">−</button>

@@ -1,66 +1,85 @@
-// Real 2026 FIFA World Cup groups — official draw
+// Real 2026 FIFA World Cup groups — official draw.
+// `name` is the canonical English string that's stored in the DB (matches.home_team,
+// matches.away_team, profiles.favorite_team). `nameFr` is the French display label.
+// Always render team labels via teamLabel() below, never `team.name` directly.
 export const WC2026_TEAMS = [
 	// Group A
-	{ name: 'Mexico', flag: 'MX', group: 'A' },
-	{ name: 'South Africa', flag: 'ZA', group: 'A' },
-	{ name: 'South Korea', flag: 'KR', group: 'A' },
-	{ name: 'Czech Republic', flag: 'CZ', group: 'A' },
+	{ name: 'Mexico',                 nameFr: 'Mexique',              flag: 'MX',     group: 'A' },
+	{ name: 'South Africa',           nameFr: 'Afrique du Sud',       flag: 'ZA',     group: 'A' },
+	{ name: 'South Korea',            nameFr: 'Corée du Sud',         flag: 'KR',     group: 'A' },
+	{ name: 'Czech Republic',         nameFr: 'République tchèque',   flag: 'CZ',     group: 'A' },
 	// Group B
-	{ name: 'Canada', flag: 'CA', group: 'B' },
-	{ name: 'Bosnia and Herzegovina', flag: 'BA', group: 'B' },
-	{ name: 'Qatar', flag: 'QA', group: 'B' },
-	{ name: 'Switzerland', flag: 'CH', group: 'B' },
+	{ name: 'Canada',                 nameFr: 'Canada',               flag: 'CA',     group: 'B' },
+	{ name: 'Bosnia and Herzegovina', nameFr: 'Bosnie-Herzégovine',   flag: 'BA',     group: 'B' },
+	{ name: 'Qatar',                  nameFr: 'Qatar',                flag: 'QA',     group: 'B' },
+	{ name: 'Switzerland',            nameFr: 'Suisse',               flag: 'CH',     group: 'B' },
 	// Group C
-	{ name: 'USA', flag: 'US', group: 'C' },
-	{ name: 'Paraguay', flag: 'PY', group: 'C' },
-	{ name: 'Australia', flag: 'AU', group: 'C' },
-	{ name: 'Turkey', flag: 'TR', group: 'C' },
+	{ name: 'USA',                    nameFr: 'États-Unis',           flag: 'US',     group: 'C' },
+	{ name: 'Paraguay',               nameFr: 'Paraguay',             flag: 'PY',     group: 'C' },
+	{ name: 'Australia',              nameFr: 'Australie',            flag: 'AU',     group: 'C' },
+	{ name: 'Turkey',                 nameFr: 'Turquie',              flag: 'TR',     group: 'C' },
 	// Group D
-	{ name: 'Brazil', flag: 'BR', group: 'D' },
-	{ name: 'Morocco', flag: 'MA', group: 'D' },
-	{ name: 'Haiti', flag: 'HT', group: 'D' },
-	{ name: 'Scotland', flag: 'GB-SCT', group: 'D' },
+	{ name: 'Brazil',                 nameFr: 'Brésil',               flag: 'BR',     group: 'D' },
+	{ name: 'Morocco',                nameFr: 'Maroc',                flag: 'MA',     group: 'D' },
+	{ name: 'Haiti',                  nameFr: 'Haïti',                flag: 'HT',     group: 'D' },
+	{ name: 'Scotland',               nameFr: 'Écosse',               flag: 'GB-SCT', group: 'D' },
 	// Group E
-	{ name: 'Germany', flag: 'DE', group: 'E' },
-	{ name: 'Curaçao', flag: 'CW', group: 'E' },
-	{ name: 'Ecuador', flag: 'EC', group: 'E' },
-	{ name: 'Ivory Coast', flag: 'CI', group: 'E' },
+	{ name: 'Germany',                nameFr: 'Allemagne',            flag: 'DE',     group: 'E' },
+	{ name: 'Curaçao',                nameFr: 'Curaçao',              flag: 'CW',     group: 'E' },
+	{ name: 'Ecuador',                nameFr: 'Équateur',             flag: 'EC',     group: 'E' },
+	{ name: 'Ivory Coast',            nameFr: "Côte d'Ivoire",        flag: 'CI',     group: 'E' },
 	// Group F
-	{ name: 'Netherlands', flag: 'NL', group: 'F' },
-	{ name: 'Japan', flag: 'JP', group: 'F' },
-	{ name: 'Sweden', flag: 'SE', group: 'F' },
-	{ name: 'Tunisia', flag: 'TN', group: 'F' },
+	{ name: 'Netherlands',            nameFr: 'Pays-Bas',             flag: 'NL',     group: 'F' },
+	{ name: 'Japan',                  nameFr: 'Japon',                flag: 'JP',     group: 'F' },
+	{ name: 'Sweden',                 nameFr: 'Suède',                flag: 'SE',     group: 'F' },
+	{ name: 'Tunisia',                nameFr: 'Tunisie',              flag: 'TN',     group: 'F' },
 	// Group G
-	{ name: 'Spain', flag: 'ES', group: 'G' },
-	{ name: 'Cape Verde', flag: 'CV', group: 'G' },
-	{ name: 'Saudi Arabia', flag: 'SA', group: 'G' },
-	{ name: 'Uruguay', flag: 'UY', group: 'G' },
+	{ name: 'Spain',                  nameFr: 'Espagne',              flag: 'ES',     group: 'G' },
+	{ name: 'Cape Verde',             nameFr: 'Cap-Vert',             flag: 'CV',     group: 'G' },
+	{ name: 'Saudi Arabia',           nameFr: 'Arabie saoudite',      flag: 'SA',     group: 'G' },
+	{ name: 'Uruguay',                nameFr: 'Uruguay',              flag: 'UY',     group: 'G' },
 	// Group H
-	{ name: 'Belgium', flag: 'BE', group: 'H' },
-	{ name: 'Egypt', flag: 'EG', group: 'H' },
-	{ name: 'Iran', flag: 'IR', group: 'H' },
-	{ name: 'New Zealand', flag: 'NZ', group: 'H' },
+	{ name: 'Belgium',                nameFr: 'Belgique',             flag: 'BE',     group: 'H' },
+	{ name: 'Egypt',                  nameFr: 'Égypte',               flag: 'EG',     group: 'H' },
+	{ name: 'Iran',                   nameFr: 'Iran',                 flag: 'IR',     group: 'H' },
+	{ name: 'New Zealand',            nameFr: 'Nouvelle-Zélande',     flag: 'NZ',     group: 'H' },
 	// Group I
-	{ name: 'France', flag: 'FR', group: 'I' },
-	{ name: 'Senegal', flag: 'SN', group: 'I' },
-	{ name: 'Iraq', flag: 'IQ', group: 'I' },
-	{ name: 'Norway', flag: 'NO', group: 'I' },
+	{ name: 'France',                 nameFr: 'France',               flag: 'FR',     group: 'I' },
+	{ name: 'Senegal',                nameFr: 'Sénégal',              flag: 'SN',     group: 'I' },
+	{ name: 'Iraq',                   nameFr: 'Irak',                 flag: 'IQ',     group: 'I' },
+	{ name: 'Norway',                 nameFr: 'Norvège',              flag: 'NO',     group: 'I' },
 	// Group J
-	{ name: 'Argentina', flag: 'AR', group: 'J' },
-	{ name: 'Algeria', flag: 'DZ', group: 'J' },
-	{ name: 'Austria', flag: 'AT', group: 'J' },
-	{ name: 'Jordan', flag: 'JO', group: 'J' },
+	{ name: 'Argentina',              nameFr: 'Argentine',            flag: 'AR',     group: 'J' },
+	{ name: 'Algeria',                nameFr: 'Algérie',              flag: 'DZ',     group: 'J' },
+	{ name: 'Austria',                nameFr: 'Autriche',             flag: 'AT',     group: 'J' },
+	{ name: 'Jordan',                 nameFr: 'Jordanie',             flag: 'JO',     group: 'J' },
 	// Group K
-	{ name: 'England', flag: 'GB-ENG', group: 'K' },
-	{ name: 'Croatia', flag: 'HR', group: 'K' },
-	{ name: 'Ghana', flag: 'GH', group: 'K' },
-	{ name: 'Panama', flag: 'PA', group: 'K' },
+	{ name: 'England',                nameFr: 'Angleterre',           flag: 'GB-ENG', group: 'K' },
+	{ name: 'Croatia',                nameFr: 'Croatie',              flag: 'HR',     group: 'K' },
+	{ name: 'Ghana',                  nameFr: 'Ghana',                flag: 'GH',     group: 'K' },
+	{ name: 'Panama',                 nameFr: 'Panama',               flag: 'PA',     group: 'K' },
 	// Group L
-	{ name: 'Portugal', flag: 'PT', group: 'L' },
-	{ name: 'Uzbekistan', flag: 'UZ', group: 'L' },
-	{ name: 'Colombia', flag: 'CO', group: 'L' },
-	{ name: 'DR Congo', flag: 'CD', group: 'L' },
+	{ name: 'Portugal',               nameFr: 'Portugal',             flag: 'PT',     group: 'L' },
+	{ name: 'Uzbekistan',             nameFr: 'Ouzbékistan',          flag: 'UZ',     group: 'L' },
+	{ name: 'Colombia',               nameFr: 'Colombie',             flag: 'CO',     group: 'L' },
+	{ name: 'DR Congo',               nameFr: 'Congo RD',             flag: 'CD',     group: 'L' },
 ] as const;
+
+// Fast English → French lookup for team labels.
+const TEAM_NAME_FR: Record<string, string> = Object.fromEntries(
+	WC2026_TEAMS.map((t) => [t.name, t.nameFr])
+);
+
+import { getLang } from './i18n.svelte';
+
+// Localised display label for a team. Reads getLang() so it stays reactive
+// when called from a Svelte template. Unknown team strings (e.g., "TBD",
+// stage placeholders, future teams) fall through unchanged.
+export function teamLabel(name: string | null | undefined): string {
+	if (!name) return '';
+	if (getLang() === 'en') return name;
+	return TEAM_NAME_FR[name] ?? name;
+}
 
 export const STAGE_LABELS_FR: Record<string, string> = {
 	group: 'Phase de groupes',

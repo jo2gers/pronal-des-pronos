@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { formatDate } from '$lib/utils';
-	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
+	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import Flag from '$lib/components/Flag.svelte';
 	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
@@ -69,8 +69,8 @@
 							<p class="text-[11px] text-muted mb-3 uppercase tracking-widest">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
 							<div class="flex items-center justify-between gap-3">
 								<div class="flex-1 flex flex-col items-center">
-									<Flag code={match.home_flag} size={48} alt={match.home_team} class="mb-1.5" />
-									<p class="text-sm font-semibold text-fg leading-tight">{match.home_team}</p>
+									<Flag code={match.home_flag} size={48} alt={teamLabel(match.home_team)} class="mb-1.5" />
+									<p class="text-sm font-semibold text-fg leading-tight">{teamLabel(match.home_team)}</p>
 								</div>
 								<div class="text-center shrink-0 px-3">
 									<p class="text-4xl font-bold text-accent tabular-nums leading-none"
@@ -80,8 +80,8 @@
 									<span class="inline-block mt-2 rounded bg-live px-2 py-0.5 text-[10px] font-bold text-fg tracking-wider">LIVE</span>
 								</div>
 								<div class="flex-1 flex flex-col items-center">
-									<Flag code={match.away_flag} size={48} alt={match.away_team} class="mb-1.5" />
-									<p class="text-sm font-semibold text-fg leading-tight">{match.away_team}</p>
+									<Flag code={match.away_flag} size={48} alt={teamLabel(match.away_team)} class="mb-1.5" />
+									<p class="text-sm font-semibold text-fg leading-tight">{teamLabel(match.away_team)}</p>
 								</div>
 							</div>
 						</a>
@@ -137,13 +137,13 @@
 					<div class="flex items-center gap-2 min-w-0">
 						<Flag code={nextMatch.home_flag} size={36} />
 						<span class="font-semibold text-fg truncate" style="font-family: var(--font-display); letter-spacing: 0.01em">
-							{nextMatch.home_team}
+							{teamLabel(nextMatch.home_team)}
 						</span>
 					</div>
 					<span class="text-faint text-xs uppercase tracking-widest">vs</span>
 					<div class="flex items-center gap-2 min-w-0">
 						<span class="font-semibold text-fg truncate" style="font-family: var(--font-display); letter-spacing: 0.01em">
-							{nextMatch.away_team}
+							{teamLabel(nextMatch.away_team)}
 						</span>
 						<Flag code={nextMatch.away_flag} size={36} />
 					</div>

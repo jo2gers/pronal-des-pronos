@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { WC2026_TEAMS } from '$lib/wc2026';
+	import { WC2026_TEAMS, teamLabel } from '$lib/wc2026';
 	import { t } from '$lib/i18n.svelte';
 	import GoogleSignInButton from '$lib/components/GoogleSignInButton.svelte';
 
@@ -128,7 +128,7 @@
 								{isSelected
 									? 'bg-accent-lo border-accent/50 text-fg'
 									: 'bg-raised border-wire hover:border-wire-hi text-fg'}">
-							<span class="text-sm font-medium truncate">{team.name}</span>
+							<span class="text-sm font-medium truncate">{teamLabel(team.name)}</span>
 							{#if odds}
 								<span class="text-[11px] font-semibold shrink-0 tabular-nums
 									{isSelected ? 'text-accent' : 'text-faint'}">

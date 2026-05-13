@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { WC2026_TEAMS } from '$lib/wc2026';
+	import { WC2026_TEAMS, teamLabel } from '$lib/wc2026';
 	import { t } from '$lib/i18n.svelte';
 
 	let { data } = $props();
@@ -82,7 +82,7 @@
 				<div class="flex-1 min-w-0">
 					<p class="text-xs text-faint mb-0.5">{t('fav_team')}</p>
 					<p class="text-2xl font-bold text-fg leading-tight" style="font-family: var(--font-display)">
-						{data.profile.favorite_team}
+						{teamLabel(data.profile.favorite_team)}
 					</p>
 				</div>
 				{#if data.teamOdds != null}

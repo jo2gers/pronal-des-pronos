@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { WC2026_TEAMS } from '$lib/wc2026';
+	import { WC2026_TEAMS, teamLabel } from '$lib/wc2026';
 	import { t } from '$lib/i18n.svelte';
 
 	let { data } = $props();
@@ -194,7 +194,7 @@
 													<img src={url} alt={(row.user as any).favorite_team}
 														class="w-5 h-3.5 object-cover rounded-sm shrink-0" />
 												{/if}
-												<span class="text-xs text-faint truncate">{(row.user as any).favorite_team}</span>
+												<span class="text-xs text-faint truncate">{teamLabel((row.user as any).favorite_team)}</span>
 											</span>
 										{/if}
 									</div>

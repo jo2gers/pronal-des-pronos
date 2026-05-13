@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { beforeNavigate } from '$app/navigation';
-	import { WC2026_TEAMS, COUNTRIES } from '$lib/wc2026';
+	import { WC2026_TEAMS, COUNTRIES, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 
 	import { WC2026_TEAMS as _T } from '$lib/wc2026';
@@ -187,7 +187,7 @@
 
 				{#if data.teamLocked}
 					<div class="rounded-lg bg-raised border border-wire/50 px-3 py-2 text-muted text-sm opacity-70">
-						{selectedTeam || t('no_team_selected')}
+						{teamLabel(selectedTeam) || t('no_team_selected')}
 						{#if selectedTeam && data.oddsMap[selectedTeam]}
 							<span class="ml-2 text-xs text-faint">×{data.oddsMap[selectedTeam]}</span>
 						{/if}
@@ -202,7 +202,7 @@
 								<img src={url} alt="" class="w-8 h-6 object-cover rounded shrink-0" />
 							{/if}
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-semibold text-fg truncate">{selectedTeam}</p>
+								<p class="text-sm font-semibold text-fg truncate">{teamLabel(selectedTeam)}</p>
 								{#if data.oddsMap[selectedTeam]}
 									<p class="text-[11px] text-accent font-semibold tabular-nums">×{data.oddsMap[selectedTeam]} {t('bonus_mult')}</p>
 								{/if}
@@ -235,7 +235,7 @@
 									{isSelected
 										? 'bg-accent-lo border-accent/50 text-fg'
 										: 'bg-raised border-wire hover:border-wire-hi text-fg'}">
-								<span class="text-sm font-medium truncate">{team.name}</span>
+								<span class="text-sm font-medium truncate">{teamLabel(team.name)}</span>
 								{#if mult}
 									<span class="text-[11px] font-semibold shrink-0 tabular-nums
 										{isSelected ? 'text-accent' : 'text-faint'}">

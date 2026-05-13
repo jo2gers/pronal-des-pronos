@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { formatDate, timeUntilMatch, MATCH_LOCK_MS } from '$lib/utils';
 	import { t } from '$lib/i18n.svelte';
+	import { teamLabel } from '$lib/wc2026';
 	import Flag from '$lib/components/Flag.svelte';
 
 	type MatchLike = {
@@ -103,13 +104,13 @@
 		<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
 			<Flag code={match.home_flag} size={flagSize} />
 			<span class="text-sm font-semibold text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
-				{match.home_team}
+				{teamLabel(match.home_team)}
 			</span>
 		</a>
 		<a href="/matches/{match.id}" class="flex flex-col items-center gap-1.5 min-w-0 group/team">
 			<Flag code={match.away_flag} size={flagSize} />
 			<span class="text-sm font-semibold text-fg group-hover/team:text-accent transition-colors truncate max-w-full text-center">
-				{match.away_team}
+				{teamLabel(match.away_team)}
 			</span>
 		</a>
 	</div>
@@ -139,7 +140,7 @@
 {#snippet oddsLine()}
 	{#if match.odds_home && match.odds_draw && match.odds_away}
 		<div class="flex items-center justify-center gap-1.5 text-[11px] tabular-nums mt-1.5">
-			<span class="inline-flex items-baseline gap-1 {outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.home_team}>
+			<span class="inline-flex items-baseline gap-1 {outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.home_team)}>
 				<span class="text-faint font-normal text-[9px] uppercase tracking-wider">1</span>
 				{match.odds_home.toFixed(2)}
 			</span>
@@ -149,7 +150,7 @@
 				{match.odds_draw.toFixed(2)}
 			</span>
 			<span class="text-wire-hi">·</span>
-			<span class="inline-flex items-baseline gap-1 {outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={match.away_team}>
+			<span class="inline-flex items-baseline gap-1 {outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.away_team)}>
 				<span class="text-faint font-normal text-[9px] uppercase tracking-wider">2</span>
 				{match.odds_away.toFixed(2)}
 			</span>
@@ -242,7 +243,7 @@
 				<a href="/matches/{match.id}" class="flex items-center gap-2.5 min-w-0 flex-1 group/team">
 					<Flag code={match.home_flag} size={flagSize} />
 					<span class="text-base font-semibold text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate">
-						{match.home_team}
+						{teamLabel(match.home_team)}
 					</span>
 				</a>
 
@@ -252,7 +253,7 @@
 
 				<a href="/matches/{match.id}" class="flex items-center gap-2.5 min-w-0 flex-1 justify-end group/team">
 					<span class="text-base font-semibold text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate text-right">
-						{match.away_team}
+						{teamLabel(match.away_team)}
 					</span>
 					<Flag code={match.away_flag} size={flagSize} />
 				</a>
@@ -357,13 +358,13 @@
 
 		<!-- ── Desktop non-pickable: single horizontal row ───────────────────── -->
 		<div class="hidden sm:flex items-center gap-3">
-			<a href="/matches/{match.id}" aria-label={match.home_team} class="shrink-0">
+			<a href="/matches/{match.id}" aria-label={teamLabel(match.home_team)} class="shrink-0">
 				<Flag code={match.home_flag} size={flagSize} />
 			</a>
 
 			<a href="/matches/{match.id}" class="flex-1 min-w-0 group/team">
 				<span class="text-base font-semibold text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block">
-					{match.home_team}
+					{teamLabel(match.home_team)}
 				</span>
 			</a>
 
@@ -430,11 +431,11 @@
 
 			<a href="/matches/{match.id}" class="flex-1 min-w-0 group/team">
 				<span class="text-base font-semibold text-fg group-hover/team:text-accent group-hover/team:underline underline-offset-4 transition-colors truncate block text-right">
-					{match.away_team}
+					{teamLabel(match.away_team)}
 				</span>
 			</a>
 
-			<a href="/matches/{match.id}" aria-label={match.away_team} class="shrink-0">
+			<a href="/matches/{match.id}" aria-label={teamLabel(match.away_team)} class="shrink-0">
 				<Flag code={match.away_flag} size={flagSize} />
 			</a>
 
