@@ -20,15 +20,19 @@
 
 	const width = $derived(Math.round(size * 1.5));
 
+	// Corner radius scales with flag size — keeps the rounded-sticker look
+	// consistent from a 16px schedule chip up to an 88px detail-page hero.
+	const radius = $derived(Math.max(2, Math.round(size * 0.12)));
+
 	// flagcdn ships sizes w20, w40, w80, w160 — pick the next-larger for crisp DPR
 	const cdnWidth = $derived(width <= 40 ? 80 : width <= 80 ? 160 : 320);
 	const src = $derived(code ? `https://flagcdn.com/w${cdnWidth}/${code.toLowerCase()}.png` : '');
 </script>
 
 {#if src}
-	<img {src} {alt} class="object-contain shrink-0 rounded-sm {extra}"
-		style="width: {width}px; height: {size}px;" />
+	<img {src} {alt} class="object-contain shrink-0 ring-1 ring-fg/15 {extra}"
+		style="width: {width}px; height: {size}px; border-radius: {radius}px;" />
 {:else}
-	<span class="shrink-0 bg-raised rounded-sm {extra}"
-		style="width: {width}px; height: {size}px;"></span>
+	<span class="shrink-0 bg-raised ring-1 ring-fg/15 {extra}"
+		style="width: {width}px; height: {size}px; border-radius: {radius}px;"></span>
 {/if}
