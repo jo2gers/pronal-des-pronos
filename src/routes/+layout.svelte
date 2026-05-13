@@ -98,7 +98,8 @@
 <svelte:head>
 	<title>Tifo — World Cup 2026 picks with your friends</title>
 	<meta name="description" content="Tifo · friends · leagues · scoreboard. Designed and built by Devsigny." />
-	<link rel="icon" type="image/png" href="/favicon.png?v=2" />
+	<link rel="icon" type="image/png" href="/favicon.png?v=3" />
+	<link rel="shortcut icon" type="image/png" href="/favicon.png?v=3" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 </svelte:head>
@@ -114,8 +115,8 @@
 			<!-- Wordmark — uses the PWA icon so the brand mark is identical
 			     in nav, browser tab, and home-screen install -->
 			<a href="/" onclick={closeMenu} class="shrink-0" aria-label="Tifo">
-				<img src="/icon-192.png?v=2" alt="Tifo"
-					class="h-9 w-9 rounded-lg" />
+				<img src="/icon-192.png?v=3" alt="Tifo"
+					class="h-11 w-11 rounded-lg" />
 			</a>
 
 			<!-- Desktop nav -->

@@ -50,7 +50,8 @@
       "Bash(npx svelte-check *)",
       "mcp__5aedb72c-48a2-4be0-b06f-791625e08af4__get_project",
       "Bash(node scripts/generate-icons.mjs)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(rm -f \"I:/code/Devsigny global/un pronal des pronos/static/\"*.png~ 2>&1; ls \"I:/code/Devsigny global/un pronal des pronos/static\")"
     ]
   }
 }
