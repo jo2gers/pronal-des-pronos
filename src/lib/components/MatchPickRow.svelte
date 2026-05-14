@@ -44,6 +44,10 @@
 	let home = $state(existingProno?.predicted_home ?? 0);
 	let away = $state(existingProno?.predicted_away ?? 0);
 	let hasProno = $state(!!existingProno);
+	// `touched` flips true on the first stepper bump — gates rendering "0" vs "–"
+	// and unblocks the 0-0 save path so a user who genuinely wants to pick 0-0
+	// can do it (one bump up + one bump down on either side).
+	let touched = $state(!!existingProno);
 	let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 	let saveError = $state<string | null>(null);
 	let formEl: HTMLFormElement | null = null;
@@ -61,21 +65,23 @@
 
 	const u = $derived(urgency());
 	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked');
-	const outcome = $derived(Math.sign(home - away));
+	// outcome is null when the user hasn't touched the stepper — odds line stays
+	// neutral until there's an actual prediction to compare against.
+	const outcome = $derived<number | null>(touched ? Math.sign(home - away) : null);
 
 	function bump(side: 'home' | 'away', dir: 1 | -1) {
 		if (!pickable) return;
+		touched = true;
 		if (side === 'home') home = Math.max(0, Math.min(20, home + dir));
 		else                 away = Math.max(0, Math.min(20, away + dir));
 		scheduleSave();
 	}
 
 	function scheduleSave() {
-		if (!hasProno && home === 0 && away === 0) {
-			saveStatus = 'idle';
-			if (saveTimer) clearTimeout(saveTimer);
-			return;
-		}
+		// Save whenever the user has touched the stepper — 0-0 is a valid
+		// prediction (draw, no goals) and must persist on second-thought
+		// adjustments back down to 0.
+		if (!touched) return;
 		if (saveTimer) clearTimeout(saveTimer);
 		saveStatus = 'saving';
 		saveTimer = setTimeout(() => formEl?.requestSubmit(), 700);
@@ -140,7 +146,7 @@
 {#snippet oddsLine()}
 	{#if match.odds_home && match.odds_draw && match.odds_away}
 		<div class="flex items-center justify-center gap-1.5 text-[11px] tabular-nums mt-1.5">
-			<span class="inline-flex items-baseline gap-1 {outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.home_team)}>
+			<span class="inline-flex items-baseline gap-1 {outcome != null && outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.home_team)}>
 				<span class="text-faint font-normal text-[9px] uppercase tracking-wider">1</span>
 				{match.odds_home.toFixed(2)}
 			</span>
@@ -150,7 +156,7 @@
 				{match.odds_draw.toFixed(2)}
 			</span>
 			<span class="text-wire-hi">·</span>
-			<span class="inline-flex items-baseline gap-1 {outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.away_team)}>
+			<span class="inline-flex items-baseline gap-1 {outcome != null && outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.away_team)}>
 				<span class="text-faint font-normal text-[9px] uppercase tracking-wider">2</span>
 				{match.odds_away.toFixed(2)}
 			</span>
@@ -169,7 +175,7 @@
 {/snippet}
 
 {#snippet pickableCentre()}
-	{@const scoreColour = hasProno || home > 0 || away > 0 ? 'text-accent' : 'text-faint'}
+	{@const scoreColour = touched ? 'text-accent' : 'text-faint'}
 	<div class="text-center">
 		{@render metaLine()}
 		<div class="flex items-center justify-center gap-3 sm:gap-4 mt-2">
@@ -179,7 +185,7 @@
 				<a href="/matches/{match.id}" class="hover:opacity-80 transition-opacity">
 					<span class="text-3xl sm:text-4xl font-bold tabular-nums leading-none w-7 sm:w-9 text-center block {scoreColour}"
 						style="font-family: var(--font-display)">
-						{home}
+						{touched ? home : '–'}
 					</span>
 				</a>
 				{@render stepperButton('home', 1)}
@@ -193,7 +199,7 @@
 				<a href="/matches/{match.id}" class="hover:opacity-80 transition-opacity">
 					<span class="text-3xl sm:text-4xl font-bold tabular-nums leading-none w-7 sm:w-9 text-center block {scoreColour}"
 						style="font-family: var(--font-display)">
-						{away}
+						{touched ? away : '–'}
 					</span>
 				</a>
 				{@render stepperButton('away', 1)}
