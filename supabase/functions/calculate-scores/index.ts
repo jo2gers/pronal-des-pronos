@@ -55,8 +55,14 @@ Deno.serve(async (req) => {
 		.eq('id', matchId)
 		.single();
 
-	if (!match || match.status !== 'finished' || match.home_score == null || match.away_score == null) {
-		return new Response(JSON.stringify({ error: 'Match not finished or scores not set' }), { status: 400 });
+	if (!match) {
+		return new Response(JSON.stringify({ error: 'Match introuvable' }), { status: 400 });
+	}
+	if (match.status !== 'finished') {
+		return new Response(JSON.stringify({ error: `Statut actuel: "${match.status}". Marque le match "Terminé" et attends que le score soit enregistré avant de calculer.` }), { status: 400 });
+	}
+	if (match.home_score == null || match.away_score == null) {
+		return new Response(JSON.stringify({ error: 'Scores manquants (null en base). Mets les deux scores puis recalcule.' }), { status: 400 });
 	}
 
 	// ── 1. Score pronostics ──────────────────────────────────────────────────────

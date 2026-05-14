@@ -166,8 +166,10 @@
 			{/if}
 		</div>
 
-		<!-- Calculate scores: only shown when finished -->
+		<!-- Calculate scores: only shown when finished. Disabled while the status/score
+		     save is still in flight (otherwise the edge function reads stale DB state). -->
 		{#if status === 'finished'}
+			{@const pending = saveStatus === 'saving' || calcLoading}
 			<div class="ml-auto inline-flex items-center gap-2">
 				<form method="POST" action="?/calculate" use:enhance={() => {
 					calcLoading = true;
@@ -184,9 +186,10 @@
 					};
 				}}>
 					<input type="hidden" name="match_id" value={match.id} />
-					<button type="submit" disabled={calcLoading}
+					<button type="submit" disabled={pending}
+						title={saveStatus === 'saving' ? 'Attends que le score soit enregistré…' : ''}
 						class="rounded-lg bg-accent-lo border border-accent/40 hover:bg-accent/20 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors cursor-pointer whitespace-nowrap">
-						{calcLoading ? '…' : 'Calculer scores'}
+						{calcLoading ? '…' : saveStatus === 'saving' ? 'Sauvegarde…' : 'Calculer scores'}
 					</button>
 				</form>
 
@@ -207,14 +210,14 @@
 				}} title="Force le recalcul de tous les pronostics, même déjà notés">
 					<input type="hidden" name="match_id" value={match.id} />
 					<input type="hidden" name="force" value="1" />
-					<button type="submit" disabled={calcLoading}
+					<button type="submit" disabled={pending}
 						class="rounded-lg border border-wire hover:border-wire-hi disabled:opacity-40 px-3 py-1.5 text-xs text-muted hover:text-fg transition-colors cursor-pointer whitespace-nowrap">
 						↻ Recalculer
 					</button>
 				</form>
 
 				{#if calcMessage}
-					<span class="text-[11px] text-accent">{calcMessage}</span>
+					<span class="text-[11px] {calcMessage.startsWith('Erreur') ? 'text-err' : 'text-accent'}">{calcMessage}</span>
 				{/if}
 			</div>
 		{/if}
