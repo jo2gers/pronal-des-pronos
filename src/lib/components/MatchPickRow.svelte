@@ -130,7 +130,11 @@
 
 {#snippet metaLine()}
 	<a href="/matches/{match.id}" class="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs leading-tight hover:opacity-80 transition-opacity">
-		<!-- Day already shown in the bucket header above — kickoff time + lock cutoff + group here. -->
+		<!-- Order: group · kickoff · lock-cutoff. Day is already in the bucket header. -->
+		{#if match.group_label}
+			<span class="text-faint">{t('group_short')} {match.group_label}</span>
+			<span class="text-wire-hi">·</span>
+		{/if}
 		<span class="tabular-nums font-semibold
 			{u === 'critical' ? 'text-live' :
 			 u === 'warning'  ? 'text-warn'  :
@@ -145,10 +149,6 @@
 				</svg>
 				{closesAt}
 			</span>
-		{/if}
-		{#if match.group_label}
-			<span class="text-wire-hi">·</span>
-			<span class="text-faint">{t('group_short')} {match.group_label}</span>
 		{/if}
 		{#if u === 'critical' && !hasProno}
 			<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title={t('match_picks_close_at')}></span>
