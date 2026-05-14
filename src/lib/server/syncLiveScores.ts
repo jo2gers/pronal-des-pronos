@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
+import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
 
 type LiveMatchRow = {
 	id: string;
@@ -84,7 +85,18 @@ async function fetchPolymarketEvent(slug: string): Promise<PolymarketEvent | nul
 export async function syncLiveScores(
 	supabase: SupabaseClient,
 	opts: { force?: boolean } = {}
-): Promise<{ ok: boolean; scanned: number; due: number; updated: number; ended: number; scoredPronostics: number; error?: string }> {
+): Promise<{
+	ok: boolean;
+	scanned: number;
+	due: number;
+	updated: number;
+	ended: number;
+	scoredPronostics: number;
+	bracketUpdated?: number;
+	slugsUpdated?: number;
+	oddsUpdated?: number;
+	error?: string;
+}> {
 	const nowMs = Date.now();
 	const nowIso = new Date(nowMs).toISOString();
 
@@ -158,5 +170,44 @@ export async function syncLiveScores(
 		}
 	}
 
-	return { ok: true, scanned: matches.length, due: due.length, updated, ended, scoredPronostics };
+	// ── Cascade after any FT transition ────────────────────────────────────
+	// When a match ends, the bracket may now be ready to fill one or more
+	// knockout slots (e.g. last group match → R32 pairings, last R32 → R16).
+	// We chain resolve_bracket → backfillPolymarketSlugs → syncMatchOdds so
+	// the newly-named matches are immediately tracked by future cron ticks
+	// — no admin click required between rounds.
+	let bracketUpdated = 0;
+	let slugsUpdated = 0;
+	let oddsUpdated = 0;
+	if (ended > 0) {
+		try {
+			const { data: bracketResult } = await supabase.rpc('resolve_bracket');
+			bracketUpdated = ((bracketResult as any)?.updated ?? 0) as number;
+		} catch {
+			// non-fatal — daily 06:00 cron will retry
+		}
+
+		if (bracketUpdated > 0) {
+			try {
+				const r = await backfillPolymarketSlugs(supabase);
+				if (r.ok) slugsUpdated = r.updated;
+			} catch { /* non-fatal */ }
+			try {
+				const r = await syncMatchOdds(supabase);
+				if (r.ok) oddsUpdated = r.updated;
+			} catch { /* non-fatal */ }
+		}
+	}
+
+	return {
+		ok: true,
+		scanned: matches.length,
+		due: due.length,
+		updated,
+		ended,
+		scoredPronostics,
+		bracketUpdated,
+		slugsUpdated,
+		oddsUpdated
+	};
 }
