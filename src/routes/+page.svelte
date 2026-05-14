@@ -18,6 +18,24 @@
 		return () => clearInterval(interval);
 	});
 
+	// Reactive clock for computing match minute (45+15HT+45 ≈ 105 elapsed min).
+	// Ticks every 30s so the badge stays close to "data from last refresh".
+	let liveNowMs = $state(Date.now());
+	$effect(() => {
+		if (!liveMatches.length) return;
+		const id = setInterval(() => { liveNowMs = Date.now(); }, 30_000);
+		return () => clearInterval(id);
+	});
+
+	function matchMinute(kickoffIso: string, now: number): string {
+		const elapsedMin = Math.floor((now - new Date(kickoffIso).getTime()) / 60000);
+		if (elapsedMin < 0)   return "0'";
+		if (elapsedMin <= 45) return `${elapsedMin}'`;
+		if (elapsedMin < 60)  return 'HT';
+		if (elapsedMin < 105) return `${elapsedMin - 15}'`;
+		return "90+'";
+	}
+
 	// ── Countdown ────────────────────────────────────────────────────────────────
 	function getCountdown(dt: string) {
 		const diff = new Date(dt).getTime() - Date.now();
@@ -91,9 +109,11 @@
 										style="font-family: var(--font-display)">
 										{liveHome}<span class="{sole ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-muted mx-1">–</span>{liveAway}
 									</p>
-									<span class="inline-flex items-center gap-1 mt-3 rounded bg-live px-2 py-0.5 {sole ? 'text-xs' : 'text-[10px]'} font-bold text-fg tracking-widest">
+									<span class="inline-flex items-center gap-1.5 mt-3 rounded bg-live px-2 py-0.5 {sole ? 'text-xs' : 'text-[10px]'} font-bold text-fg tracking-widest">
 										<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>
 										LIVE
+										<span class="opacity-80">·</span>
+										<span class="tabular-nums">{matchMinute(match.match_datetime, liveNowMs)}</span>
 									</span>
 								</div>
 								<div class="flex-1 flex flex-col items-center max-w-[40%]">
