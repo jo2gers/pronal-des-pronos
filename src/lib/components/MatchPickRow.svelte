@@ -66,7 +66,8 @@
 	function urgency(): 'none' | 'locked' | 'critical' | 'warning' | 'normal' {
 		if (match.status !== 'upcoming') return 'none';
 		const ms = new Date(match.match_datetime).getTime() - nowMs;
-		if (ms <= 0) return 'none';
+		// ms < MATCH_LOCK_MS covers both "<5 min away" and "kickoff has passed
+		// but admin hasn't flipped status to 'live' yet" — both must lock.
 		if (ms < MATCH_LOCK_MS)   return 'locked';
 		if (ms < 6 * 3600000)     return 'critical';
 		if (ms < 24 * 3600000)    return 'warning';
