@@ -103,7 +103,7 @@
 									<p class="{sole ? 'text-base sm:text-lg' : 'text-sm'} font-semibold text-fg leading-tight truncate max-w-full">{teamLabel(match.home_team)}</p>
 								</div>
 								<div class="text-center shrink-0 px-2">
-									<p class="{sole ? 'text-6xl sm:text-7xl' : 'text-4xl'} font-bold text-accent tabular-nums leading-none inline-flex items-center justify-center gap-2"
+									<p class="{sole ? 'text-6xl sm:text-7xl' : 'text-4xl'} font-bold text-accent tabular-nums leading-none flex items-center justify-center gap-2"
 										style="font-family: var(--font-display)">
 										<span>{liveHome}</span>
 										<span class="{sole ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-muted">–</span>
