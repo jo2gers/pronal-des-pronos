@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
@@ -16,7 +17,18 @@
 
 	type Match = NonNullable<typeof data.matches>[number];
 
-	let tab = $state<'upcoming' | 'ended'>('upcoming');
+	// Tab lives in the URL (?tab=ended) so it survives navigation to a match
+	// detail and back via history.back().
+	const tab = $derived<'upcoming' | 'ended'>(
+		page.url.searchParams.get('tab') === 'ended' ? 'ended' : 'upcoming'
+	);
+
+	function setTab(next: 'upcoming' | 'ended') {
+		const url = new URL(page.url);
+		if (next === 'upcoming') url.searchParams.delete('tab');
+		else                     url.searchParams.set('tab', next);
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
 
 	const grouped = $derived(() => {
 		const stageOrder = ['group', 'round_of_32', 'round_of_16', 'quarters', 'semis', 'third', 'final'];
@@ -51,12 +63,12 @@
 	<div class="space-y-2">
 		<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-fit">
 			<button
-				onclick={() => tab = 'upcoming'}
+				onclick={() => setTab('upcoming')}
 				class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {tab === 'upcoming' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
 				{t('upcoming')}
 			</button>
 			<button
-				onclick={() => tab = 'ended'}
+				onclick={() => setTab('ended')}
 				class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {tab === 'ended' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
 				{t('ended')}
 			</button>
