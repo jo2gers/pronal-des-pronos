@@ -1,5 +1,5 @@
-import { error } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import { error, fail } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
@@ -100,6 +100,36 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		}
 	}
 
+	// Friendship status between the logged-in viewer and this profile.
+	// 'self'                — viewing your own profile
+	// 'none'                — not logged in or no friendship row
+	// 'pending_sent'        — you sent a request to this profile
+	// 'pending_received'    — they sent you a request
+	// 'accepted'            — you're friends
+	// 'declined'            — a previous request was declined (treat as 'none' for re-request)
+	type FriendStatus = 'self' | 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'declined';
+	let friendStatus: FriendStatus = 'none';
+	let friendshipId: string | null = null;
+	if (!user) {
+		friendStatus = 'none';
+	} else if (user.id === params.id) {
+		friendStatus = 'self';
+	} else {
+		const { data: f } = await supabase
+			.from('friendships')
+			.select('id, status, requester_id, addressee_id')
+			.or(`and(requester_id.eq.${user.id},addressee_id.eq.${params.id}),and(requester_id.eq.${params.id},addressee_id.eq.${user.id})`)
+			.maybeSingle();
+		if (f) {
+			friendshipId = f.id;
+			if (f.status === 'accepted') friendStatus = 'accepted';
+			else if (f.status === 'declined') friendStatus = 'declined';
+			else if (f.status === 'pending') {
+				friendStatus = f.requester_id === user.id ? 'pending_sent' : 'pending_received';
+			}
+		}
+	}
+
 	return {
 		profile,
 		pronostics: scoredWithBonus,
@@ -111,6 +141,60 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		totalPronoCount: (pronostics ?? []).length,
 		isOwnProfile: user?.id === params.id,
 		teamOdds,
-		scorerInfo
+		scorerInfo,
+		friendStatus,
+		friendshipId
 	};
+};
+
+export const actions: Actions = {
+	request: async ({ params, locals: { supabase, safeGetSession } }) => {
+		const { user } = await safeGetSession();
+		if (!user) return fail(401, { error: 'Non authentifié' });
+		if (user.id === params.id) return fail(400, { error: 'Tu ne peux pas t\'envoyer une demande à toi-même.' });
+
+		// Upsert-style: if a declined row exists between these two, flip it back to pending.
+		// Otherwise insert fresh.
+		const { data: existing } = await supabase
+			.from('friendships')
+			.select('id, status')
+			.or(`and(requester_id.eq.${user.id},addressee_id.eq.${params.id}),and(requester_id.eq.${params.id},addressee_id.eq.${user.id})`)
+			.maybeSingle();
+
+		if (existing) {
+			if (existing.status === 'pending')  return fail(400, { error: 'Demande déjà en attente.' });
+			if (existing.status === 'accepted') return fail(400, { error: 'Vous êtes déjà amis.' });
+			// declined: reopen as pending from the current user
+			const { error: upErr } = await supabase
+				.from('friendships')
+				.update({ status: 'pending', requester_id: user.id, addressee_id: params.id })
+				.eq('id', existing.id);
+			if (upErr) return fail(500, { error: upErr.message });
+		} else {
+			const { error: insErr } = await supabase
+				.from('friendships')
+				.insert({ requester_id: user.id, addressee_id: params.id, status: 'pending' });
+			if (insErr) return fail(500, { error: insErr.message });
+		}
+
+		return { requestSent: true };
+	},
+
+	respond: async ({ request, locals: { supabase, safeGetSession } }) => {
+		const { user } = await safeGetSession();
+		if (!user) return fail(401, { error: 'Non authentifié' });
+
+		const form = await request.formData();
+		const friendshipId = form.get('friendship_id') as string;
+		const action = form.get('action') as 'accepted' | 'declined';
+
+		const { error: respondErr } = await supabase
+			.from('friendships')
+			.update({ status: action })
+			.eq('id', friendshipId)
+			.eq('addressee_id', user.id);
+		if (respondErr) return fail(500, { error: respondErr.message });
+
+		return { responded: true };
+	}
 };

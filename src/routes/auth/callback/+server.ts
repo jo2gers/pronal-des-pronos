@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 	// First-time OAuth users won't have a complete profile yet — gate them through onboarding.
 	const { data: profile, error: profileError } = await supabase
 		.from('profiles')
-		.select('username, favorite_team')
+		.select('username, favorite_team, avatar_url, display_name')
 		.eq('id', user.id)
 		.maybeSingle();
 
@@ -39,6 +39,28 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 		favoriteTeam: profile?.favorite_team,
 		error: profileError?.message
 	});
+
+	// Pull Google's avatar + display name into the profile on first OAuth sign-in.
+	// Google's user_metadata typically carries:
+	//   avatar_url / picture  → profile photo URL
+	//   full_name / name      → display name
+	// We only overwrite columns that are still null, so a user who later changes
+	// their own display name or avatar isn't reset on every callback.
+	const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+	const googleAvatar = (meta.avatar_url ?? meta.picture) as string | undefined;
+	const googleName   = (meta.full_name ?? meta.name) as string | undefined;
+
+	const updates: Record<string, string> = {};
+	if (googleAvatar && !profile?.avatar_url)   updates.avatar_url   = googleAvatar;
+	if (googleName   && !profile?.display_name) updates.display_name = googleName;
+
+	if (Object.keys(updates).length > 0) {
+		const { error: updErr } = await supabase
+			.from('profiles')
+			.update(updates)
+			.eq('id', user.id);
+		if (updErr) console.log('[oauth-callback] avatar/name backfill failed', updErr.message);
+	}
 
 	const incomplete = !profile || !profile.username || !profile.favorite_team;
 	if (incomplete) redirect(303, `/auth/complete?next=${encodeURIComponent(next)}`);

@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { WC2026_TEAMS, teamLabel } from '$lib/wc2026';
 	import { t } from '$lib/i18n.svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
+	let pending = $state(false);
 
 	// Returns a real flag image URL (works everywhere, no emoji rendering issues)
 	function flagUrl(teamName: string | undefined, size = 40): string {
@@ -63,13 +65,60 @@
 				<a href="/profile"
 					class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-wire hover:border-accent bg-raised hover:bg-accent-lo px-3 py-2 text-sm font-semibold text-muted hover:text-accent transition-colors">
 					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-							d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
 					</svg>
 					{t('profile_edit')}
 				</a>
+			{:else if data.friendStatus === 'accepted'}
+				<span class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent-lo px-3 py-2 text-sm font-semibold text-accent">
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+					</svg>
+					{t('friends_already_friends')}
+				</span>
+			{:else if data.friendStatus === 'pending_sent'}
+				<span class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-wire bg-raised px-3 py-2 text-sm font-medium text-muted">
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+					</svg>
+					{t('friends_request_sent')}
+				</span>
+			{:else if data.friendStatus === 'pending_received' && data.friendshipId}
+				<form method="POST" action="?/respond" use:enhance={() => {
+					pending = true;
+					return async ({ update }) => { pending = false; await update({ reset: false }); };
+				}} class="shrink-0 inline-flex items-center gap-1">
+					<input type="hidden" name="friendship_id" value={data.friendshipId} />
+					<button name="action" value="accepted" type="submit" disabled={pending}
+						class="rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-3 py-2 text-sm font-semibold text-canvas transition-colors cursor-pointer">
+						{t('friends_accept')}
+					</button>
+					<button name="action" value="declined" type="submit" disabled={pending}
+						class="rounded-lg border border-wire hover:border-wire-hi disabled:opacity-50 px-3 py-2 text-sm text-muted hover:text-fg transition-colors cursor-pointer">
+						{t('friends_decline')}
+					</button>
+				</form>
+			{:else if data.friendStatus === 'none' || data.friendStatus === 'declined'}
+				<form method="POST" action="?/request" use:enhance={() => {
+					pending = true;
+					return async ({ update }) => { pending = false; await update({ reset: false }); };
+				}} class="shrink-0">
+					<button type="submit" disabled={pending}
+						class="inline-flex items-center gap-1.5 rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-3 py-2 text-sm font-semibold text-canvas transition-colors cursor-pointer">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+						</svg>
+						{pending ? '…' : t('friends_add')}
+					</button>
+				</form>
 			{/if}
 		</div>
+
+		{#if form?.error}
+			<p class="mt-3 text-xs text-err">{form.error}</p>
+		{:else if form?.requestSent}
+			<p class="mt-3 text-xs text-accent">{t('friends_request_sent_confirm')}</p>
+		{/if}
 
 		<!-- Favourite team — prominent display -->
 		{#if data.profile.favorite_team}
