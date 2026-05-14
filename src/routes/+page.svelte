@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { formatDate } from '$lib/utils';
+	import { formatDate, groupByDay } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import Flag from '$lib/components/Flag.svelte';
@@ -231,11 +231,22 @@
 		{/if}
 
 		{#if data.upcomingMatches?.length}
-			<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40">
-				{#each data.upcomingMatches as match}
-					<MatchPickRow {match}
-						existingProno={data.pronosticsMap[match.id] ?? null}
-						loggedIn={!!data.user} />
+			<div class="space-y-5">
+				{#each groupByDay([...data.upcomingMatches], getLang()) as bucket (bucket.key)}
+					<div>
+						<div class="flex items-center gap-3 mb-2 px-1">
+							<span class="flex-1 h-px bg-wire"></span>
+							<span class="text-[11px] uppercase tracking-widest text-faint">{bucket.label}</span>
+							<span class="flex-1 h-px bg-wire"></span>
+						</div>
+						<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40">
+							{#each bucket.items as match (match.id)}
+								<MatchPickRow {match}
+									existingProno={data.pronosticsMap[match.id] ?? null}
+									loggedIn={!!data.user} />
+							{/each}
+						</div>
+					</div>
 				{/each}
 			</div>
 			<a href="/matches" class="mt-3 block text-right text-sm text-accent hover:text-accent-hi px-1">

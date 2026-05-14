@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
+	import { groupByDay } from '$lib/utils';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
 
@@ -14,8 +14,6 @@
 		const interval = setInterval(() => invalidateAll(), 30_000);
 		return () => clearInterval(interval);
 	});
-
-	type Match = NonNullable<typeof data.matches>[number];
 
 	// Tab lives in the URL (?tab=ended) so it survives navigation to a match
 	// detail and back via history.back().
@@ -30,24 +28,22 @@
 		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	const grouped = $derived(() => {
-		const stageOrder = ['group', 'round_of_32', 'round_of_16', 'quarters', 'semis', 'third', 'final'];
-		const map = new Map<string, Match[]>();
-		for (const m of data.matches ?? []) {
-			const isEnded = m.status === 'finished';
-			if (tab === 'ended' ? !isEnded : isEnded) continue;
-			if (!map.has(m.stage)) map.set(m.stage, []);
-			map.get(m.stage)!.push(m);
-		}
-		return stageOrder.flatMap((s) => {
-			const matches = map.get(s);
-			if (!matches) return [];
-			return [{ stage: s, matches }];
+	// Filter to the active tab, then bucket by calendar day. Ended-tab buckets
+	// are reversed so the most recent day appears first.
+	const dayBuckets = $derived.by(() => {
+		const filtered = (data.matches ?? []).filter((m) =>
+			tab === 'ended' ? m.status === 'finished' : m.status !== 'finished'
+		);
+		filtered.sort((a, b) => {
+			const da = new Date(a.match_datetime).getTime();
+			const db = new Date(b.match_datetime).getTime();
+			return tab === 'ended' ? db - da : da - db;
 		});
+		return groupByDay(filtered, getLang());
 	});
 </script>
 
-<div class="space-y-10">
+<div class="space-y-8">
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">
 			{t('nav_matches')}
@@ -75,22 +71,26 @@
 		</div>
 	</div>
 
-	{#each grouped() as { stage, matches }, i}
-		<section class="{i === 0 ? '' : 'border-t border-wire pt-8'}">
-			<header class="flex items-baseline justify-between mb-4 px-1">
-				<h2 class="text-base font-semibold text-fg" style="font-family: var(--font-display)">
-					{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[stage] ?? stage}
-				</h2>
-				<span class="text-xs text-faint tabular-nums">{matches.length}</span>
-			</header>
-
-			<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40 overflow-hidden">
-				{#each matches as match}
-					<MatchPickRow {match}
-						existingProno={data.pronosticsMap[match.id] ?? null}
-						loggedIn={!!data.user} />
-				{/each}
-			</div>
-		</section>
-	{/each}
+	{#if dayBuckets.length === 0}
+		<p class="text-muted text-sm px-1">{tab === 'ended' ? '—' : t('no_upcoming')}</p>
+	{:else}
+		<div class="space-y-6">
+			{#each dayBuckets as bucket (bucket.key)}
+				<section>
+					<div class="flex items-center gap-3 mb-2 px-1">
+						<span class="flex-1 h-px bg-wire"></span>
+						<span class="text-[11px] uppercase tracking-widest text-faint">{bucket.label}</span>
+						<span class="flex-1 h-px bg-wire"></span>
+					</div>
+					<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40 overflow-hidden">
+						{#each bucket.items as match (match.id)}
+							<MatchPickRow {match}
+								existingProno={data.pronosticsMap[match.id] ?? null}
+								loggedIn={!!data.user} />
+						{/each}
+					</div>
+				</section>
+			{/each}
+		</div>
+	{/if}
 </div>

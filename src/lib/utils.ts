@@ -17,6 +17,38 @@ export function formatDate(datetime: string): string {
 	});
 }
 
+// "2026-6-11" key for grouping matches by calendar day in the user's tz.
+export function dayKey(datetime: string): string {
+	const d = new Date(datetime);
+	return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+// "lundi 29 juin" / "Monday 29 June" — full-word day label for section headers.
+export function dayLabel(datetime: string, lang: 'fr' | 'en' = 'fr'): string {
+	return new Date(datetime).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+		weekday: 'long',
+		day: 'numeric',
+		month: 'long'
+	});
+}
+
+// Group an array of objects with a `.match_datetime` field into day buckets,
+// preserving array order. Returns one bucket per calendar day with the
+// localised label ready to render as a section header.
+export function groupByDay<T extends { match_datetime: string }>(
+	items: T[],
+	lang: 'fr' | 'en' = 'fr'
+): { key: string; label: string; items: T[] }[] {
+	const out: { key: string; label: string; items: T[] }[] = [];
+	for (const item of items) {
+		const k = dayKey(item.match_datetime);
+		const last = out[out.length - 1];
+		if (last && last.key === k) last.items.push(item);
+		else out.push({ key: k, label: dayLabel(item.match_datetime, lang), items: [item] });
+	}
+	return out;
+}
+
 // Match locks 5 minutes before kickoff
 export const MATCH_LOCK_MS = 5 * 60 * 1000;
 
