@@ -330,9 +330,9 @@
 		<div class="flex-1 min-w-0">
 			<p class="text-sm font-semibold text-fg">Calculer tous les scores</p>
 			<p class="text-xs text-faint mt-0.5">
-				Recalcule les points de tous les pronostics sur les matchs marqués <span class="text-muted">Terminé</span>.
-				Le bonus équipe est attribué une seule fois par match (garde-fou côté serveur).
-				Utile après une correction de score ou un déploiement du moteur de calcul.
+				Reset complet : remet à zéro les <span class="text-muted">bonus équipe</span> de tous les profils et le flag
+				<span class="text-muted">bonus_calculated</span> de chaque match, puis recalcule tout depuis zéro
+				(pronostics + bonus). Idempotent — relancer donne le même résultat.
 			</p>
 		</div>
 		<form method="POST" action="?/calculateAll" use:enhance={() => {
@@ -343,8 +343,9 @@
 				if (result.type === 'success' && result.data) {
 					const d = result.data as any;
 					const errs = d.errors ? ` · ${d.errors} erreur(s)` : '';
-					calcAllFeedback = { ok: true, msg: `${d.matches} match(s) · ${d.totalScored} pronostic(s) recalculé(s)${errs}` };
-					setTimeout(() => calcAllFeedback = null, 8000);
+					const bonus = d.bonusAwarded ? ` · ${d.bonusAwarded} bonus équipe attribué(s)` : '';
+					calcAllFeedback = { ok: true, msg: `${d.matches} match(s) · ${d.totalScored} pronostic(s) recalculé(s)${bonus}${errs}` };
+					setTimeout(() => calcAllFeedback = null, 10000);
 				} else if (result.type === 'failure') {
 					calcAllFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
 				}

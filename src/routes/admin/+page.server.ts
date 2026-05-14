@@ -225,6 +225,11 @@ export const actions: Actions = {
 
 	// Bulk: re-score every match currently marked as finished. Runs scoreMatch
 	// in-process for each — no edge-function dependency.
+	//
+	// Bonus state is fully reset before recomputing so any previously-awarded
+	// (possibly buggy) team bonuses are replaced by a fresh idempotent pass over
+	// every finished match. This makes the action the canonical "fix everything"
+	// button: pronostic points + team bonuses both end up correct.
 	calculateAll: async () => {
 		const supabase = adminClient();
 
@@ -234,14 +239,35 @@ export const actions: Actions = {
 			.eq('status', 'finished');
 		if (listErr) return fail(500, { error: listErr.message });
 
+		// Reset all team_bonus_points so the per-match loop below re-awards correct
+		// totals from scratch. PostgREST refuses unfiltered UPDATEs, so we fetch
+		// the id list and use .in() — explicit but cheap (profile count is small).
+		const { data: profileIds } = await supabase.from('profiles').select('id');
+		const allProfileIds = (profileIds ?? []).map((r) => r.id);
+		if (allProfileIds.length > 0) {
+			await supabase
+				.from('profiles')
+				.update({ team_bonus_points: 0 })
+				.in('id', allProfileIds);
+		}
+
+		// Clear bonus_calculated on every match that has it set so scoreMatch
+		// awards the bonus again. Filtering by `.eq('bonus_calculated', true)`
+		// is the predicate PostgREST requires.
+		await supabase
+			.from('matches')
+			.update({ bonus_calculated: false })
+			.eq('bonus_calculated', true);
+
 		let totalScored = 0;
 		let totalBonusAwarded = 0;
 		let errors = 0;
 		const list = finished ?? [];
 
+		// Re-read after the reset so the loop sees bonus_calculated=false.
 		for (const m of list) {
 			try {
-				const { scored, bonusAwarded } = await scoreMatch(supabase, m);
+				const { scored, bonusAwarded } = await scoreMatch(supabase, { ...m, bonus_calculated: false });
 				totalScored += scored;
 				totalBonusAwarded += bonusAwarded;
 			} catch {
