@@ -1,10 +1,30 @@
 import { fail } from '@sveltejs/kit';
+import { createServerClient } from '@supabase/ssr';
+import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
 import { resolveOddsUsed } from '$lib/utils';
+import { syncLiveScores } from '$lib/server/syncLiveScores';
 import type { Actions, PageServerLoad } from './$types';
+
+function adminClient() {
+	return createServerClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+		cookies: { getAll: () => [], setAll: () => {} }
+	});
+}
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 	const nowIso = new Date().toISOString();
+
+	// Pull fresh live scores from Polymarket before reading matches. Rate-
+	// limited inside syncLiveScores to 1 actual fetch per 20s per instance,
+	// so concurrent page loads coalesce. Failures are swallowed so a Polymarket
+	// hiccup never breaks the homepage.
+	try {
+		await syncLiveScores(adminClient());
+	} catch {
+		// non-fatal — render with last-known scores
+	}
 
 	const matchFields = 'id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, venue, status, home_score, away_score, odds_home, odds_draw, odds_away';
 
