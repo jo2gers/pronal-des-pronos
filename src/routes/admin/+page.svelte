@@ -4,10 +4,9 @@
 	import { enhance } from '$app/forms';
 	import { formatDate } from '$lib/utils';
 	import { STAGE_LABELS_FR } from '$lib/wc2026';
+	import AdminMatchRow from '$lib/components/AdminMatchRow.svelte';
 
 	let { data, form } = $props();
-
-	type Match = typeof data.matches[number];
 
 	const stageOrder = ['group', 'round_of_32', 'round_of_16', 'quarters', 'semis', 'third', 'final'];
 
@@ -18,21 +17,12 @@
 		})
 	);
 
-	const statusColors: Record<string, string> = {
-		upcoming: 'text-faint',
-		live: 'text-live font-bold',
-		finished: 'text-accent'
-	};
-
-	let loadingId = $state<string | null>(null);
-	let calcLoadingId = $state<string | null>(null);
 	let resetLoading = $state(false);
 	let confirmReset = $state(false);
 	let oddsLoading = $state(false);
 	let wcOddsLoading = $state(false);
 	let scorerOddsLoading = $state(false);
 	let goalLoadingPlayer = $state<string | null>(null);
-	let feedback = $state<{ id: string; msg: string } | null>(null);
 	let resetFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let oddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 	let wcOddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
@@ -465,9 +455,6 @@
 	{#if form?.error}
 		<div class="rounded bg-err/10 border border-err/30 px-4 py-3 text-sm text-err">{form.error}</div>
 	{/if}
-	{#if feedback}
-		<div class="rounded bg-accent-lo border border-accent/30 px-4 py-3 text-sm text-accent">{feedback.msg}</div>
-	{/if}
 
 	{#each grouped as { stage, matches }, sIdx}
 		{@const finishedInStage = matches.filter((m) => m.status === 'finished').length}
@@ -487,92 +474,8 @@
 			</summary>
 
 			<div class="border-t border-wire/60">
-				{#each matches as match, i}
-					<div class="border-b border-wire last:border-0 p-4">
-						<!-- Match header -->
-						<div class="flex items-center gap-2 mb-3">
-							{#if match.home_flag}<img src="https://flagcdn.com/w20/{match.home_flag.toLowerCase()}.png" alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />{/if}
-							<span class="font-semibold text-fg text-sm">{match.home_team}</span>
-							<span class="text-faint text-xs mx-1">vs</span>
-							<span class="font-semibold text-fg text-sm">{match.away_team}</span>
-							{#if match.away_flag}<img src="https://flagcdn.com/w20/{match.away_flag.toLowerCase()}.png" alt="" class="w-5 h-3.5 object-cover rounded shrink-0" />{/if}
-							<span class="ml-auto text-xs text-faint">{formatDate(match.match_datetime)}</span>
-							<span class="text-xs {statusColors[match.status] ?? 'text-faint'} uppercase">
-								{match.status === 'upcoming' ? 'À venir' : match.status === 'live' ? 'En cours' : match.status === 'finished' ? 'Terminé' : match.status}
-							</span>
-						</div>
-
-						<!-- Controls -->
-						<form method="POST" action="?/update" use:enhance={({ formData }) => {
-							loadingId = match.id;
-							return async ({ result, update }) => {
-								loadingId = null;
-								if (result.type === 'success') {
-									feedback = { id: match.id, msg: `${match.home_team} – ${match.away_team} mis à jour` };
-									setTimeout(() => feedback = null, 3000);
-								}
-								await update({ reset: false });
-							};
-						}} class="flex flex-wrap items-end gap-3">
-							<input type="hidden" name="id" value={match.id} />
-
-							<!-- Status -->
-							<div>
-								<label for="status-{match.id}" class="block text-xs text-muted mb-1">Statut</label>
-								<select id="status-{match.id}" name="status"
-									class="rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none">
-									{#each [['upcoming', 'À venir'], ['live', 'En cours'], ['finished', 'Terminé']] as [val, label]}
-										<option value={val} selected={match.status === val}>{label}</option>
-									{/each}
-								</select>
-							</div>
-
-							<!-- Scores -->
-							<div>
-								<label for="hs-{match.id}" class="block text-xs text-muted mb-1">{match.home_team}</label>
-								<input id="hs-{match.id}" name="home_score" type="number" min="0" max="999"
-									value={match.home_score ?? ''}
-									class="w-16 rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg text-center focus:border-accent focus:outline-none"
-									placeholder="–" />
-							</div>
-
-							<span class="text-faint font-bold pb-1.5">–</span>
-
-							<div>
-								<label for="as-{match.id}" class="block text-xs text-muted mb-1">{match.away_team}</label>
-								<input id="as-{match.id}" name="away_score" type="number" min="0" max="999"
-									value={match.away_score ?? ''}
-									class="w-16 rounded bg-raised border border-wire px-2 py-1.5 text-sm text-fg text-center focus:border-accent focus:outline-none"
-									placeholder="–" />
-							</div>
-
-							<button type="submit" disabled={loadingId === match.id}
-								class="rounded bg-accent hover:bg-accent-hi disabled:opacity-40 px-3 py-1.5 text-sm text-canvas transition-colors cursor-pointer">
-								{loadingId === match.id ? '...' : 'Appliquer'}
-							</button>
-
-							<!-- Calculate scores button (only for finished) -->
-							{#if match.status === 'finished'}
-								<form method="POST" action="?/calculate" use:enhance={() => {
-									calcLoadingId = match.id;
-									return async ({ result, update }) => {
-										calcLoadingId = null;
-										if (result.type === 'success' && result.data) {
-											feedback = { id: match.id, msg: `${(result.data as any).scored} pronostic(s) calculé(s)` };
-											setTimeout(() => feedback = null, 4000);
-										}
-										await update({ reset: false });
-									};
-								}}>
-									<input type="hidden" name="match_id" value={match.id} />
-									<button type="submit" disabled={calcLoadingId === match.id}
-										class="rounded bg-accent-lo border border-accent/40 hover:bg-accent/20 disabled:opacity-40 px-3 py-1.5 text-sm text-accent transition-colors cursor-pointer whitespace-nowrap">
-										{calcLoadingId === match.id ? '...' : 'Calculer scores'}
-									</button>
-								</form>
-							{/if}
-						</form>
-					</div>
+				{#each matches as match}
+					<AdminMatchRow {match} />
 				{/each}
 			</div>
 		</details>
