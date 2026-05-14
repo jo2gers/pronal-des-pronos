@@ -391,6 +391,17 @@
 								{#if me}<span class="text-faint font-normal ml-1 text-xs">{t('match_me_label')}</span>{/if}
 							</span>
 
+							<!-- Team bonus chip: rendered BEFORE the prediction so it doesn't look
+							     like it's adding to the prediction-points number on the right. -->
+							{#if data.matchBonus && (p.profiles as any)?.favorite_team === data.matchBonus.winnerTeam}
+								<span class="inline-flex items-baseline gap-1 text-[10px] font-semibold tabular-nums shrink-0"
+									style="color: var(--color-bonus)"
+									title="{teamLabel(data.matchBonus.winnerTeam)} a gagné — bonus pour les supporters">
+									<span class="uppercase tracking-widest text-[9px] opacity-80">{t('match_team_bonus_chip')}</span>
+									+{data.matchBonus.amount.toFixed(2)}
+								</span>
+							{/if}
+
 							<!-- Prediction -->
 							<span class="font-mono text-sm tabular-nums
 								{badge === 'exact' ? 'text-accent font-bold' : badge === 'correct' ? 'text-fg' : 'text-muted'}">
@@ -409,15 +420,6 @@
 								style="font-family: var(--font-display)">
 								{p.points_earned?.toFixed(2) ?? '0.00'}
 							</span>
-
-							<!-- Team bonus chip: this user supports the match winner -->
-							{#if data.matchBonus && (p.profiles as any)?.favorite_team === data.matchBonus.winnerTeam}
-								<span class="text-[10px] font-semibold tabular-nums shrink-0 ml-1"
-									style="color: var(--color-bonus)"
-									title="Bonus équipe : {teamLabel(data.matchBonus.winnerTeam)} a gagné">
-									+{data.matchBonus.amount.toFixed(2)}
-								</span>
-							{/if}
 						</a>
 					{/each}
 				{/if}

@@ -309,6 +309,7 @@ const FR = {
   match_live: 'Live',
   match_details_title: 'Détails du match',
   match_view_details: 'Voir le match →',
+  match_team_bonus_chip: 'Bonus équipe',
   match_odds_label: 'Cotes',
   match_draw_label: 'Draw',
 };
@@ -619,6 +620,7 @@ const EN: typeof FR = {
   match_live: 'Live',
   match_details_title: 'Match details',
   match_view_details: 'View match →',
+  match_team_bonus_chip: 'Team bonus',
   match_odds_label: 'Odds',
   match_draw_label: 'Draw',
 };
