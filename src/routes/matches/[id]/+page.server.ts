@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { resolveOddsUsed } from '$lib/utils';
+import { effectiveStatus, resolveOddsUsed } from '$lib/utils';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
@@ -13,6 +13,12 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	]);
 
 	if (!match) error(404, 'Match introuvable');
+
+	// Past-kickoff but still 'upcoming' in DB → render the detail page as live
+	// (locks picks, shows live score block) until the admin updates the row.
+	if (match.status === 'upcoming') {
+		(match as any).status = effectiveStatus(match as any);
+	}
 
 	// Load friend IDs for the current user
 	let friendIds: string[] = [];

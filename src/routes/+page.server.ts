@@ -4,22 +4,34 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
+	const nowIso = new Date().toISOString();
 
 	const matchFields = 'id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, venue, status, home_score, away_score, odds_home, odds_draw, odds_away';
 
-	const [{ data: liveMatches }, { data: nextMatch }, { data: upcomingMatches }, { data: finishedMatches }, statsResult] =
+	// Phantom-live: status still 'upcoming' but kickoff has passed (admin
+	// hasn't flipped to 'live' yet). Pull those separately and merge into the
+	// live list with status overridden so the homepage shows the LIVE card
+	// instead of leaving the match as "next match" or first in upcoming.
+	const [{ data: liveMatches }, { data: phantomLive }, { data: nextMatch }, { data: upcomingMatches }, { data: finishedMatches }, statsResult] =
 		await Promise.all([
 			supabase.from('matches').select(matchFields).eq('status', 'live').neq('home_team', 'TBD'),
 			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
-				.order('match_datetime', { ascending: true }).limit(1).maybeSingle(),
+				.lte('match_datetime', nowIso),
 			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
-				.order('match_datetime', { ascending: true }).limit(5),
+				.gt('match_datetime', nowIso).order('match_datetime', { ascending: true }).limit(1).maybeSingle(),
+			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
+				.gt('match_datetime', nowIso).order('match_datetime', { ascending: true }).limit(5),
 			supabase.from('matches').select(matchFields).eq('status', 'finished').neq('home_team', 'TBD')
 				.order('match_datetime', { ascending: false }).limit(3),
 			user
 				? supabase.from('pronostics').select('match_id, predicted_home, predicted_away, points_earned, is_scored, odds_used').eq('user_id', user.id)
 				: Promise.resolve({ data: null })
 		]);
+
+	const allLive = [
+		...(liveMatches ?? []),
+		...((phantomLive ?? []).map((m) => ({ ...m, status: 'live' as const })))
+	];
 
 	let stats = null;
 	let pronosticsMap: Record<string, { predicted_home: number; predicted_away: number; points_earned: number | null; is_scored: boolean; odds_used: number | null }> = {};
@@ -51,14 +63,14 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		stats = { totalPoints, pronoPoints, teamBonus, scorerBonus, pronosticsCount: pronostics.length, rank: (count ?? 0) + 1 };
 	}
 
-	return { 
-		liveMatches: liveMatches ?? [], 
-		nextMatch: nextMatch ?? null, 
-		upcomingMatches: upcomingMatches ?? [], 
+	return {
+		liveMatches: allLive,
+		nextMatch: nextMatch ?? null,
+		upcomingMatches: upcomingMatches ?? [],
 		finishedMatches: (finishedMatches ?? []).reverse(),
-		stats, 
-		pronosticsMap, 
-		user 
+		stats,
+		pronosticsMap,
+		user
 	};
 };
 

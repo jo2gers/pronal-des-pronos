@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { resolveOddsUsed } from '$lib/utils';
+import { effectiveStatus, resolveOddsUsed } from '$lib/utils';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
@@ -29,7 +29,11 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		])
 	);
 
-	return { matches: matches ?? [], pronosticsMap, user };
+	// Override status so past-kickoff "upcoming" rows classify as live in the
+	// client tab filters (matches the homepage behaviour).
+	const reclassified = (matches ?? []).map((m) => ({ ...m, status: effectiveStatus(m as any) }));
+
+	return { matches: reclassified, pronosticsMap, user };
 };
 
 export const actions: Actions = {

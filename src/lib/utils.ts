@@ -99,6 +99,19 @@ export function resolveOddsUsed(
 	return Number.isFinite(odds) && odds >= 1 ? odds : 1.0;
 }
 
+// Derived match status that respects the wall clock: once kickoff time has
+// passed, treat a still-'upcoming' row as 'live'. Admins don't always flip the
+// DB status the second a match starts, but picks are already locked and 0-0
+// is the right default — we shouldn't keep showing it in the upcoming list.
+export function effectiveStatus(
+	match: { status: 'upcoming' | 'live' | 'finished'; match_datetime: string }
+): 'upcoming' | 'live' | 'finished' {
+	if (match.status === 'upcoming' && new Date(match.match_datetime).getTime() <= Date.now()) {
+		return 'live';
+	}
+	return match.status;
+}
+
 export function timeUntilMatch(matchDatetime: string): string {
 	const diff = new Date(matchDatetime).getTime() - Date.now();
 	if (diff <= 0) return 'Commencé';
