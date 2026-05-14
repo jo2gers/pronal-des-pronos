@@ -11,20 +11,18 @@
 	let liveMatches = $derived(data.liveMatches ?? []);
 	let nextMatch   = $derived(data.nextMatch ?? null);
 
-	// Auto-refresh every 30s while a match is live
-	$effect(() => {
-		if (!liveMatches.length) return;
-		const interval = setInterval(() => invalidateAll(), 30_000);
-		return () => clearInterval(interval);
-	});
-
-	// Reactive clock for computing match minute (45+15HT+45 ≈ 105 elapsed min).
-	// Ticks every 30s so the badge stays close to "data from last refresh".
+	// Auto-refresh score data every 30s while a match is live, and bump the
+	// match-minute clock to the same instant. Coupling them on purpose: the
+	// minute badge should reflect "minute as of the score you're seeing",
+	// not advance independently while the score sits stale.
 	let liveNowMs = $state(Date.now());
 	$effect(() => {
 		if (!liveMatches.length) return;
-		const id = setInterval(() => { liveNowMs = Date.now(); }, 30_000);
-		return () => clearInterval(id);
+		const interval = setInterval(async () => {
+			await invalidateAll();
+			liveNowMs = Date.now();
+		}, 30_000);
+		return () => clearInterval(interval);
 	});
 
 	function matchMinute(kickoffIso: string, now: number): string {
