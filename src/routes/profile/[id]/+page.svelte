@@ -219,18 +219,17 @@
 									{:else if label === 'wrong'}
 										<span class="block text-[10px] text-faint mt-0.5">{t('profile_result_wrong')}</span>
 									{/if}
+									{#if (p as any).teamBonus != null && (p as any).teamBonus > 0}
+										<span class="inline-flex items-baseline gap-1 mt-1 text-[10px] font-semibold tabular-nums"
+											style="color: var(--color-bonus)"
+											title="Bonus équipe — {teamLabel(data.profile.favorite_team!)} a gagné">
+											<span class="uppercase tracking-widest text-[9px] opacity-80">{t('match_team_bonus_chip')}</span>
+											+{(p as any).teamBonus.toFixed(2)}
+										</span>
+									{/if}
 								</td>
 								<td class="px-4 py-3 text-right tabular-nums {pointsColor(p.points_earned)}">
-									<div class="flex items-center justify-end gap-1.5">
-										<span>{p.points_earned?.toFixed(2) ?? '–'}</span>
-										{#if (p as any).teamBonus != null && (p as any).teamBonus > 0}
-											<span class="text-[10px] font-semibold tabular-nums"
-												style="color: var(--color-bonus)"
-												title="Bonus équipe — {teamLabel(data.profile.favorite_team!)} a gagné">
-												+{(p as any).teamBonus.toFixed(2)}
-											</span>
-										{/if}
-									</div>
+									{p.points_earned?.toFixed(2) ?? '–'}
 								</td>
 							</tr>
 						{/each}
