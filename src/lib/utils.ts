@@ -17,6 +17,30 @@ export function formatDate(datetime: string): string {
 	});
 }
 
+// Just the hour:minute portion — used inside a day-grouped list where the
+// full date already appears in the section header.
+export function formatTime(datetime: string, lang: 'fr' | 'en' = 'fr'): string {
+	return new Date(datetime).toLocaleTimeString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+		hour: '2-digit',
+		minute: '2-digit'
+	});
+}
+
+// Calendar-day countdown ("J-X" / "today" / "tomorrow") for the day-header
+// label. Returns null for past dates.
+export function daysUntilMatch(datetime: string, lang: 'fr' | 'en' = 'fr'): string | null {
+	const target = new Date(datetime);
+	const now = new Date();
+	// Compare at midnight to avoid hour drift around the day boundary.
+	const a = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+	const b = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+	const days = Math.round((a - b) / 86400000);
+	if (days < 0) return null;
+	if (days === 0) return lang === 'fr' ? "Aujourd'hui" : 'Today';
+	if (days === 1) return lang === 'fr' ? 'Demain'       : 'Tomorrow';
+	return `J-${days}`;
+}
+
 // "2026-6-11" key for grouping matches by calendar day in the user's tz.
 export function dayKey(datetime: string): string {
 	const d = new Date(datetime);

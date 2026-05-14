@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { formatDate, timeUntilMatch, MATCH_LOCK_MS } from '$lib/utils';
+	import { formatTime, MATCH_LOCK_MS } from '$lib/utils';
 	import { t } from '$lib/i18n.svelte';
 	import { teamLabel } from '$lib/wc2026';
 	import Flag from '$lib/components/Flag.svelte';
@@ -123,23 +123,21 @@
 {/snippet}
 
 {#snippet metaLine()}
-	<a href="/matches/{match.id}" class="flex flex-col items-center text-[10px] leading-tight hover:opacity-80 transition-opacity">
-		<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
-		<span class="flex items-center gap-1.5 mt-0.5">
-			<span class="tabular-nums font-semibold
-				{u === 'critical' ? 'text-live' :
-				 u === 'warning'  ? 'text-warn'  :
-				                    'text-accent'}">
-				{timeUntilMatch(match.match_datetime)}
-			</span>
-			{#if match.group_label}
-				<span class="text-wire-hi">·</span>
-				<span class="text-faint">{t('group_short')} {match.group_label}</span>
-			{/if}
-			{#if u === 'critical' && !hasProno}
-				<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
-			{/if}
+	<a href="/matches/{match.id}" class="flex items-center justify-center gap-1.5 text-[10px] leading-tight hover:opacity-80 transition-opacity">
+		<!-- Day already shown in the bucket header above — only kickoff time + group here. -->
+		<span class="tabular-nums font-semibold
+			{u === 'critical' ? 'text-live' :
+			 u === 'warning'  ? 'text-warn'  :
+			                    'text-fg'}">
+			{formatTime(match.match_datetime)}
 		</span>
+		{#if match.group_label}
+			<span class="text-wire-hi">·</span>
+			<span class="text-faint">{t('group_short')} {match.group_label}</span>
+		{/if}
+		{#if u === 'critical' && !hasProno}
+			<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
+		{/if}
 	</a>
 {/snippet}
 
@@ -341,7 +339,7 @@
 							<span class="text-sm text-faint italic">— · —</span>
 						{/if}
 						<div class="flex items-center justify-center gap-1.5 text-[10px] mt-1.5 leading-tight">
-							<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
+							<span class="text-faint truncate">{formatTime(match.match_datetime)}</span>
 							{#if u === 'locked'}
 								<span class="text-wire-hi">·</span>
 								<span class="inline-flex items-center gap-0.5 text-faint">
@@ -416,7 +414,7 @@
 						</a>
 					{/if}
 					<div class="flex items-center justify-center gap-1.5 text-[10px] mt-1.5 leading-tight">
-						<span class="text-faint truncate">{formatDate(match.match_datetime)}</span>
+						<span class="text-faint truncate">{formatTime(match.match_datetime)}</span>
 						{#if u === 'locked'}
 							<span class="text-wire-hi">·</span>
 							<span class="inline-flex items-center gap-0.5 text-faint">

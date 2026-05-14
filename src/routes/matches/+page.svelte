@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { groupByDay } from '$lib/utils';
+	import { groupByDay, daysUntilMatch } from '$lib/utils';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
 
@@ -76,10 +76,17 @@
 	{:else}
 		<div class="space-y-6">
 			{#each dayBuckets as bucket (bucket.key)}
+				{@const countdown = daysUntilMatch(bucket.items[0].match_datetime, getLang())}
 				<section>
 					<div class="flex items-center gap-3 mb-2 px-1">
 						<span class="flex-1 h-px bg-wire"></span>
-						<span class="text-[11px] uppercase tracking-widest text-faint">{bucket.label}</span>
+						<span class="inline-flex items-center gap-2 text-[11px] uppercase tracking-widest">
+							<span class="text-faint">{bucket.label}</span>
+							{#if countdown}
+								<span class="text-wire-hi">·</span>
+								<span class="text-accent font-semibold tabular-nums">{countdown}</span>
+							{/if}
+						</span>
 						<span class="flex-1 h-px bg-wire"></span>
 					</div>
 					<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40 overflow-hidden">
