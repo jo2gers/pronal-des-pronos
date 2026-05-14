@@ -294,8 +294,7 @@
 							{@const outcome = Math.sign(home - away)}
 							{@const oddsUsed = outcome > 0 ? data.match.odds_home : outcome === 0 ? data.match.odds_draw : data.match.odds_away}
 							<p class="text-xs text-center text-faint mb-4">
-								{t('match_odds')} <span class="text-accent font-semibold">{oddsUsed?.toFixed(2) ?? '1.00'}</span>
-								· {t('match_exact_score')} <span class="text-accent font-semibold">{((oddsUsed ?? 1) * 3).toFixed(2)} {t('match_pts')}</span>
+								{t('match_exact_score')} <span class="text-accent font-semibold">{((oddsUsed ?? 1) * 3).toFixed(2)} {t('match_pts')}</span>
 								· {t('match_winner')} <span class="text-muted">{((oddsUsed ?? 1) * 1).toFixed(2)} {t('match_pts')}</span>
 							</p>
 						{/if}
