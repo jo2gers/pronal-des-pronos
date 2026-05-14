@@ -166,8 +166,10 @@
 			{/if}
 		</div>
 
-		<!-- Calculate scores: only shown when finished. Disabled while the status/score
-		     save is still in flight (otherwise the edge function reads stale DB state). -->
+		<!-- Calculate scores: shown when finished. Always uses force=1 so re-clicks
+		     after a score correction (or after our scoring fixes) actually recompute
+		     existing pronostics. Team-bonus double-award is guarded server-side by
+		     match.bonus_calculated, so re-running is safe. -->
 		{#if status === 'finished'}
 			{@const pending = saveStatus === 'saving' || calcLoading}
 			<div class="ml-auto inline-flex items-center gap-2">
@@ -177,7 +179,10 @@
 					return async ({ result, update }) => {
 						calcLoading = false;
 						if (result.type === 'success' && result.data) {
-							calcMessage = `${(result.data as any).scored} pronostic(s) calculé(s)`;
+							const scored = (result.data as any).scored ?? 0;
+							calcMessage = scored === 0
+								? 'Aucun pronostic à calculer'
+								: `${scored} pronostic(s) calculé(s)`;
 							setTimeout(() => calcMessage = null, 4000);
 						} else if (result.type === 'failure') {
 							calcMessage = `Erreur : ${(result.data as any)?.error ?? '?'}`;
@@ -186,33 +191,11 @@
 					};
 				}}>
 					<input type="hidden" name="match_id" value={match.id} />
-					<button type="submit" disabled={pending}
-						title={saveStatus === 'saving' ? 'Attends que le score soit enregistré…' : ''}
-						class="rounded-lg bg-accent-lo border border-accent/40 hover:bg-accent/20 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors cursor-pointer whitespace-nowrap">
-						{calcLoading ? '…' : saveStatus === 'saving' ? 'Sauvegarde…' : 'Calculer scores'}
-					</button>
-				</form>
-
-				<!-- Force re-score: ignores is_scored, recomputes every pronostic on this match. -->
-				<form method="POST" action="?/calculate" use:enhance={() => {
-					calcLoading = true;
-					calcMessage = null;
-					return async ({ result, update }) => {
-						calcLoading = false;
-						if (result.type === 'success' && result.data) {
-							calcMessage = `Recalculé : ${(result.data as any).scored} prono(s)`;
-							setTimeout(() => calcMessage = null, 4000);
-						} else if (result.type === 'failure') {
-							calcMessage = `Erreur : ${(result.data as any)?.error ?? '?'}`;
-						}
-						await update({ reset: false });
-					};
-				}} title="Force le recalcul de tous les pronostics, même déjà notés">
-					<input type="hidden" name="match_id" value={match.id} />
 					<input type="hidden" name="force" value="1" />
 					<button type="submit" disabled={pending}
-						class="rounded-lg border border-wire hover:border-wire-hi disabled:opacity-40 px-3 py-1.5 text-xs text-muted hover:text-fg transition-colors cursor-pointer whitespace-nowrap">
-						↻ Recalculer
+						title={saveStatus === 'saving' ? 'Attends que le score soit enregistré…' : 'Recompute scores from current home/away values'}
+						class="rounded-lg bg-accent-lo border border-accent/40 hover:bg-accent/20 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors cursor-pointer whitespace-nowrap">
+						{calcLoading ? '…' : saveStatus === 'saving' ? 'Sauvegarde…' : 'Calculer scores'}
 					</button>
 				</form>
 
