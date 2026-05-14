@@ -113,6 +113,11 @@ const FR = {
   group_add: 'Ajouter',
   group_scoreboard: 'Classement de la ligue',
   group_player: 'Joueur',
+  group_col_picks: 'Pronos',
+  group_col_winner: 'Vict.',
+  group_col_exact: 'Exact',
+  group_col_team_bonus: 'Bonus',
+  group_col_total: 'Total',
   // Profile view
   profile_edit: 'Modifier le profil',
   profile_back: '← Mon profil',
@@ -424,6 +429,11 @@ const EN: typeof FR = {
   group_add: 'Add',
   group_scoreboard: 'League standings',
   group_player: 'Player',
+  group_col_picks: 'Picks',
+  group_col_winner: 'Wins',
+  group_col_exact: 'Exact',
+  group_col_team_bonus: 'Bonus',
+  group_col_total: 'Total',
   // Profile view
   profile_edit: 'Edit profile',
   profile_back: '← My profile',

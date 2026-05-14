@@ -16,11 +16,11 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	const [{ data: members }, pronosticsResult, friendshipsResult] = await Promise.all([
 		supabase
 			.from('group_members')
-			.select('role, joined_at, profiles(id, username, display_name, avatar_url)')
+			.select('role, joined_at, profiles(id, username, display_name, avatar_url, team_bonus_points, top_scorer_bonus_points)')
 			.eq('group_id', params.id),
 		supabase
 			.from('pronostics')
-			.select('user_id, points_earned')
+			.select('user_id, predicted_home, predicted_away, points_earned, match:matches(home_score, away_score)')
 			.eq('is_scored', true),
 		supabase
 			.from('friendships')
@@ -47,21 +47,50 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	const friendsNotInGroup = friends.filter((f) => f && !memberIds.includes(f.id));
 
-	// Scoreboard: aggregate points for members
-	const memberPoints = new Map<string, number>();
-	for (const id of memberIds) memberPoints.set(id, 0);
+	// Scoreboard: per-member breakdown.
+	// - picks   : number of scored predictions
+	// - winners : count of "correct winner" picks that weren't exact
+	// - exact   : count of exact-score picks
+	// - pronoPts: sum of points_earned from predictions
+	// teamBonus + scorerBonus come straight from the profile columns.
+	type Stats = { picks: number; winners: number; exact: number; pronoPts: number };
+	const stats = new Map<string, Stats>();
+	for (const id of memberIds) stats.set(id, { picks: 0, winners: 0, exact: 0, pronoPts: 0 });
+
 	for (const row of pronosticsResult.data ?? []) {
-		if (memberPoints.has(row.user_id)) {
-			memberPoints.set(row.user_id, (memberPoints.get(row.user_id) ?? 0) + (row.points_earned ?? 0));
+		const s = stats.get(row.user_id);
+		if (!s) continue;
+		s.picks++;
+		s.pronoPts += row.points_earned ?? 0;
+		const m = (row as any).match;
+		if (m?.home_score != null && m?.away_score != null) {
+			if (row.predicted_home === m.home_score && row.predicted_away === m.away_score) {
+				s.exact++;
+			} else if (Math.sign(row.predicted_home - row.predicted_away) === Math.sign(m.home_score - m.away_score)) {
+				s.winners++;
+			}
 		}
 	}
 
 	const scoreboard = (members ?? [])
-		.map((m) => ({
-			profile: m.profiles,
-			role: m.role,
-			points: memberPoints.get((m.profiles as any)?.id ?? '') ?? 0
-		}))
+		.map((m) => {
+			const p = m.profiles as any;
+			const id = p?.id;
+			const s = stats.get(id) ?? { picks: 0, winners: 0, exact: 0, pronoPts: 0 };
+			const teamBonus   = parseFloat(String(p?.team_bonus_points ?? 0));
+			const scorerBonus = parseFloat(String(p?.top_scorer_bonus_points ?? 0));
+			return {
+				profile: p,
+				role: m.role,
+				picks: s.picks,
+				winners: s.winners,
+				exact: s.exact,
+				pronoPts: parseFloat(s.pronoPts.toFixed(2)),
+				teamBonus,
+				scorerBonus,
+				points: parseFloat((s.pronoPts + teamBonus + scorerBonus).toFixed(2))
+			};
+		})
 		.sort((a, b) => b.points - a.points);
 
 	// Pending join requests (only visible to admin)

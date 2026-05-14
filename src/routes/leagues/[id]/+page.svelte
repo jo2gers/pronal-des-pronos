@@ -158,10 +158,14 @@
 		<div class="-mx-4 sm:mx-0 sm:rounded-xl sm:bg-panel/40 sm:border sm:border-wire overflow-hidden border-y border-wire sm:border-y-0">
 		<table class="w-full">
 			<thead>
-				<tr class="text-[11px] text-faint font-semibold border-b border-wire">
-					<th class="px-4 py-2 text-left w-10">#</th>
-					<th class="px-4 py-2 text-left">{t('group_player')}</th>
-					<th class="px-4 py-2 text-right">{t('points')}</th>
+				<tr class="text-[11px] text-faint font-semibold border-b border-wire uppercase tracking-widest">
+					<th class="px-3 py-2.5 text-left w-10">#</th>
+					<th class="px-3 py-2.5 text-left">{t('group_player')}</th>
+					<th class="px-2 py-2.5 text-right hidden md:table-cell">{t('group_col_picks')}</th>
+					<th class="px-2 py-2.5 text-right hidden md:table-cell">{t('group_col_winner')}</th>
+					<th class="px-2 py-2.5 text-right hidden sm:table-cell">{t('group_col_exact')}</th>
+					<th class="px-2 py-2.5 text-right hidden sm:table-cell">{t('group_col_team_bonus')}</th>
+					<th class="px-3 py-2.5 text-right">{t('group_col_total')}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -170,8 +174,8 @@
 					{@const isMe = p?.id === data.user.id}
 					{@const name = p?.display_name ?? p?.username ?? p?.id?.slice(0, 6) ?? '—'}
 					<tr class="border-b border-wire/50 {isMe ? 'bg-accent-lo/60' : 'hover:bg-raised/30'} transition-colors">
-						<td class="px-4 py-3 text-sm text-faint tabular-nums">{i + 1}</td>
-						<td class="px-4 py-3">
+						<td class="px-3 py-3 text-sm text-faint tabular-nums">{i + 1}</td>
+						<td class="px-3 py-3">
 							<a href="/profile/{p?.id}" class="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
 								{#if p?.avatar_url}
 									<img src={p.avatar_url} alt="" class="w-7 h-7 rounded-full object-cover shrink-0 {isMe ? 'ring-1 ring-accent' : ''}" />
@@ -188,7 +192,17 @@
 								{/if}
 							</a>
 						</td>
-						<td class="px-4 py-3 text-right font-bold text-accent tabular-nums">{entry.points.toFixed(2)}</td>
+						<td class="px-2 py-3 text-right text-sm text-muted tabular-nums hidden md:table-cell">{entry.picks}</td>
+						<td class="px-2 py-2 text-right text-sm text-muted tabular-nums hidden md:table-cell">{entry.winners}</td>
+						<td class="px-2 py-2 text-right text-sm text-accent font-semibold tabular-nums hidden sm:table-cell">{entry.exact}</td>
+						<td class="px-2 py-2 text-right text-sm tabular-nums hidden sm:table-cell">
+							{#if entry.teamBonus > 0}
+								<span class="font-semibold" style="color: var(--color-bonus)">+{entry.teamBonus.toFixed(2)}</span>
+							{:else}
+								<span class="text-faint">—</span>
+							{/if}
+						</td>
+						<td class="px-3 py-3 text-right font-bold text-accent tabular-nums" style="font-family: var(--font-display)">{entry.points.toFixed(2)}</td>
 					</tr>
 				{/each}
 			</tbody>
