@@ -98,6 +98,7 @@ export const actions: Actions = {
 	calculate: async ({ request }) => {
 		const form = await request.formData();
 		const matchId = form.get('match_id') as string;
+		const force = form.get('force') === '1';
 
 		const supabaseUrl = PUBLIC_SUPABASE_URL;
 
@@ -107,7 +108,7 @@ export const actions: Actions = {
 				'Content-Type': 'application/json',
 				Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
 			},
-			body: JSON.stringify({ match_id: matchId })
+			body: JSON.stringify({ match_id: matchId, force })
 		});
 
 		const data = await res.json();

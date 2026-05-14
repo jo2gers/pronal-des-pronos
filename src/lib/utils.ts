@@ -24,6 +24,25 @@ export function isMatchLocked(matchDatetime: string): boolean {
 	return new Date(matchDatetime).getTime() - Date.now() < MATCH_LOCK_MS;
 }
 
+// Pick the odds that apply to a (predicted_home, predicted_away) outcome, with
+// a 1.0 floor. `match.odds_*` can legitimately be missing (null) when the
+// Polymarket cron hasn't ingested the match yet, OR — the bug we just fixed —
+// stored as 0 if the upstream feed gave us a zero. `?? 1.0` only catches null,
+// so a stored 0 would silently zero out the user's points (1 * 0 = 0).
+export function resolveOddsUsed(
+	predicted_home: number,
+	predicted_away: number,
+	match: { odds_home?: number | null; odds_draw?: number | null; odds_away?: number | null }
+): number {
+	const outcome = Math.sign(predicted_home - predicted_away);
+	let raw: number | null | undefined;
+	if      (outcome > 0)  raw = match.odds_home;
+	else if (outcome === 0) raw = match.odds_draw;
+	else                   raw = match.odds_away;
+	const odds = typeof raw === 'number' ? raw : Number(raw);
+	return Number.isFinite(odds) && odds >= 1 ? odds : 1.0;
+}
+
 export function timeUntilMatch(matchDatetime: string): string {
 	const diff = new Date(matchDatetime).getTime() - Date.now();
 	if (diff <= 0) return 'Commencé';

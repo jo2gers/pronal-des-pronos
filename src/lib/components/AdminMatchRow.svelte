@@ -168,29 +168,55 @@
 
 		<!-- Calculate scores: only shown when finished -->
 		{#if status === 'finished'}
-			<form method="POST" action="?/calculate" use:enhance={() => {
-				calcLoading = true;
-				calcMessage = null;
-				return async ({ result, update }) => {
-					calcLoading = false;
-					if (result.type === 'success' && result.data) {
-						calcMessage = `${(result.data as any).scored} pronostic(s) calculé(s)`;
-						setTimeout(() => calcMessage = null, 4000);
-					} else if (result.type === 'failure') {
-						calcMessage = `Erreur : ${(result.data as any)?.error ?? '?'}`;
-					}
-					await update({ reset: false });
-				};
-			}} class="ml-auto inline-flex items-center gap-2">
-				<input type="hidden" name="match_id" value={match.id} />
-				<button type="submit" disabled={calcLoading}
-					class="rounded-lg bg-accent-lo border border-accent/40 hover:bg-accent/20 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors cursor-pointer whitespace-nowrap">
-					{calcLoading ? '…' : 'Calculer scores'}
-				</button>
+			<div class="ml-auto inline-flex items-center gap-2">
+				<form method="POST" action="?/calculate" use:enhance={() => {
+					calcLoading = true;
+					calcMessage = null;
+					return async ({ result, update }) => {
+						calcLoading = false;
+						if (result.type === 'success' && result.data) {
+							calcMessage = `${(result.data as any).scored} pronostic(s) calculé(s)`;
+							setTimeout(() => calcMessage = null, 4000);
+						} else if (result.type === 'failure') {
+							calcMessage = `Erreur : ${(result.data as any)?.error ?? '?'}`;
+						}
+						await update({ reset: false });
+					};
+				}}>
+					<input type="hidden" name="match_id" value={match.id} />
+					<button type="submit" disabled={calcLoading}
+						class="rounded-lg bg-accent-lo border border-accent/40 hover:bg-accent/20 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors cursor-pointer whitespace-nowrap">
+						{calcLoading ? '…' : 'Calculer scores'}
+					</button>
+				</form>
+
+				<!-- Force re-score: ignores is_scored, recomputes every pronostic on this match. -->
+				<form method="POST" action="?/calculate" use:enhance={() => {
+					calcLoading = true;
+					calcMessage = null;
+					return async ({ result, update }) => {
+						calcLoading = false;
+						if (result.type === 'success' && result.data) {
+							calcMessage = `Recalculé : ${(result.data as any).scored} prono(s)`;
+							setTimeout(() => calcMessage = null, 4000);
+						} else if (result.type === 'failure') {
+							calcMessage = `Erreur : ${(result.data as any)?.error ?? '?'}`;
+						}
+						await update({ reset: false });
+					};
+				}} title="Force le recalcul de tous les pronostics, même déjà notés">
+					<input type="hidden" name="match_id" value={match.id} />
+					<input type="hidden" name="force" value="1" />
+					<button type="submit" disabled={calcLoading}
+						class="rounded-lg border border-wire hover:border-wire-hi disabled:opacity-40 px-3 py-1.5 text-xs text-muted hover:text-fg transition-colors cursor-pointer whitespace-nowrap">
+						↻ Recalculer
+					</button>
+				</form>
+
 				{#if calcMessage}
 					<span class="text-[11px] text-accent">{calcMessage}</span>
 				{/if}
-			</form>
+			</div>
 		{/if}
 	</div>
 </div>

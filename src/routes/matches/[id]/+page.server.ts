@@ -1,4 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
+import { resolveOddsUsed } from '$lib/utils';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
@@ -68,11 +69,7 @@ export const actions: Actions = {
 		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 5 * 60000)
 			return fail(400, { error: 'Les pronostics sont fermés pour ce match' });
 
-		let odds_used = 1.0;
-		const outcome = Math.sign(predicted_home - predicted_away);
-		if (outcome > 0)        odds_used = match.odds_home ?? 1.0;
-		else if (outcome === 0) odds_used = match.odds_draw ?? 1.0;
-		else                    odds_used = match.odds_away ?? 1.0;
+		const odds_used = resolveOddsUsed(predicted_home, predicted_away, match);
 
 		const { error: upsertError } = await supabase
 			.from('pronostics')

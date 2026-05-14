@@ -11,18 +11,18 @@ function calculatePoints(
 	oddsUsed: number
 ): number {
 	console.log('calculatePoints input:', { predictedHome, predictedAway, actualHome, actualAway, oddsUsed });
-	// Convert odds to implied probability: probability = 1 / odds
-	// Then points = (1 / probability) * base_points = odds * base_points
-	const basePoints = 
+
+	const basePoints =
 		predictedHome === actualHome && predictedAway === actualAway ? 3 :
 		Math.sign(predictedHome - predictedAway) === Math.sign(actualHome - actualAway) ? 1 :
 		0;
-	
+
 	if (basePoints === 0) return 0;
-	
-	// Apply odds multiplier and return 2 decimal places
-	const pointsEarned = basePoints * oddsUsed;
-	return parseFloat(pointsEarned.toFixed(2));
+
+	// Floor odds at 1.0: a stored 0 (bad Polymarket feed) or NaN would otherwise
+	// zero out the user's points despite a correct prediction.
+	const safeOdds = Number.isFinite(oddsUsed) && oddsUsed >= 1 ? oddsUsed : 1.0;
+	return parseFloat((basePoints * safeOdds).toFixed(2));
 }
 
 // Base bonus points per stage win (before applying WC-odds multiplier)
@@ -41,6 +41,9 @@ Deno.serve(async (req) => {
 
 	const body    = await req.json().catch(() => ({}));
 	const matchId = body.match_id as string | undefined;
+	// When force=true, rescore every pronostic for this match (not just unscored
+	// ones). Use this after fixing a scoring bug to recompute existing rows.
+	const force   = body.force === true;
 
 	if (!matchId) {
 		return new Response(JSON.stringify({ error: 'match_id required' }), { status: 400 });
@@ -57,11 +60,12 @@ Deno.serve(async (req) => {
 	}
 
 	// ── 1. Score pronostics ──────────────────────────────────────────────────────
-	const { data: pronostics } = await supabase
+	let pronosticsQuery = supabase
 		.from('pronostics')
 		.select('id, predicted_home, predicted_away, odds_used')
-		.eq('match_id', matchId)
-		.eq('is_scored', false);
+		.eq('match_id', matchId);
+	if (!force) pronosticsQuery = pronosticsQuery.eq('is_scored', false);
+	const { data: pronostics } = await pronosticsQuery;
 
 	let scored = 0;
 
