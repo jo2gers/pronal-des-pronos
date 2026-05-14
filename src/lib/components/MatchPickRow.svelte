@@ -53,9 +53,19 @@
 	let formEl: HTMLFormElement | null = null;
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
+	// Ticking clock so `urgency()` recomputes as the lock cutoff approaches —
+	// without this, `Date.now()` is only sampled on prop changes / parent
+	// invalidates (every 30s), leaving up to a 30s window where the steppers
+	// look clickable but the server rejects with "Pronos fermés".
+	let nowMs = $state(Date.now());
+	$effect(() => {
+		const id = setInterval(() => { nowMs = Date.now(); }, 5000);
+		return () => clearInterval(id);
+	});
+
 	function urgency(): 'none' | 'locked' | 'critical' | 'warning' | 'normal' {
 		if (match.status !== 'upcoming') return 'none';
-		const ms = new Date(match.match_datetime).getTime() - Date.now();
+		const ms = new Date(match.match_datetime).getTime() - nowMs;
 		if (ms <= 0) return 'none';
 		if (ms < MATCH_LOCK_MS)   return 'locked';
 		if (ms < 6 * 3600000)     return 'critical';
@@ -64,7 +74,11 @@
 	}
 
 	const u = $derived(urgency());
-	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked');
+	// If the server has rejected a save with a lock error, treat the row as
+	// locked immediately — covers the case where the client clock is slightly
+	// behind the server and the boundary is right now.
+	const lockedByServer = $derived(saveStatus === 'error' && saveError === 'Pronos fermés pour ce match');
+	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked' && !lockedByServer);
 	// outcome is null when the user hasn't touched the stepper — odds line stays
 	// neutral until there's an actual prediction to compare against.
 	const outcome = $derived<number | null>(touched ? Math.sign(home - away) : null);
