@@ -62,7 +62,8 @@
 					<span class="animate-pulse inline-block w-2 h-2 rounded-full bg-live"></span>
 					<span class="text-live text-xs font-bold uppercase tracking-widest">{t('live_label')}</span>
 				</div>
-				<div class="grid gap-3 {liveMatches.length > 1 ? 'sm:grid-cols-2' : 'max-w-sm mx-auto'}">
+				{@const sole = liveMatches.length === 1}
+				<div class="grid gap-3 {sole ? '' : 'sm:grid-cols-2'}">
 					{#each liveMatches as match}
 						{@const prono = data.pronosticsMap[match.id]}
 						{@const liveHome = match.home_score ?? 0}
@@ -78,23 +79,26 @@
 									: { pts: 0, label: 'missed' })
 							: null}
 						<a href="/matches/{match.id}"
-							class="rounded-xl bg-canvas border border-live/30 hover:border-live transition-colors px-4 py-5 text-center block">
-							<p class="text-[11px] text-muted mb-3 uppercase tracking-widest">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
-							<div class="flex items-center justify-between gap-3">
-								<div class="flex-1 flex flex-col items-center">
-									<Flag code={match.home_flag} size={48} alt={teamLabel(match.home_team)} class="mb-1.5" />
-									<p class="text-sm font-semibold text-fg leading-tight">{teamLabel(match.home_team)}</p>
+							class="rounded-xl bg-canvas border border-live/30 hover:border-live transition-colors {sole ? 'px-6 py-8 sm:py-10' : 'px-4 py-5'} text-center block">
+							<p class="{sole ? 'text-xs' : 'text-[11px]'} text-muted mb-4 uppercase tracking-widest">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
+							<div class="flex items-center justify-center gap-4 sm:gap-8">
+								<div class="flex-1 flex flex-col items-center max-w-[40%]">
+									<Flag code={match.home_flag} size={sole ? 80 : 48} alt={teamLabel(match.home_team)} class="mb-2" />
+									<p class="{sole ? 'text-base sm:text-lg' : 'text-sm'} font-semibold text-fg leading-tight truncate max-w-full">{teamLabel(match.home_team)}</p>
 								</div>
-								<div class="text-center shrink-0 px-3">
-									<p class="text-4xl font-bold text-accent tabular-nums leading-none"
+								<div class="text-center shrink-0 px-2">
+									<p class="{sole ? 'text-6xl sm:text-7xl' : 'text-4xl'} font-bold text-accent tabular-nums leading-none"
 										style="font-family: var(--font-display)">
-										{liveHome}<span class="text-muted text-2xl mx-1">–</span>{liveAway}
+										{liveHome}<span class="{sole ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-muted mx-1">–</span>{liveAway}
 									</p>
-									<span class="inline-block mt-2 rounded bg-live px-2 py-0.5 text-[10px] font-bold text-fg tracking-wider">LIVE</span>
+									<span class="inline-flex items-center gap-1 mt-3 rounded bg-live px-2 py-0.5 {sole ? 'text-xs' : 'text-[10px]'} font-bold text-fg tracking-widest">
+										<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>
+										LIVE
+									</span>
 								</div>
-								<div class="flex-1 flex flex-col items-center">
-									<Flag code={match.away_flag} size={48} alt={teamLabel(match.away_team)} class="mb-1.5" />
-									<p class="text-sm font-semibold text-fg leading-tight">{teamLabel(match.away_team)}</p>
+								<div class="flex-1 flex flex-col items-center max-w-[40%]">
+									<Flag code={match.away_flag} size={sole ? 80 : 48} alt={teamLabel(match.away_team)} class="mb-2" />
+									<p class="{sole ? 'text-base sm:text-lg' : 'text-sm'} font-semibold text-fg leading-tight truncate max-w-full">{teamLabel(match.away_team)}</p>
 								</div>
 							</div>
 
