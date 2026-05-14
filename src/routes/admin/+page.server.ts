@@ -125,6 +125,45 @@ export const actions: Actions = {
 		return { calculated: true, scored: data.scored };
 	},
 
+	// Bulk: re-score every match currently marked as finished. Always force=true.
+	// Team-bonus double-award is guarded by matches.bonus_calculated server-side.
+	calculateAll: async () => {
+		const supabase = adminClient();
+		const supabaseUrl = PUBLIC_SUPABASE_URL;
+
+		const { data: finished, error: listErr } = await supabase
+			.from('matches')
+			.select('id')
+			.eq('status', 'finished');
+		if (listErr) return fail(500, { error: listErr.message });
+
+		let totalScored = 0;
+		let errors = 0;
+		const list = finished ?? [];
+
+		for (const m of list) {
+			try {
+				const r = await fetch(`${supabaseUrl}/functions/v1/calculate-scores`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+					},
+					body: JSON.stringify({ match_id: m.id, force: true })
+				});
+				const data = await r.json();
+				if (r.ok) totalScored += Number(data.scored ?? 0);
+				else errors++;
+			} catch {
+				errors++;
+			}
+		}
+
+		try { await runSyncMatchOdds(supabase); } catch { /* swallow */ }
+
+		return { matches: list.length, totalScored, errors };
+	},
+
 	syncWCWinnerOdds: async () => {
 		const r = await runSyncWCWinnerOdds(adminClient());
 		if (!r.ok) return fail(500, { error: r.error });

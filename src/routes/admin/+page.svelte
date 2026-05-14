@@ -30,6 +30,8 @@
 	let goalsFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let bracketLoading = $state(false);
 	let bracketFeedback = $state<{ ok: boolean; msg: string } | null>(null);
+	let calcAllLoading = $state(false);
+	let calcAllFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let confirmDeleteGroupId = $state<string | null>(null);
 
 	const liveCount = $derived(data.matches.filter((m) => m.status === 'live').length);
@@ -320,6 +322,45 @@
 	{#if bracketFeedback}
 		<div class="rounded px-4 py-3 text-sm {bracketFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
 			{bracketFeedback.msg}
+		</div>
+	{/if}
+
+	<!-- Bulk: recompute scores for every finished match -->
+	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
+		<div class="flex-1 min-w-0">
+			<p class="text-sm font-semibold text-fg">Calculer tous les scores</p>
+			<p class="text-xs text-faint mt-0.5">
+				Recalcule les points de tous les pronostics sur les matchs marqués <span class="text-muted">Terminé</span>.
+				Le bonus équipe est attribué une seule fois par match (garde-fou côté serveur).
+				Utile après une correction de score ou un déploiement du moteur de calcul.
+			</p>
+		</div>
+		<form method="POST" action="?/calculateAll" use:enhance={() => {
+			calcAllLoading = true;
+			calcAllFeedback = null;
+			return async ({ result, update }) => {
+				calcAllLoading = false;
+				if (result.type === 'success' && result.data) {
+					const d = result.data as any;
+					const errs = d.errors ? ` · ${d.errors} erreur(s)` : '';
+					calcAllFeedback = { ok: true, msg: `${d.matches} match(s) · ${d.totalScored} pronostic(s) recalculé(s)${errs}` };
+					setTimeout(() => calcAllFeedback = null, 8000);
+				} else if (result.type === 'failure') {
+					calcAllFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+				}
+				await update({ reset: false });
+			};
+		}}>
+			<button type="submit" disabled={calcAllLoading}
+				class="rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-40 px-4 py-2 text-sm font-bold text-canvas transition-colors cursor-pointer whitespace-nowrap">
+				{calcAllLoading ? 'Calcul…' : `Calculer tous (${finishedCount})`}
+			</button>
+		</form>
+	</div>
+
+	{#if calcAllFeedback}
+		<div class="rounded px-4 py-3 text-sm {calcAllFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+			{calcAllFeedback.msg}
 		</div>
 	{/if}
 
