@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { formatTime, MATCH_LOCK_MS } from '$lib/utils';
-	import { t } from '$lib/i18n.svelte';
+	import { t, getLang } from '$lib/i18n.svelte';
 	import { teamLabel } from '$lib/wc2026';
 	import Flag from '$lib/components/Flag.svelte';
 
@@ -102,6 +102,12 @@
 	}
 	const verdict = $derived(finishedVerdict());
 
+	// Picks lock 5 min before kickoff — surface that closing time inline so
+	// users see the actual hard deadline, not just kickoff.
+	const closesAt = $derived(
+		formatTime(new Date(new Date(match.match_datetime).getTime() - MATCH_LOCK_MS).toISOString(), getLang())
+	);
+
 	const flagSize = 56;
 </script>
 
@@ -123,42 +129,51 @@
 {/snippet}
 
 {#snippet metaLine()}
-	<a href="/matches/{match.id}" class="flex items-center justify-center gap-1.5 text-[10px] leading-tight hover:opacity-80 transition-opacity">
-		<!-- Day already shown in the bucket header above — only kickoff time + group here. -->
+	<a href="/matches/{match.id}" class="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs leading-tight hover:opacity-80 transition-opacity">
+		<!-- Day already shown in the bucket header above — kickoff time + lock cutoff + group here. -->
 		<span class="tabular-nums font-semibold
 			{u === 'critical' ? 'text-live' :
 			 u === 'warning'  ? 'text-warn'  :
 			                    'text-fg'}">
 			{formatTime(match.match_datetime)}
 		</span>
+		{#if pickable}
+			<span class="text-wire-hi">·</span>
+			<span class="inline-flex items-center gap-0.5 text-faint tabular-nums" title={t('match_picks_close_at')}>
+				<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+				</svg>
+				{closesAt}
+			</span>
+		{/if}
 		{#if match.group_label}
 			<span class="text-wire-hi">·</span>
 			<span class="text-faint">{t('group_short')} {match.group_label}</span>
 		{/if}
 		{#if u === 'critical' && !hasProno}
-			<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title="Lock soon"></span>
+			<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title={t('match_picks_close_at')}></span>
 		{/if}
 	</a>
 {/snippet}
 
 {#snippet oddsLine()}
 	{#if match.odds_home && match.odds_draw && match.odds_away}
-		<div class="flex items-center justify-center gap-1.5 text-[11px] tabular-nums mt-1.5">
+		<a href="/matches/{match.id}" class="flex items-center justify-center gap-1.5 text-sm tabular-nums mt-2 hover:opacity-80 transition-opacity">
 			<span class="inline-flex items-baseline gap-1 {outcome != null && outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.home_team)}>
-				<span class="text-faint font-normal text-[9px] uppercase tracking-wider">1</span>
+				<span class="text-faint font-normal text-[10px] uppercase tracking-wider">1</span>
 				{match.odds_home.toFixed(2)}
 			</span>
 			<span class="text-wire-hi">·</span>
 			<span class="inline-flex items-baseline gap-1 {outcome === 0 ? 'text-accent font-bold' : 'text-faint'}" title={t('match_draw')}>
-				<span class="text-faint font-normal text-[9px] uppercase tracking-wider">N</span>
+				<span class="text-faint font-normal text-[10px] uppercase tracking-wider">N</span>
 				{match.odds_draw.toFixed(2)}
 			</span>
 			<span class="text-wire-hi">·</span>
 			<span class="inline-flex items-baseline gap-1 {outcome != null && outcome < 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.away_team)}>
-				<span class="text-faint font-normal text-[9px] uppercase tracking-wider">2</span>
+				<span class="text-faint font-normal text-[10px] uppercase tracking-wider">2</span>
 				{match.odds_away.toFixed(2)}
 			</span>
-		</div>
+		</a>
 	{/if}
 {/snippet}
 
@@ -189,7 +204,8 @@
 				{@render stepperButton('home', 1)}
 			</div>
 
-			<span class="text-2xl sm:text-3xl text-wire-hi" style="font-family: var(--font-display)">–</span>
+			<a href="/matches/{match.id}" class="text-2xl sm:text-3xl text-wire-hi hover:opacity-80 transition-opacity"
+				style="font-family: var(--font-display)">–</a>
 
 			<!-- Away triple: [-] AWAY_DIGIT [+] -->
 			<div class="flex items-center gap-1.5 sm:gap-2">
