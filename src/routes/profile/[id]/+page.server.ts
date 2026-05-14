@@ -35,6 +35,37 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		return m && p.predicted_home === m.home_score && p.predicted_away === m.away_score;
 	}).length;
 
+	// Per-match team-bonus annotation: if the user's favourite team won a given
+	// finished match, attach the bonus amount that match contributed. Helps the
+	// match-history table explain why the user's profile total is higher than
+	// the pure prediction-points column suggests.
+	const STAGE_BONUS: Record<string, number> = {
+		group: 1, round_of_32: 2, round_of_16: 3, quarters: 5, semis: 8, final: 13, third: 3
+	};
+	let favTeamMultiplier = 1.0;
+	if (profile.favorite_team) {
+		const { data: oddsRow } = await supabase
+			.from('wc_winner_odds')
+			.select('multiplier')
+			.eq('team_name_en', profile.favorite_team)
+			.maybeSingle();
+		favTeamMultiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
+	}
+	const scoredWithBonus = scored.map((p) => {
+		const m = p.match as any;
+		let teamBonus: number | null = null;
+		if (profile.favorite_team && m && m.home_score != null && m.away_score != null) {
+			let winner: string | null = null;
+			if (m.home_score > m.away_score) winner = m.home_team;
+			else if (m.away_score > m.home_score) winner = m.away_team;
+			if (winner === profile.favorite_team) {
+				const stageBonus = STAGE_BONUS[m.stage] ?? 0;
+				if (stageBonus > 0) teamBonus = parseFloat((stageBonus * favTeamMultiplier).toFixed(2));
+			}
+		}
+		return { ...p, teamBonus };
+	});
+
 	// Fetch WC winner odds from DB (populated by admin sync from Polymarket)
 	// odds column = 1/probability (decimal odds, e.g. 6.25 for Spain)
 	let teamOdds: number | null = null;
@@ -71,7 +102,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	return {
 		profile,
-		pronostics: scored,
+		pronostics: scoredWithBonus,
 		pronoPoints,
 		teamBonus,
 		scorerBonus,

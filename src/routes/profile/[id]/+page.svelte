@@ -221,7 +221,16 @@
 									{/if}
 								</td>
 								<td class="px-4 py-3 text-right tabular-nums {pointsColor(p.points_earned)}">
-									{p.points_earned?.toFixed(2) ?? '–'}
+									<div class="flex items-center justify-end gap-1.5">
+										<span>{p.points_earned?.toFixed(2) ?? '–'}</span>
+										{#if (p as any).teamBonus != null && (p as any).teamBonus > 0}
+											<span class="text-[10px] font-semibold tabular-nums"
+												style="color: var(--color-bonus)"
+												title="Bonus équipe — {teamLabel(data.profile.favorite_team!)} a gagné">
+												+{(p as any).teamBonus.toFixed(2)}
+											</span>
+										{/if}
+									</div>
 								</td>
 							</tr>
 						{/each}
