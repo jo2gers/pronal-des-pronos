@@ -119,6 +119,36 @@
 		</div>
 	{/if}
 
+	<!-- Bonus summary — accumulated team + scorer bonuses on the user's profile -->
+	{#if (data.profile?.team_bonus_points ?? 0) > 0 || (data.profile?.top_scorer_bonus_points ?? 0) > 0 || data.profile?.favorite_team || data.profile?.top_scorer}
+		{@const teamBonus   = data.profile?.team_bonus_points ?? 0}
+		{@const scorerBonus = data.profile?.top_scorer_bonus_points ?? 0}
+		<section class="space-y-3">
+			<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('profile_bonuses_title')}</h2>
+			<dl class="grid grid-cols-2 divide-x divide-wire/60 border-y border-wire">
+				<div class="p-3">
+					<dt class="text-[11px] text-faint uppercase tracking-widest mb-1">{t('profile_bonus_team')}</dt>
+					<dd class="font-bold tabular-nums text-xl" style="color: var(--color-bonus); font-family: var(--font-display)">
+						+{teamBonus.toFixed(2)}
+					</dd>
+					{#if data.profile?.favorite_team}
+						<p class="text-[11px] text-faint mt-0.5 truncate">{teamLabel(data.profile.favorite_team)}</p>
+					{/if}
+				</div>
+				<div class="p-3">
+					<dt class="text-[11px] text-faint uppercase tracking-widest mb-1">{t('profile_bonus_scorer')}</dt>
+					<dd class="font-bold tabular-nums text-xl" style="color: var(--color-bonus); font-family: var(--font-display)">
+						+{scorerBonus.toFixed(2)}
+					</dd>
+					{#if data.profile?.top_scorer}
+						<p class="text-[11px] text-faint mt-0.5 truncate">{data.profile.top_scorer}</p>
+					{/if}
+				</div>
+			</dl>
+			<p class="text-[11px] text-faint">{t('profile_bonus_hint')}</p>
+		</section>
+	{/if}
+
 	<!-- Avatar -->
 	<div class="rounded-xl bg-panel border border-wire p-6">
 		<h2 class="text-base font-semibold text-fg mb-4" style="font-family: var(--font-display)">{t('profile_avatar_section')}</h2>

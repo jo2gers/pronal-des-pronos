@@ -136,6 +136,10 @@ const FR = {
   profile_scorer_bonus: 'buteur',
   // Profile edit
   profile_title: 'Mon profil',
+  profile_bonuses_title: 'Mes bonus',
+  profile_bonus_team: 'Bonus équipe',
+  profile_bonus_scorer: 'Bonus buteur',
+  profile_bonus_hint: 'Le bonus équipe se cumule quand ton équipe gagne un match. Le bonus buteur s\'ajoute pour chaque but de ton buteur favori.',
   profile_avatar_section: 'Photo de profil',
   profile_avatar_hint: 'Format JPG ou PNG, max 2MB',
   profile_upload: 'Uploader',
@@ -442,6 +446,10 @@ const EN: typeof FR = {
   profile_scorer_bonus: 'scorer',
   // Profile edit
   profile_title: 'My profile',
+  profile_bonuses_title: 'My bonuses',
+  profile_bonus_team: 'Team bonus',
+  profile_bonus_scorer: 'Scorer bonus',
+  profile_bonus_hint: 'The team bonus stacks every time your team wins a match. The scorer bonus adds for each goal your top scorer puts in.',
   profile_avatar_section: 'Profile picture',
   profile_avatar_hint: 'JPG or PNG, max 2MB',
   profile_upload: 'Upload',
