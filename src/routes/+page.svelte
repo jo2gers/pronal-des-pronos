@@ -103,9 +103,11 @@
 									<p class="{sole ? 'text-base sm:text-lg' : 'text-sm'} font-semibold text-fg leading-tight truncate max-w-full">{teamLabel(match.home_team)}</p>
 								</div>
 								<div class="text-center shrink-0 px-2">
-									<p class="{sole ? 'text-6xl sm:text-7xl' : 'text-4xl'} font-bold text-accent tabular-nums leading-none"
+									<p class="{sole ? 'text-6xl sm:text-7xl' : 'text-4xl'} font-bold text-accent tabular-nums leading-none inline-flex items-center justify-center gap-2"
 										style="font-family: var(--font-display)">
-										{liveHome}<span class="{sole ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-muted mx-1">–</span>{liveAway}
+										<span>{liveHome}</span>
+										<span class="{sole ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-muted">–</span>
+										<span>{liveAway}</span>
 									</p>
 									<span class="inline-flex items-center gap-1.5 mt-3 rounded bg-live px-2 py-0.5 {sole ? 'text-xs' : 'text-[10px]'} font-bold text-fg tracking-widest">
 										<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>
