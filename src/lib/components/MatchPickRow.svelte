@@ -129,30 +129,33 @@
 {/snippet}
 
 {#snippet metaLine()}
-	<a href="/matches/{match.id}" class="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs leading-tight hover:opacity-80 transition-opacity">
-		<!-- Order: group · kickoff · lock-cutoff. Day is already in the bucket header. -->
-		{#if match.group_label}
-			<span class="text-faint">{t('group_short')} {match.group_label}</span>
-			<span class="text-wire-hi">·</span>
-		{/if}
-		<span class="tabular-nums font-semibold
+	<a href="/matches/{match.id}" class="flex flex-col items-center gap-0.5 leading-tight hover:opacity-80 transition-opacity">
+		<!-- Kickoff time — prominent, centered. -->
+		<span class="tabular-nums font-bold text-base sm:text-lg
 			{u === 'critical' ? 'text-live' :
 			 u === 'warning'  ? 'text-warn'  :
-			                    'text-fg'}">
+			                    'text-fg'}"
+			style="font-family: var(--font-display); letter-spacing: 0.02em">
 			{formatTime(match.match_datetime)}
 		</span>
-		{#if pickable}
-			<span class="text-wire-hi">·</span>
-			<span class="inline-flex items-center gap-0.5 text-faint tabular-nums" title={t('match_picks_close_at')}>
-				<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-				</svg>
-				{closesAt}
-			</span>
-		{/if}
-		{#if u === 'critical' && !hasProno}
-			<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse ml-0.5" title={t('match_picks_close_at')}></span>
-		{/if}
+		<!-- Supporting meta below in smaller dim text. -->
+		<span class="inline-flex items-center gap-1.5 text-[11px] text-faint">
+			{#if match.group_label}
+				<span>{t('group_short')} {match.group_label}</span>
+			{/if}
+			{#if pickable}
+				{#if match.group_label}<span class="text-wire-hi">·</span>{/if}
+				<span class="inline-flex items-center gap-0.5 tabular-nums" title={t('match_picks_close_at')}>
+					<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+					</svg>
+					{closesAt}
+				</span>
+			{/if}
+			{#if u === 'critical' && !hasProno}
+				<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse" title={t('match_picks_close_at')}></span>
+			{/if}
+		</span>
 	</a>
 {/snippet}
 
