@@ -64,6 +64,19 @@
 				</div>
 				<div class="grid gap-3 {liveMatches.length > 1 ? 'sm:grid-cols-2' : 'max-w-sm mx-auto'}">
 					{#each liveMatches as match}
+						{@const prono = data.pronosticsMap[match.id]}
+						{@const liveHome = match.home_score ?? 0}
+						{@const liveAway = match.away_score ?? 0}
+						{@const liveOutcome = Math.sign(liveHome - liveAway)}
+						{@const predOutcome = prono ? Math.sign(prono.predicted_home - prono.predicted_away) : null}
+						{@const safeOdds = (prono?.odds_used ?? 0) >= 1 ? prono!.odds_used! : 1.0}
+						{@const livePotential = prono
+							? (prono.predicted_home === liveHome && prono.predicted_away === liveAway
+								? { pts: 3 * safeOdds, label: 'exact' }
+								: predOutcome === liveOutcome
+									? { pts: 1 * safeOdds, label: 'winner' }
+									: { pts: 0, label: 'missed' })
+							: null}
 						<a href="/matches/{match.id}"
 							class="rounded-xl bg-canvas border border-live/30 hover:border-live transition-colors px-4 py-5 text-center block">
 							<p class="text-[11px] text-muted mb-3 uppercase tracking-widest">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
@@ -75,7 +88,7 @@
 								<div class="text-center shrink-0 px-3">
 									<p class="text-4xl font-bold text-accent tabular-nums leading-none"
 										style="font-family: var(--font-display)">
-										{match.home_score ?? 0}<span class="text-muted text-2xl mx-1">–</span>{match.away_score ?? 0}
+										{liveHome}<span class="text-muted text-2xl mx-1">–</span>{liveAway}
 									</p>
 									<span class="inline-block mt-2 rounded bg-live px-2 py-0.5 text-[10px] font-bold text-fg tracking-wider">LIVE</span>
 								</div>
@@ -84,6 +97,23 @@
 									<p class="text-sm font-semibold text-fg leading-tight">{teamLabel(match.away_team)}</p>
 								</div>
 							</div>
+
+							<!-- Live points preview: what the user would win if the score holds. -->
+							{#if prono && livePotential}
+								<div class="mt-4 pt-3 border-t border-live/20 flex items-center justify-center gap-2 text-xs tabular-nums">
+									<span class="text-faint">{t('live_pick_label')}</span>
+									<span class="font-semibold {livePotential.label === 'exact' ? 'text-accent' : livePotential.label === 'winner' ? 'text-fg' : 'text-muted'}">
+										{prono.predicted_home}–{prono.predicted_away}
+									</span>
+									<span class="text-wire-hi">→</span>
+									<span class="font-bold tabular-nums {livePotential.label === 'exact' ? 'text-accent' : livePotential.label === 'winner' ? 'text-fg' : 'text-faint'}">
+										{livePotential.pts > 0 ? '+' : ''}{livePotential.pts.toFixed(2)} {t('match_pts')}
+									</span>
+									<span class="text-[10px] uppercase tracking-widest text-faint">
+										{livePotential.label === 'exact' ? t('match_score_exact') : livePotential.label === 'winner' ? t('match_winner_ok') : t('match_missed')}
+									</span>
+								</div>
+							{/if}
 						</a>
 					{/each}
 				</div>

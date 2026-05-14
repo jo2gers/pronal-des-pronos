@@ -17,17 +17,23 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			supabase.from('matches').select(matchFields).eq('status', 'finished').neq('home_team', 'TBD')
 				.order('match_datetime', { ascending: false }).limit(3),
 			user
-				? supabase.from('pronostics').select('match_id, predicted_home, predicted_away, points_earned, is_scored').eq('user_id', user.id)
+				? supabase.from('pronostics').select('match_id, predicted_home, predicted_away, points_earned, is_scored, odds_used').eq('user_id', user.id)
 				: Promise.resolve({ data: null })
 		]);
 
 	let stats = null;
-	let pronosticsMap: Record<string, { predicted_home: number; predicted_away: number; points_earned: number | null; is_scored: boolean }> = {};
+	let pronosticsMap: Record<string, { predicted_home: number; predicted_away: number; points_earned: number | null; is_scored: boolean; odds_used: number | null }> = {};
 
 	if (user && statsResult.data) {
 		const pronostics = statsResult.data;
 		pronosticsMap = Object.fromEntries(
-			pronostics.map((p) => [p.match_id, { predicted_home: p.predicted_home, predicted_away: p.predicted_away, points_earned: p.points_earned, is_scored: p.is_scored }])
+			pronostics.map((p) => [p.match_id, {
+				predicted_home: p.predicted_home,
+				predicted_away: p.predicted_away,
+				points_earned: p.points_earned,
+				is_scored: p.is_scored,
+				odds_used: (p as any).odds_used ?? null
+			}])
 		);
 
 		const pronoPoints = pronostics.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
