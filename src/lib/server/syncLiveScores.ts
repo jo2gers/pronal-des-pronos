@@ -88,17 +88,23 @@ export async function syncLiveScores(
 	const nowMs = Date.now();
 	const nowIso = new Date(nowMs).toISOString();
 
+	// Pull both 'live' and 'upcoming' rows with a slug — filter past-kickoff
+	// upcoming rows in code. (Using PostgREST .or() with a nested .and() and
+	// an inline ISO timestamp doesn't work: the dots in 2026-05-14T22:36:33.303Z
+	// collide with PostgREST's field.op.value delimiter.)
 	const { data: rawMatches, error: selectError } = await supabase
 		.from('matches')
 		.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, last_score_sync_at, polymarket_event_slug')
 		.not('polymarket_event_slug', 'is', null)
-		.or(`status.eq.live,and(status.eq.upcoming,match_datetime.lte.${nowIso})`);
+		.in('status', ['live', 'upcoming']);
 
 	if (selectError) {
 		return { ok: false, scanned: 0, due: 0, updated: 0, ended: 0, scoredPronostics: 0, error: selectError.message };
 	}
 
-	const matches = (rawMatches ?? []) as LiveMatchRow[];
+	const matches = ((rawMatches ?? []) as LiveMatchRow[]).filter((m) =>
+		m.status === 'live' || (m.status === 'upcoming' && new Date(m.match_datetime).getTime() <= nowMs)
+	);
 	const due = opts.force ? matches : matches.filter((m) => isDueForSync(m, nowMs));
 
 	let updated = 0;
