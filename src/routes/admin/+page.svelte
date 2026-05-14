@@ -33,6 +33,8 @@
 	let calcAllLoading = $state(false);
 	let calcAllFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let confirmDeleteGroupId = $state<string | null>(null);
+	let slugSyncLoading = $state(false);
+	let slugSyncFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 
 	const liveCount = $derived(data.matches.filter((m) => m.status === 'live').length);
 	const finishedCount = $derived(data.matches.filter((m) => m.status === 'finished').length);
@@ -169,6 +171,42 @@
 		<div class="rounded px-4 py-3 text-sm {scorerOddsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
 			{scorerOddsFeedback.msg}
 			{#if scorerOddsFeedback.detail}<p class="text-xs mt-1 opacity-70">{scorerOddsFeedback.detail}</p>{/if}
+		</div>
+	{/if}
+
+	<!-- Sync Polymarket event slugs (enables live-score auto-sync) -->
+	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
+		<div class="flex-1 min-w-0">
+			<p class="text-sm font-semibold text-fg">Slugs Polymarket · auto-score live</p>
+			<p class="text-xs text-faint mt-0.5">Associe chaque match à son événement Polymarket pour que le cron live (1×/min) puisse récupérer le score automatiquement et calculer les points dès le coup de sifflet final. À relancer après chaque résolution de tour (groupes → R16, R16 → quarts…).</p>
+		</div>
+		<form method="POST" action="?/syncPolymarketSlugs" use:enhance={() => {
+			slugSyncLoading = true;
+			slugSyncFeedback = null;
+			return async ({ result, update }) => {
+				slugSyncLoading = false;
+				if (result.type === 'success' && result.data) {
+					const d = result.data as any;
+					const detail = d.unmatched?.length ? `Non trouvés : ${d.unmatched.join(', ')}` : undefined;
+					slugSyncFeedback = { ok: true, msg: `${d.updated} nouveaux · ${d.alreadySet} déjà à jour`, detail };
+					setTimeout(() => slugSyncFeedback = null, 10000);
+				} else if (result.type === 'failure') {
+					slugSyncFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+				}
+				await update({ reset: false });
+			};
+		}}>
+			<button type="submit" disabled={slugSyncLoading}
+				class="rounded-lg bg-raised border border-wire hover:border-wire-hi disabled:opacity-40 px-4 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
+				{slugSyncLoading ? '...' : 'Sync slugs'}
+			</button>
+		</form>
+	</div>
+
+	{#if slugSyncFeedback}
+		<div class="rounded px-4 py-3 text-sm {slugSyncFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+			{slugSyncFeedback.msg}
+			{#if slugSyncFeedback.detail}<p class="text-xs mt-1 opacity-70">{slugSyncFeedback.detail}</p>{/if}
 		</div>
 	{/if}
 

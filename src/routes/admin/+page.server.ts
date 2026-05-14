@@ -6,7 +6,8 @@ import type { Actions, PageServerLoad } from './$types';
 import {
 	syncMatchOdds as runSyncMatchOdds,
 	syncWCWinnerOdds as runSyncWCWinnerOdds,
-	syncTopScorerOdds as runSyncTopScorerOdds
+	syncTopScorerOdds as runSyncTopScorerOdds,
+	backfillPolymarketSlugs as runBackfillPolymarketSlugs
 } from '$lib/server/sync-odds';
 import { scoreMatch } from '$lib/server/scoring';
 
@@ -200,6 +201,17 @@ export const actions: Actions = {
 		const r = await runSyncTopScorerOdds(adminClient());
 		if (!r.ok) return fail(500, { error: r.error });
 		return { topScorerSync: true, updated: r.updated, skipped: r.skipped };
+	},
+
+	// One-shot backfill: pull Polymarket event slugs for every WC match and
+	// write them onto `matches.polymarket_event_slug`. After this runs once,
+	// the live-score cron (pg_cron → /api/cron/fetch-live-scores) can resolve
+	// each match to its Polymarket event by slug and auto-update scores +
+	// auto-score pronostics at FT.
+	syncPolymarketSlugs: async () => {
+		const r = await runBackfillPolymarketSlugs(adminClient());
+		if (!r.ok) return fail(500, { error: r.error });
+		return { slugSync: true, updated: r.updated, alreadySet: r.alreadySet, unmatched: r.unmatched };
 	},
 
 	updateScorerGoals: async ({ request }) => {

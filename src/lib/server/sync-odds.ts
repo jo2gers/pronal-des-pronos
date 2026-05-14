@@ -84,6 +84,69 @@ export async function syncMatchOdds(supabase: SupabaseClient) {
 	return { ok: true as const, updated, unmatched };
 }
 
+// ── Polymarket event-slug backfill ──────────────────────────────────────────
+// Walks the same WC2026 event list and writes event.slug onto every matching
+// match row. Once set, the live-score cron can resolve the row to its
+// Polymarket event by slug and pull score/period/ended in real time.
+//
+// Idempotent and safe to re-run — re-clicking the admin button after a
+// knockout slot resolves (TBD → team name) will pick up the new pairings.
+export async function backfillPolymarketSlugs(supabase: SupabaseClient) {
+	const res = await fetch(
+		'https://gamma-api.polymarket.com/events?series_id=11433&limit=200',
+		{ headers: { Accept: 'application/json' } }
+	);
+	if (!res.ok) return { ok: false as const, error: `Polymarket API: ${res.status}` };
+
+	const raw = await res.json();
+	const events: any[] = Array.isArray(raw) ? raw : (raw.events ?? []);
+	if (!events.length) return { ok: false as const, error: 'Aucun match reçu de Polymarket' };
+
+	const NAME_MAP: Record<string, string> = {
+		'Korea Republic': 'South Korea', Czechia: 'Czech Republic', 'United States': 'USA',
+		"Côte d'Ivoire": 'Ivory Coast', 'Congo DR': 'DR Congo', 'Democratic Republic of Congo': 'DR Congo',
+		'Türkiye': 'Turkey', 'Cabo Verde': 'Cape Verde', 'IR Iran': 'Iran', 'Islamic Republic of Iran': 'Iran'
+	};
+	const norm = (n: string) => NAME_MAP[n] ?? n;
+
+	const { data: dbMatches } = await supabase
+		.from('matches')
+		.select('id, home_team, away_team, polymarket_event_slug')
+		.neq('home_team', 'TBD');
+	if (!dbMatches) return { ok: false as const, error: 'Impossible de charger les matchs' };
+
+	let updated = 0;
+	let alreadySet = 0;
+	const unmatched: string[] = [];
+
+	for (const event of events) {
+		const title = event.title as string | undefined;
+		const slug = event.slug as string | undefined;
+		if (!title || !slug) continue;
+
+		const parts = title.split(' vs. ');
+		if (parts.length !== 2) continue;
+		const dbHomeName = norm(parts[0].trim());
+		const dbAwayName = norm(parts[1].trim());
+
+		const dbMatch = dbMatches.find(
+			(m) => (m.home_team === dbHomeName && m.away_team === dbAwayName)
+				|| (m.home_team === dbAwayName && m.away_team === dbHomeName)
+		);
+		if (!dbMatch) { unmatched.push(title); continue; }
+
+		if ((dbMatch as any).polymarket_event_slug === slug) { alreadySet++; continue; }
+
+		const { error } = await supabase.from('matches')
+			.update({ polymarket_event_slug: slug })
+			.eq('id', dbMatch.id);
+
+		if (!error) updated++;
+	}
+
+	return { ok: true as const, updated, alreadySet, unmatched };
+}
+
 // ── WC winner odds (team-level, for favorite-team bonus) ───────────────────
 export async function syncWCWinnerOdds(supabase: SupabaseClient) {
 	const res = await fetch(
