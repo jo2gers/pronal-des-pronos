@@ -27,22 +27,50 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		);
 	}
 
-	// After match: load all pronostics ordered by points
+	// After match: load all pronostics ordered by points, plus compute the
+	// team bonus this specific match awarded to supporters of the winning team.
+	// Bonus only exists for decisive group-stage / knockout wins (no draws).
 	let allPronostics = null;
+	let matchBonus: { amount: number; winnerTeam: string } | null = null;
 	if (match.status === 'finished') {
 		const { data } = await supabase
 			.from('pronostics')
-			.select('user_id, predicted_home, predicted_away, points_earned, is_scored, profiles(id, username, display_name, avatar_url)')
+			.select('user_id, predicted_home, predicted_away, points_earned, is_scored, profiles(id, username, display_name, avatar_url, favorite_team)')
 			.eq('match_id', params.id)
 			.eq('is_scored', true)
 			.order('points_earned', { ascending: false });
 		allPronostics = data;
+
+		const STAGE_BONUS: Record<string, number> = {
+			group: 1, round_of_32: 2, round_of_16: 3, quarters: 5, semis: 8, final: 13, third: 3
+		};
+		const stageBonus = STAGE_BONUS[match.stage] ?? 0;
+
+		let winnerTeam: string | null = null;
+		if (match.home_score != null && match.away_score != null) {
+			if (match.home_score > match.away_score) winnerTeam = match.home_team;
+			else if (match.away_score > match.home_score) winnerTeam = match.away_team;
+		}
+
+		if (winnerTeam && stageBonus > 0) {
+			const { data: oddsRow } = await supabase
+				.from('wc_winner_odds')
+				.select('multiplier')
+				.eq('team_name_en', winnerTeam)
+				.maybeSingle();
+			const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
+			matchBonus = {
+				amount: parseFloat((stageBonus * multiplier).toFixed(2)),
+				winnerTeam
+			};
+		}
 	}
 
 	return {
 		match,
 		userPronostic: pronosticResult.data,
 		allPronostics,
+		matchBonus,
 		friendIds,
 		user
 	};

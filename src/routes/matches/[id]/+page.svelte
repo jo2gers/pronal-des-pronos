@@ -409,6 +409,15 @@
 								style="font-family: var(--font-display)">
 								{p.points_earned?.toFixed(2) ?? '0.00'}
 							</span>
+
+							<!-- Team bonus chip: this user supports the match winner -->
+							{#if data.matchBonus && (p.profiles as any)?.favorite_team === data.matchBonus.winnerTeam}
+								<span class="text-[10px] font-semibold tabular-nums shrink-0 ml-1"
+									style="color: var(--color-bonus)"
+									title="Bonus équipe : {teamLabel(data.matchBonus.winnerTeam)} a gagné">
+									+{data.matchBonus.amount.toFixed(2)}
+								</span>
+							{/if}
 						</a>
 					{/each}
 				{/if}
