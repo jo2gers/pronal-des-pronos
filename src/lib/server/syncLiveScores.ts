@@ -84,15 +84,19 @@ async function fetchPolymarketEvent(slug: string): Promise<PolymarketEvent | nul
 export async function syncLiveScores(
 	supabase: SupabaseClient,
 	opts: { force?: boolean } = {}
-): Promise<{ ok: boolean; scanned: number; due: number; updated: number; ended: number; scoredPronostics: number }> {
+): Promise<{ ok: boolean; scanned: number; due: number; updated: number; ended: number; scoredPronostics: number; error?: string }> {
 	const nowMs = Date.now();
 	const nowIso = new Date(nowMs).toISOString();
 
-	const { data: rawMatches } = await supabase
+	const { data: rawMatches, error: selectError } = await supabase
 		.from('matches')
 		.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, last_score_sync_at, polymarket_event_slug')
 		.not('polymarket_event_slug', 'is', null)
 		.or(`status.eq.live,and(status.eq.upcoming,match_datetime.lte.${nowIso})`);
+
+	if (selectError) {
+		return { ok: false, scanned: 0, due: 0, updated: 0, ended: 0, scoredPronostics: 0, error: selectError.message };
+	}
 
 	const matches = (rawMatches ?? []) as LiveMatchRow[];
 	const due = opts.force ? matches : matches.filter((m) => isDueForSync(m, nowMs));
