@@ -1,22 +1,18 @@
 // Fetch live scores from Polymarket's gamma API for any match with
-// `polymarket_event_slug` set + status='live' (or upcoming but past kickoff,
-// so the cron picks up the second a match starts).
+// `polymarket_event_slug` set + status='live' (or upcoming but past kickoff).
 //
-// Polymarket event response includes:
-//   { score: "1-1", elapsed: "45", period: "1H", live: true, ended: false, ... }
+// Polling cadence is per-match, computed from elapsed-time since kickoff:
+//   <45 min   → skip (pre-HT, no info expected)
+//   45-90 min → poll once / 60 min (catches the halftime score)
+//   90+ min   → poll every 5 min until ended (catches FT)
 //
-// We parse `score`, write `home_score`/`away_score`, and on `ended === true`
-// flip status to 'finished'.
-//
-// Rate-limited per Vercel function instance: skip syncs <20s apart. Each
-// serverless cold-start gets a fresh limiter, which is fine — duplicate work
-// is harmless (idempotent updates).
+// Each successful fetch stamps matches.last_score_sync_at so the cooldown is
+// persisted across Vercel cold starts. On the FT transition (`ended:true`),
+// scoreMatch runs in the same tick — pronostics get points, fans of the
+// winner get team_bonus_points, no admin click needed.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
-
-const MIN_SYNC_INTERVAL_MS = 20_000;
-let lastSyncAt = 0;
 
 type LiveMatchRow = {
 	id: string;
@@ -28,6 +24,7 @@ type LiveMatchRow = {
 	away_score: number | null;
 	stage: string;
 	bonus_calculated: boolean;
+	last_score_sync_at: string | null;
 	polymarket_event_slug: string;
 };
 
@@ -36,7 +33,7 @@ type PolymarketEvent = {
 	slug?: string;
 	score?: string;       // "1-1"
 	elapsed?: string;     // "45"
-	period?: string;      // "1H" | "2H" | "HT" | "FT" | ...
+	period?: string;      // "1H" | "2H" | "HT" | "FT" | "VFT" | ...
 	live?: boolean;
 	ended?: boolean;
 };
@@ -48,6 +45,26 @@ function parseScore(s: string | undefined): [number, number] | null {
 	const h = parseInt(m[1], 10), a = parseInt(m[2], 10);
 	if (!Number.isFinite(h) || !Number.isFinite(a)) return null;
 	return [h, a];
+}
+
+// Returns true if the match should be polled now given how long ago we last
+// fetched it. See module header for the cadence table.
+function isDueForSync(match: LiveMatchRow, nowMs: number): boolean {
+	const kickoffMs = new Date(match.match_datetime).getTime();
+	const elapsedMin = (nowMs - kickoffMs) / 60_000;
+
+	// Pre-HT: nothing useful to fetch yet
+	if (elapsedMin < 45) return false;
+
+	const lastSyncMs = match.last_score_sync_at
+		? new Date(match.last_score_sync_at).getTime()
+		: 0;
+	const sinceLastSyncMin = (nowMs - lastSyncMs) / 60_000;
+
+	// 45-90 min: catch the HT score with one poll per hour
+	// 90+: tight loop to catch FT
+	const cooldownMin = elapsedMin < 90 ? 60 : 5;
+	return sinceLastSyncMin >= cooldownMin;
 }
 
 async function fetchPolymarketEvent(slug: string): Promise<PolymarketEvent | null> {
@@ -67,30 +84,30 @@ async function fetchPolymarketEvent(slug: string): Promise<PolymarketEvent | nul
 export async function syncLiveScores(
 	supabase: SupabaseClient,
 	opts: { force?: boolean } = {}
-): Promise<{ ok: boolean; scanned: number; updated: number; ended: number; scoredPronostics?: number; skipped?: string }> {
-	const now = Date.now();
-	if (!opts.force && now - lastSyncAt < MIN_SYNC_INTERVAL_MS) {
-		return { ok: true, scanned: 0, updated: 0, ended: 0, skipped: 'rate-limited' };
-	}
-	lastSyncAt = now;
+): Promise<{ ok: boolean; scanned: number; due: number; updated: number; ended: number; scoredPronostics: number }> {
+	const nowMs = Date.now();
+	const nowIso = new Date(nowMs).toISOString();
 
-	const nowIso = new Date(now).toISOString();
-
-	// Live OR (upcoming + past kickoff) — covers the gap between kickoff and
-	// admin flipping the row to 'live'.
 	const { data: rawMatches } = await supabase
 		.from('matches')
-		.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, polymarket_event_slug')
+		.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, last_score_sync_at, polymarket_event_slug')
 		.not('polymarket_event_slug', 'is', null)
 		.or(`status.eq.live,and(status.eq.upcoming,match_datetime.lte.${nowIso})`);
 
 	const matches = (rawMatches ?? []) as LiveMatchRow[];
+	const due = opts.force ? matches : matches.filter((m) => isDueForSync(m, nowMs));
+
 	let updated = 0;
 	let ended = 0;
 	let scoredPronostics = 0;
 
-	for (const m of matches) {
+	for (const m of due) {
 		const ev = await fetchPolymarketEvent(m.polymarket_event_slug);
+		// Stamp the timestamp even if the fetch returned nothing — otherwise
+		// every page load past the cooldown would re-hit Polymarket for the
+		// same dead slug. Use service-role client so RLS doesn't block.
+		await supabase.from('matches').update({ last_score_sync_at: nowIso }).eq('id', m.id);
+
 		if (!ev) continue;
 
 		const pair = parseScore(ev.score);
@@ -112,9 +129,6 @@ export async function syncLiveScores(
 		if (error) continue;
 		updated++;
 
-		// Auto-score on the FT transition. scoreMatch is idempotent (the team
-		// bonus is guarded by bonus_calculated), so retries are safe if the
-		// rate-limit window lapses while a match's ended flag stays true.
 		if (willTransitionToFinished) {
 			ended++;
 			try {
@@ -134,5 +148,5 @@ export async function syncLiveScores(
 		}
 	}
 
-	return { ok: true, scanned: matches.length, updated, ended, scoredPronostics };
+	return { ok: true, scanned: matches.length, due: due.length, updated, ended, scoredPronostics };
 }
