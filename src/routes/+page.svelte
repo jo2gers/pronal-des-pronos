@@ -94,9 +94,13 @@
 									? { pts: 1 * safeOdds, label: 'winner' }
 									: { pts: 0, label: 'missed' })
 							: null}
+						{@const stageLabel = (getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}
+						{@const stageLabelFull = match.group_label
+							? `${stageLabel} · ${getLang() === 'fr' ? 'Groupe' : 'Group'} ${match.group_label}`
+							: stageLabel}
 						<a href="/matches/{match.id}"
 							class="rounded-xl bg-canvas border border-live/30 hover:border-live transition-colors {sole ? 'px-6 py-8 sm:py-10' : 'px-4 py-5'} text-center block">
-							<p class="{sole ? 'text-xs' : 'text-[11px]'} text-muted mb-4 uppercase tracking-widest">{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[match.stage] ?? match.stage}</p>
+							<p class="{sole ? 'text-xs' : 'text-[11px]'} text-muted mb-4 uppercase tracking-widest">{stageLabelFull}</p>
 							<div class="flex items-center justify-center gap-4 sm:gap-8">
 								<div class="flex-1 flex flex-col items-center max-w-[40%]">
 									<Flag code={match.home_flag} size={sole ? 80 : 48} alt={teamLabel(match.home_team)} class="mb-2" />
@@ -147,39 +151,51 @@
 				<p class="text-faint text-[10px] font-bold uppercase tracking-[0.25em] mb-6 text-center">{t('next_match')}</p>
 
 				{#if countdown}
-					<!-- Four circular dials -->
-					<div class="flex justify-center gap-3 sm:gap-6 mb-6">
-						{#each [
-							{ v: countdown.days,  max: 30, label: t('days') },
-							{ v: countdown.hours, max: 24, label: t('hours') },
-							{ v: countdown.mins,  max: 60, label: t('mins') },
-							{ v: countdown.secs,  max: 60, label: t('secs') }
-						] as unit, i}
-							<div class="relative flex flex-col items-center">
-								<div class="relative w-[68px] h-[68px] sm:w-[88px] sm:h-[88px]">
-									<svg viewBox="0 0 64 64" class="w-full h-full -rotate-90" aria-hidden="true">
-										<!-- track -->
-										<circle cx="32" cy="32" r={DIAL_RADIUS}
-											fill="none" stroke="var(--color-wire)" stroke-width="3" />
-										<!-- progress (filling clockwise) -->
-										<circle cx="32" cy="32" r={DIAL_RADIUS}
-											fill="none" stroke="var(--color-accent)" stroke-width="3"
-											stroke-linecap="round"
-											stroke-dasharray={DIAL_CIRC}
-											stroke-dashoffset={dialOffset(unit.v, unit.max)}
-											style="transition: stroke-dashoffset {i === 3 ? '0.3s' : '0.8s'} cubic-bezier(0.16, 1, 0.3, 1)" />
-									</svg>
-									<div class="absolute inset-0 flex items-center justify-center">
-										<span class="text-2xl sm:text-4xl font-bold text-fg tabular-nums leading-none"
-											style="font-family: var(--font-display)">
-											{String(unit.v).padStart(2, '0')}
-										</span>
+					{@const totalMinsToKickoff = countdown.days * 24 * 60 + countdown.hours * 60 + countdown.mins}
+					{@const useDials = totalMinsToKickoff < 24 * 60}
+					{#if useDials}
+						<!-- Final-24h state: full animated dials (high anticipation) -->
+						<div class="flex justify-center gap-3 sm:gap-6 mb-6">
+							{#each [
+								{ v: countdown.days,  max: 30, label: t('days') },
+								{ v: countdown.hours, max: 24, label: t('hours') },
+								{ v: countdown.mins,  max: 60, label: t('mins') },
+								{ v: countdown.secs,  max: 60, label: t('secs') }
+							] as unit, i}
+								<div class="relative flex flex-col items-center">
+									<div class="relative w-[68px] h-[68px] sm:w-[88px] sm:h-[88px]">
+										<svg viewBox="0 0 64 64" class="w-full h-full -rotate-90" aria-hidden="true">
+											<!-- track -->
+											<circle cx="32" cy="32" r={DIAL_RADIUS}
+												fill="none" stroke="var(--color-wire)" stroke-width="3" />
+											<!-- progress (filling clockwise) -->
+											<circle cx="32" cy="32" r={DIAL_RADIUS}
+												fill="none" stroke="var(--color-accent)" stroke-width="3"
+												stroke-linecap="round"
+												stroke-dasharray={DIAL_CIRC}
+												stroke-dashoffset={dialOffset(unit.v, unit.max)}
+												style="transition: stroke-dashoffset {i === 3 ? '0.3s' : '0.8s'} cubic-bezier(0.16, 1, 0.3, 1)" />
+										</svg>
+										<div class="absolute inset-0 flex items-center justify-center">
+											<span class="text-2xl sm:text-4xl font-bold text-fg tabular-nums leading-none"
+												style="font-family: var(--font-display)">
+												{String(unit.v).padStart(2, '0')}
+											</span>
+										</div>
 									</div>
+									<span class="text-[10px] text-faint mt-2 uppercase tracking-widest">{unit.label}</span>
 								</div>
-								<span class="text-[10px] text-faint mt-2 uppercase tracking-widest">{unit.label}</span>
-							</div>
-						{/each}
-					</div>
+							{/each}
+						</div>
+					{:else}
+						<!-- Pre-24h state: single bold "J-N" line, no animation, saves battery -->
+						<p class="text-center mb-6">
+							<span class="text-7xl sm:text-8xl font-bold text-accent tabular-nums leading-none"
+								style="font-family: var(--font-display); letter-spacing: 0.02em">
+								J−{countdown.days}
+							</span>
+						</p>
+					{/if}
 				{:else}
 					<p class="text-3xl font-bold text-accent text-center mb-5" style="font-family: var(--font-display)">
 						{t('kickoff')}

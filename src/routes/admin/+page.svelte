@@ -69,7 +69,7 @@
 <div class="space-y-6">
 	<div class="flex items-baseline justify-between flex-wrap gap-2">
 		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Simulateur de matchs</h1>
-		<p class="text-xs text-faint">Cron auto-sync : 1×/jour (06:00 UTC)</p>
+		<p class="text-xs text-faint">Cron : cotes 1×/jour (06:00 UTC) · scores live 1×/min</p>
 	</div>
 
 	<!-- KPI status strip — at-a-glance freshness for every sync source -->
@@ -99,6 +99,13 @@
 			</dd>
 		</div>
 	</dl>
+
+	<!-- ── ZONE 1 · Synchronisation Polymarket ──────────────────────── -->
+	<section class="space-y-3 pt-2">
+		<div class="flex items-baseline justify-between gap-3">
+			<h2 class="text-[11px] text-faint uppercase tracking-[0.2em] font-semibold">Synchronisation</h2>
+			<p class="text-[11px] text-faint">Polymarket gamma-api</p>
+		</div>
 
 	<!-- Sync WC winner odds from Polymarket -->
 	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
@@ -209,6 +216,11 @@
 			{#if slugSyncFeedback.detail}<p class="text-xs mt-1 opacity-70">{slugSyncFeedback.detail}</p>{/if}
 		</div>
 	{/if}
+	</section>
+
+	<!-- ── ZONE 2 · Édition manuelle ──────────────────────────────── -->
+	<section class="space-y-3 pt-2">
+		<h2 class="text-[11px] text-faint uppercase tracking-[0.2em] font-semibold">Édition manuelle</h2>
 
 	<!-- Goals scored editor (collapsible) -->
 	{#if data.scorers && data.scorers.length > 0}
@@ -284,6 +296,12 @@
 			</div>
 		</details>
 	{/if}
+
+	</section>
+
+	<!-- ── ZONE 3 · Opérations ─────────────────────────────────────── -->
+	<section class="space-y-3 pt-2">
+		<h2 class="text-[11px] text-faint uppercase tracking-[0.2em] font-semibold">Opérations</h2>
 
 	<!-- Sync odds from Polymarket -->
 	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
@@ -484,8 +502,24 @@
 		</details>
 	{/if}
 
+	</section>
+
+	<!-- ── ZONE 4 · Zone dangereuse (disclosure) ───────────────────── -->
+	<details class="group/details rounded-xl bg-panel border border-err/20 overflow-hidden">
+		<summary class="cursor-pointer px-4 py-3 flex items-center justify-between hover:bg-err/5 transition-colors gap-3 select-none">
+			<div class="min-w-0">
+				<p class="text-sm font-semibold text-err">Zone dangereuse</p>
+				<p class="text-xs text-faint mt-0.5">Opérations irréversibles — déplier seulement si nécessaire</p>
+			</div>
+			<svg class="w-4 h-4 text-err shrink-0 transition-transform group-open/details:rotate-180"
+				fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+			</svg>
+		</summary>
+		<div class="border-t border-err/20 px-4 py-4 space-y-3">
+
 	<!-- Reset all (destructive) -->
-	<div class="rounded-xl bg-panel border border-err/20 p-4 flex items-center gap-4 flex-wrap">
+	<div class="rounded-xl bg-canvas border border-err/30 p-4 flex items-center gap-4 flex-wrap">
 		<div class="flex-1 min-w-0">
 			<p class="text-sm font-semibold text-fg">Tout réinitialiser <span class="text-xs text-err font-normal ml-1">Destructif</span></p>
 			<p class="text-xs text-faint mt-0.5">Supprime tous les pronostics, remet tous les scores à zéro et efface les bonus équipe.</p>
@@ -531,6 +565,9 @@
 			{resetFeedback.msg}
 		</div>
 	{/if}
+
+		</div>
+	</details>
 
 	{#if form?.error}
 		<div class="rounded bg-err/10 border border-err/30 px-4 py-3 text-sm text-err">{form.error}</div>
