@@ -92,6 +92,21 @@
 		scheduleSave();
 	}
 
+	// Keyboard shortcuts: ↑/↓ bumps home, Shift+↑/↓ bumps away.
+	// Triggered by the wrapper's onkeydown when the row is focused.
+	function onRowKeydown(e: KeyboardEvent) {
+		if (!pickable) return;
+		if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+		// Don't hijack arrow keys if the user is in a text field (defensive —
+		// no inputs in the row today, but future-proofing for search/filter).
+		const target = e.target as HTMLElement | null;
+		if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+		e.preventDefault();
+		const dir: 1 | -1 = e.key === 'ArrowUp' ? 1 : -1;
+		const side: 'home' | 'away' = e.shiftKey ? 'away' : 'home';
+		bump(side, dir);
+	}
+
 	function scheduleSave() {
 		// Save whenever the user has touched the stepper — 0-0 is a valid
 		// prediction (draw, no goals) and must persist on second-thought
@@ -241,7 +256,11 @@
 	</div>
 {/snippet}
 
-<div class="px-4 py-3 transition-colors {pickable ? 'hover:bg-raised/30' : 'hover:bg-raised/60'}">
+<div class="px-4 py-3 transition-colors outline-none {pickable ? 'hover:bg-raised/30 focus-visible:bg-raised/30 focus-visible:ring-2 focus-visible:ring-accent/50 rounded' : 'hover:bg-raised/60'}"
+	tabindex={pickable ? 0 : -1}
+	role={pickable ? 'group' : undefined}
+	aria-label={pickable ? `${teamLabel(match.home_team)} ${touched ? home : '–'} – ${touched ? away : '–'} ${teamLabel(match.away_team)} · ${t('match_picks_close_at')} ${closesAt}` : undefined}
+	onkeydown={onRowKeydown}>
 
 	{#if pickable}
 		<form bind:this={formEl} method="POST" {action}
