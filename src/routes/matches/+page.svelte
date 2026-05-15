@@ -72,7 +72,10 @@
 	</div>
 
 	{#if dayBuckets.length === 0}
-		<p class="text-muted text-sm px-1">{tab === 'ended' ? '—' : t('no_upcoming')}</p>
+		<div class="rounded-xl bg-panel border border-wire px-6 py-10 text-center">
+			<p class="text-muted">{tab === 'ended' ? t('no_ended') : t('no_upcoming')}</p>
+			<p class="text-sm text-faint mt-2">{tab === 'ended' ? t('no_ended_hint') : ''}</p>
+		</div>
 	{:else}
 		<div class="space-y-6">
 			{#each dayBuckets as bucket (bucket.key)}

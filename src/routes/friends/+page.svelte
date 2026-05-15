@@ -95,7 +95,9 @@
 			{t('friends_my_friends')} <span class="text-faint font-normal tabular-nums normal-case tracking-normal">({data.accepted.length})</span>
 		</h2>
 		{#if data.accepted.length === 0}
-			<p class="text-sm text-faint">{t('friends_empty')}</p>
+			<div class="rounded-xl bg-panel border border-wire px-6 py-10 text-center">
+				<p class="text-sm text-faint">{t('friends_empty')}</p>
+			</div>
 		{:else}
 			<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire">
 				{#each data.accepted as friend}

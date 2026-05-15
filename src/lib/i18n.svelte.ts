@@ -64,6 +64,8 @@ const FR = {
   fav_team: 'Équipe favorite', no_pref: 'Aucune préférence',
   bonus_mult: 'Multiplicateur bonus équipe',
   no_upcoming: 'Aucun match à venir.',
+  no_ended: 'Aucun match terminé pour l\'instant.',
+  no_ended_hint: 'La grille se remplira au fil du tournoi.',
   team_bonus_short: 'équipe',
   last_matches: 'Derniers matchs',
   // Leagues
@@ -385,6 +387,8 @@ const EN: typeof FR = {
   fav_team: 'Favourite team', no_pref: 'No preference',
   bonus_mult: 'Team bonus multiplier',
   no_upcoming: 'No upcoming matches.',
+  no_ended: 'No matches finished yet.',
+  no_ended_hint: 'This list will fill up as the tournament progresses.',
   team_bonus_short: 'team',
   last_matches: 'Latest matches',
   // Groups
