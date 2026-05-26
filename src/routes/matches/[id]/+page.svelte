@@ -24,7 +24,14 @@
 	let loading   = $state(false);
 	let pronoFilter = $state<'friends' | 'all'>('friends');
 
-	const locked = $derived(isMatchLocked(data.match.match_datetime));
+	// Locked when: kickoff lock fired OR either team is still TBD (knockouts
+	// before the bracket resolves). The TBD case means the row exists in the
+	// schedule but has no real opponent to predict against yet.
+	const locked = $derived(
+		isMatchLocked(data.match.match_datetime)
+		|| data.match.home_team === 'TBD'
+		|| data.match.away_team === 'TBD'
+	);
 
 	function getCountdown(dt: string) {
 		const diff = new Date(dt).getTime() - Date.now();

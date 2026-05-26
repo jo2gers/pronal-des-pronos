@@ -51,15 +51,18 @@ export const actions: Actions = {
 			return fail(400, { error: 'Scores invalides', match_id });
 		}
 
-		// Verify match is still open (2h before kickoff)
+		// Verify match is still open (lock cutoff) and that teams are known
 		const { data: match } = await supabase
 			.from('matches')
-			.select('match_datetime, status, odds_home, odds_draw, odds_away')
+			.select('match_datetime, status, home_team, away_team, odds_home, odds_draw, odds_away')
 			.eq('id', match_id)
 			.single();
 
 		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 5 * 60000) {
 			return fail(400, { error: 'Pronos fermés pour ce match', match_id });
+		}
+		if (match.home_team === 'TBD' || match.away_team === 'TBD') {
+			return fail(400, { error: 'Équipes pas encore déterminées', match_id });
 		}
 
 		const odds_used = resolveOddsUsed(predicted_home, predicted_away, match);

@@ -96,12 +96,14 @@ export const actions: Actions = {
 
 		const { data: match } = await supabase
 			.from('matches')
-			.select('match_datetime, status, odds_home, odds_draw, odds_away')
+			.select('match_datetime, status, home_team, away_team, odds_home, odds_draw, odds_away')
 			.eq('id', params.id)
 			.single();
 
 		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 5 * 60000)
 			return fail(400, { error: 'Les pronostics sont fermés pour ce match' });
+		if (match.home_team === 'TBD' || match.away_team === 'TBD')
+			return fail(400, { error: 'Équipes pas encore déterminées' });
 
 		const odds_used = resolveOddsUsed(predicted_home, predicted_away, match);
 

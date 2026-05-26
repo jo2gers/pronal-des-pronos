@@ -79,7 +79,11 @@
 	// locked immediately — covers the case where the client clock is slightly
 	// behind the server and the boundary is right now.
 	const lockedByServer = $derived(saveStatus === 'error' && saveError === 'Pronos fermés pour ce match');
-	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked' && !lockedByServer);
+	// Knockout matches start with TBD placeholders; picks should be locked
+	// until the bracket resolves and real teams populate. Otherwise users
+	// can predict a score for "TBD vs TBD" which is meaningless.
+	const tbd = $derived(match.home_team === 'TBD' || match.away_team === 'TBD');
+	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked' && !lockedByServer && !tbd);
 	// outcome is null when the user hasn't touched the stepper — odds line stays
 	// neutral until there's an actual prediction to compare against.
 	const outcome = $derived<number | null>(touched ? Math.sign(home - away) : null);
