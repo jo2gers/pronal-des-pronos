@@ -22,6 +22,16 @@
 		{ href: '/rules',       label: t('nav_rules') },
 	]);
 
+	// Mobile tab bar — 5 most-used destinations, drops Schedule + Rules from
+	// the full nav. Matches the design canvas exactly.
+	const mobileTabs = $derived([
+		{ href: '/',            label: t('nav_home') },
+		{ href: '/matches',     label: t('nav_matches') },
+		{ href: '/leaderboard', label: t('nav_leaderboard') },
+		{ href: '/leagues',     label: t('nav_groups') },
+		{ href: '/friends',     label: t('nav_friends') },
+	]);
+
 	$effect(() => {
 		const storedTheme = localStorage.getItem('theme') ?? 'dark';
 		const storedLang  = localStorage.getItem('lang')  ?? 'fr';
@@ -355,9 +365,41 @@
 		{/if}
 	</nav>
 
-	<main class="flex-1 w-full mx-auto max-w-6xl px-4 py-8">
+	<main class="flex-1 w-full mx-auto max-w-6xl px-4 py-8 pb-24 sm:pb-8">
 		{@render children()}
 	</main>
+
+	<!-- ── Mobile bottom tab bar · primary navigation on small screens ─────
+	     Mirrors the design canvas: 5 tabs with mosaic-icon active glyph,
+	     outlined-square placeholder for inactive. Tap-friendly hit areas,
+	     backdrop-blur so content shows through, safe-area padding for
+	     iOS home-indicator. -->
+	<nav class="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-wire/60 backdrop-blur-xl"
+		style="background: color-mix(in srgb, var(--color-canvas) 92%, transparent); padding-bottom: env(safe-area-inset-bottom, 0px)">
+		<div class="grid grid-cols-5 gap-0.5 px-2 pt-2 pb-2">
+			{#each mobileTabs as link}
+				{@const active = page.url.pathname === link.href}
+				<a href={link.href}
+					class="flex flex-col items-center gap-1 py-1.5 transition-colors
+						{active ? 'text-accent' : 'text-faint hover:text-fg'}">
+					{#if active}
+						<!-- Mosaic icon · lime, signals active tab -->
+						<svg width="16" height="16" viewBox="0 0 40 40" aria-hidden="true">
+							{#each [[0,0,1],[1,0,1],[2,0,1],[3,0,1],[4,0,1],[2,1,1],[2,2,1],[2,3,1],[2,4,2]] as cell}
+								<rect x={cell[0]*8 + 1} y={cell[1]*8 + 1} width="6" height="6" rx="0.5"
+									fill="var(--color-accent)" opacity={cell[2] === 2 ? 1 : 0.55} />
+							{/each}
+						</svg>
+					{:else}
+						<!-- Inactive · outlined square placeholder -->
+						<span class="w-4 h-4 border border-current rounded-[2px] opacity-60" aria-hidden="true"></span>
+					{/if}
+					<span class="text-[9.5px] uppercase tracking-[0.04em] leading-none"
+						style="font-family: var(--font-mono)">{link.label}</span>
+				</a>
+			{/each}
+		</div>
+	</nav>
 
 	<!-- Devsigny attribution — appears on every page, pinned to bottom -->
 	<footer class="mt-auto border-t border-wire">
