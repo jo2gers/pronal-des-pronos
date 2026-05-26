@@ -98,8 +98,11 @@
 <svelte:head>
 	<title>Tifo — World Cup 2026 picks with your friends</title>
 	<meta name="description" content="Tifo · friends · leagues · scoreboard. Designed and built by Devsigny." />
-	<link rel="icon" type="image/png" href="/favicon.png?v=3" />
-	<link rel="shortcut icon" type="image/png" href="/favicon.png?v=3" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
+	<link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32.png?v=4" />
+	<link rel="icon" type="image/png" sizes="16x16" href="/favicons/favicon-16.png?v=4" />
+	<link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon-180.png?v=4" />
+	<meta name="theme-color" content="#0a0a0c" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 </svelte:head>
@@ -112,12 +115,18 @@
 <div class="min-h-screen flex flex-col bg-canvas text-fg" style="font-family: var(--font-body)">
 	<nav class="sticky top-0 z-50 border-b border-wire bg-canvas">
 		<div class="mx-auto flex h-14 max-w-6xl items-center px-4 gap-4">
-			<!-- Wordmark — uses the PWA icon so the brand mark is identical
-			     in nav, browser tab, and home-screen install -->
-			<a href="/" onclick={closeMenu} class="shrink-0 h-14 w-14 overflow-hidden flex items-center justify-center" aria-label="Tifo">
-				<img src="/icon-maskable-512.png?v=3" alt="Tifo"
-					class="h-full w-full object-cover scale-150"
-					style="mix-blend-mode: screen;" />
+			<!-- Tifo · Mosaïque mark + wordmark. 5×5 stadium-tifo grid
+			     forming a T, with the bottom cell as the lime accent dot. -->
+			<a href="/" onclick={closeMenu} class="shrink-0 flex items-center gap-2.5" aria-label="Tifo">
+				<svg width="28" height="28" viewBox="0 0 40 40" aria-hidden="true" class="shrink-0">
+					{#each [[0,0,1],[1,0,1],[2,0,1],[3,0,1],[4,0,1],[2,1,1],[2,2,1],[2,3,1],[2,4,2]] as cell}
+						<rect x={cell[0]*8 + 1} y={cell[1]*8 + 1} width="6" height="6"
+							rx="0.5"
+							fill={cell[2] === 2 ? 'var(--color-accent)' : 'var(--color-fg)'} />
+					{/each}
+				</svg>
+				<span class="font-bold text-fg text-xl leading-none"
+					style="font-family: var(--font-display); letter-spacing: -0.04em">tifo</span>
 			</a>
 
 			<!-- Desktop nav -->
