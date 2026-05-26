@@ -64,6 +64,127 @@
 
 <div class="space-y-8">
 
+{#if !data.user && nextMatch && !liveMatches.length}
+	<!-- ════════════════════════════════════════════════════════════════
+	     LOGGED-OUT EDITORIAL HERO
+	     Two-column pitch: headline + pitch + stats on the left,
+	     prochain match card on the right. Mirrors the design canvas
+	     "Accueil · public" artboard.
+	     ════════════════════════════════════════════════════════════════ -->
+	<section class="relative overflow-hidden -mx-4 sm:mx-0 px-4 sm:px-0 pt-8 pb-12 sm:pt-12 sm:pb-16">
+		<!-- Faint stripe field — reads as stadium tifo banner -->
+		<div aria-hidden class="pointer-events-none absolute inset-0"
+			style="background-image: repeating-linear-gradient(0deg, transparent 0 38px, rgba(255,255,255,0.015) 38px 39px);
+			       mask-image: radial-gradient(ellipse at 70% 0%, rgba(0,0,0,0.6), transparent 60%)"></div>
+
+		<div class="relative grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10 lg:gap-14 items-start">
+			<!-- ── LEFT: headline · pitch · CTAs · stats ─────────────────── -->
+			<div>
+				<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-wire bg-panel text-[10.5px] uppercase tracking-[0.06em]"
+					style="font-family: var(--font-mono); color: var(--color-faint)">
+					<span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+					{t('pitch_chip')}
+				</div>
+				<h1 class="text-5xl sm:text-6xl lg:text-7xl xl:text-[84px] font-bold mt-7 leading-[0.95]"
+					style="font-family: var(--font-display); letter-spacing: -0.045em; text-wrap: pretty">
+					{t('pitch_h1_l1')}<br/>
+					{t('pitch_h1_l2')}<br/>
+					<span class="text-faint">{t('pitch_h1_l3')}</span>
+				</h1>
+				<p class="text-[17px] leading-[1.5] text-muted max-w-[520px] mt-7">
+					{t('pitch_body')}
+				</p>
+
+				<div class="flex gap-3 mt-9 flex-wrap">
+					<a href="/auth/register"
+						class="inline-flex items-center gap-2 rounded-full bg-accent hover:bg-accent-hi px-5 py-3.5 text-sm font-medium text-canvas transition-colors">
+						{t('pitch_cta')}
+						<span aria-hidden="true">→</span>
+					</a>
+					<a href="/rules"
+						class="inline-flex items-center rounded-full border border-wire-hi hover:bg-panel px-5 py-3.5 text-sm font-medium text-fg transition-colors">
+						{t('pitch_rules')}
+					</a>
+				</div>
+
+				<!-- Stats strip · 104 · 48 · 16 -->
+				<div class="grid grid-cols-3 gap-0 mt-16 pt-6 border-t border-wire/60">
+					{#each [['104', t('pitch_stat_matches')], ['48', t('pitch_stat_teams')], ['16', t('pitch_stat_cities')]] as [n, label]}
+						<div>
+							<div class="text-3xl sm:text-4xl lg:text-5xl font-semibold tabular-nums leading-none"
+								style="font-family: var(--font-display); letter-spacing: -0.03em">{n}</div>
+							<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2"
+								style="font-family: var(--font-mono)">{label}</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+
+			<!-- ── RIGHT: next match card ───────────────────────────────── -->
+			<aside class="rounded-2xl border border-wire bg-panel p-6 sm:p-7">
+				<div class="flex items-center justify-between mb-8">
+					<span class="text-[10.5px] uppercase tracking-[0.08em] text-faint"
+						style="font-family: var(--font-mono)">
+						{t('card_match_opener')}{nextMatch.group_label ? ` · ${t('card_group')} ${nextMatch.group_label}` : ''}
+					</span>
+					{#if countdown}
+						<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-accent text-canvas text-[11px] font-bold tabular-nums"
+							style="font-family: var(--font-mono); letter-spacing: 0.04em">
+							J−{countdown.days}
+						</span>
+					{/if}
+				</div>
+
+				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
+					<div class="flex flex-col items-center gap-3 min-w-0">
+						<Flag code={nextMatch.home_flag} size={64} alt={teamLabel(nextMatch.home_team)} />
+						<div class="text-base sm:text-lg font-semibold text-center truncate max-w-full"
+							style="font-family: var(--font-display); letter-spacing: -0.02em">
+							{teamLabel(nextMatch.home_team)}
+						</div>
+					</div>
+					<div class="text-center px-1.5">
+						<div class="text-2xl sm:text-3xl text-faint tabular-nums leading-none"
+							style="font-family: var(--font-display); letter-spacing: -0.02em">—</div>
+						<div class="text-[10.5px] uppercase tracking-[0.1em] text-faint mt-1"
+							style="font-family: var(--font-mono)">VS</div>
+					</div>
+					<div class="flex flex-col items-center gap-3 min-w-0">
+						<Flag code={nextMatch.away_flag} size={64} alt={teamLabel(nextMatch.away_team)} />
+						<div class="text-base sm:text-lg font-semibold text-center truncate max-w-full"
+							style="font-family: var(--font-display); letter-spacing: -0.02em">
+							{teamLabel(nextMatch.away_team)}
+						</div>
+					</div>
+				</div>
+
+				<!-- Footer info row: kickoff · venue -->
+				<div class="grid grid-cols-2 gap-4 mt-8 pt-5 border-t border-wire/60">
+					<div>
+						<div class="text-[10px] uppercase tracking-[0.08em] text-faint"
+							style="font-family: var(--font-mono)">{t('card_kickoff')}</div>
+						<div class="text-sm mt-1 tabular-nums" style="font-family: var(--font-mono)">
+							{formatDate(nextMatch.match_datetime)}
+						</div>
+					</div>
+					{#if nextMatch.venue}
+						<div>
+							<div class="text-[10px] uppercase tracking-[0.08em] text-faint"
+								style="font-family: var(--font-mono)">{t('card_venue')}</div>
+							<div class="text-sm mt-1" style="font-family: var(--font-mono)">{nextMatch.venue}</div>
+						</div>
+					{/if}
+				</div>
+
+				<a href="/matches/{nextMatch.id}"
+					class="block mt-6 w-full text-center rounded-full bg-accent hover:bg-accent-hi px-5 py-3.5 text-sm font-medium text-canvas transition-colors">
+					{t('card_pick_this')} →
+				</a>
+			</aside>
+		</div>
+	</section>
+{:else}
+
 	<!-- ── Hero: circular countdown dials over a tinted canvas ───────────────── -->
 	<section class="relative overflow-hidden rounded-2xl border border-wire bg-panel">
 		<!-- Single subtle accent glow in top-right corner (purposeful, not decorative noise) -->
@@ -238,6 +359,7 @@
 			{/if}
 		</div>
 	</section>
+{/if}
 
 	<!-- ── User stats · editorial big-number grid (design-system aligned) ──── -->
 	{#if data.user && data.stats}
