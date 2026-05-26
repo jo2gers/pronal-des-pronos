@@ -24,13 +24,15 @@
 	let loading   = $state(false);
 	let pronoFilter = $state<'friends' | 'all'>('friends');
 
-	// Locked when: kickoff lock fired OR either team is still TBD (knockouts
-	// before the bracket resolves). The TBD case means the row exists in the
-	// schedule but has no real opponent to predict against yet.
+	// Locked when: kickoff lock fired, OR teams are still TBD, OR the whole
+	// stage hasn't opened yet (previous round still has unfinished matches —
+	// e.g. you can't predict R32 while group L is still playing). The
+	// stage gate is computed server-side via computeStageUnlocks.
 	const locked = $derived(
 		isMatchLocked(data.match.match_datetime)
 		|| data.match.home_team === 'TBD'
 		|| data.match.away_team === 'TBD'
+		|| (data.match as any).stage_locked === true
 	);
 
 	function getCountdown(dt: string) {

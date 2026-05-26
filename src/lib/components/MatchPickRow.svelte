@@ -20,6 +20,9 @@
 		odds_home?: number | null;
 		odds_draw?: number | null;
 		odds_away?: number | null;
+		// Stage-level lock — true while the previous round still has
+		// unfinished matches. Computed in server loads via computeStageUnlocks.
+		stage_locked?: boolean;
 	};
 
 	type PronoLike = {
@@ -83,7 +86,11 @@
 	// until the bracket resolves and real teams populate. Otherwise users
 	// can predict a score for "TBD vs TBD" which is meaningless.
 	const tbd = $derived(match.home_team === 'TBD' || match.away_team === 'TBD');
-	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked' && !lockedByServer && !tbd);
+	// Stage-level lock — the user explicitly wants whole rounds to open
+	// only once the previous round has fully ended (no piecemeal R32 picks
+	// while group L is still playing). Server-computed.
+	const stageLocked = $derived(match.stage_locked === true);
+	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked' && !lockedByServer && !tbd && !stageLocked);
 	// outcome is null when the user hasn't touched the stepper — odds line stays
 	// neutral until there's an actual prediction to compare against.
 	const outcome = $derived<number | null>(touched ? Math.sign(home - away) : null);

@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { createServerClient } from '@supabase/ssr';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
-import { resolveOddsUsed } from '$lib/utils';
+import { resolveOddsUsed, computeStageUnlocks, STAGE_PROGRESSION } from '$lib/utils';
 import { syncLiveScores } from '$lib/server/syncLiveScores';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -53,6 +53,15 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		...((phantomLive ?? []).map((m) => ({ ...m, status: 'live' as const })))
 	];
 
+	// Stage-level unlock gate: knockout rounds stay locked until ALL matches
+	// of the previous round are finished, regardless of how many TBD slots
+	// resolve_bracket has filled in individually. One DB query covers it.
+	const { data: progressRows } = await supabase
+		.from('matches').select('stage, status');
+	const stageUnlocks = computeStageUnlocks((progressRows ?? []) as any[]);
+	const attachStage = <T extends { stage: string }>(m: T): T & { stage_locked: boolean } =>
+		({ ...m, stage_locked: !(stageUnlocks[m.stage] ?? true) });
+
 	let stats = null;
 	let pronosticsMap: Record<string, { predicted_home: number; predicted_away: number; points_earned: number | null; is_scored: boolean; odds_used: number | null }> = {};
 
@@ -83,10 +92,10 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	}
 
 	return {
-		liveMatches: allLive,
-		nextMatch: nextMatch ?? null,
-		upcomingMatches: upcomingMatches ?? [],
-		finishedMatches: (finishedMatches ?? []).reverse(),
+		liveMatches: allLive.map(attachStage),
+		nextMatch: nextMatch ? attachStage(nextMatch) : null,
+		upcomingMatches: (upcomingMatches ?? []).map(attachStage),
+		finishedMatches: (finishedMatches ?? []).reverse().map(attachStage),
 		stats,
 		pronosticsMap,
 		user
@@ -108,13 +117,24 @@ export const actions: Actions = {
 			return fail(400, { error: 'Scores invalides', match_id });
 
 		const { data: match } = await supabase
-			.from('matches').select('match_datetime, status, home_team, away_team, odds_home, odds_draw, odds_away')
+			.from('matches').select('match_datetime, status, home_team, away_team, stage, odds_home, odds_draw, odds_away')
 			.eq('id', match_id).single();
 
 		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 5 * 60000)
 			return fail(400, { error: 'Pronos fermés pour ce match', match_id });
 		if (match.home_team === 'TBD' || match.away_team === 'TBD')
 			return fail(400, { error: 'Équipes pas encore déterminées', match_id });
+
+		// Stage gate — previous round must be fully finished before picks open.
+		const prevStage = STAGE_PROGRESSION[(match as any).stage];
+		if (prevStage) {
+			const { count: prevUnfinished } = await supabase
+				.from('matches').select('*', { count: 'exact', head: true })
+				.eq('stage', prevStage).neq('status', 'finished');
+			if ((prevUnfinished ?? 0) > 0) {
+				return fail(400, { error: 'Tour précédent pas encore terminé', match_id });
+			}
+		}
 
 		const odds_used = resolveOddsUsed(predicted_home, predicted_away, match);
 

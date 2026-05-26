@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { effectiveStatus, resolveOddsUsed } from '$lib/utils';
+import { effectiveStatus, resolveOddsUsed, computeStageUnlocks, STAGE_PROGRESSION } from '$lib/utils';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
@@ -19,6 +19,12 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	if (match.status === 'upcoming') {
 		(match as any).status = effectiveStatus(match as any);
 	}
+
+	// Stage gate: knockout matches stay locked until the previous round is
+	// fully finished. One small query covers it.
+	const { data: stageRows } = await supabase.from('matches').select('stage, status');
+	const stageUnlocks = computeStageUnlocks((stageRows ?? []) as any[]);
+	(match as any).stage_locked = !(stageUnlocks[(match as any).stage] ?? true);
 
 	// Load friend IDs for the current user
 	let friendIds: string[] = [];
@@ -96,7 +102,7 @@ export const actions: Actions = {
 
 		const { data: match } = await supabase
 			.from('matches')
-			.select('match_datetime, status, home_team, away_team, odds_home, odds_draw, odds_away')
+			.select('match_datetime, status, home_team, away_team, stage, odds_home, odds_draw, odds_away')
 			.eq('id', params.id)
 			.single();
 
@@ -104,6 +110,17 @@ export const actions: Actions = {
 			return fail(400, { error: 'Les pronostics sont fermés pour ce match' });
 		if (match.home_team === 'TBD' || match.away_team === 'TBD')
 			return fail(400, { error: 'Équipes pas encore déterminées' });
+
+		// Stage gate — previous round must be fully finished.
+		const prevStage = STAGE_PROGRESSION[(match as any).stage];
+		if (prevStage) {
+			const { count: prevUnfinished } = await supabase
+				.from('matches').select('*', { count: 'exact', head: true })
+				.eq('stage', prevStage).neq('status', 'finished');
+			if ((prevUnfinished ?? 0) > 0) {
+				return fail(400, { error: 'Tour précédent pas encore terminé' });
+			}
+		}
 
 		const odds_used = resolveOddsUsed(predicted_home, predicted_away, match);
 

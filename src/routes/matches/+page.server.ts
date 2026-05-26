@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { effectiveStatus, resolveOddsUsed } from '$lib/utils';
+import { effectiveStatus, resolveOddsUsed, computeStageUnlocks, STAGE_PROGRESSION } from '$lib/utils';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
@@ -30,8 +30,15 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	);
 
 	// Override status so past-kickoff "upcoming" rows classify as live in the
-	// client tab filters (matches the homepage behaviour).
-	const reclassified = (matches ?? []).map((m) => ({ ...m, status: effectiveStatus(m as any) }));
+	// client tab filters (matches the homepage behaviour). Also attach the
+	// stage_locked gate so the row component can lock entire knockout rounds
+	// until the previous round is complete.
+	const stageUnlocks = computeStageUnlocks((matches ?? []) as any[]);
+	const reclassified = (matches ?? []).map((m) => ({
+		...m,
+		status: effectiveStatus(m as any),
+		stage_locked: !(stageUnlocks[(m as any).stage] ?? true)
+	}));
 
 	return { matches: reclassified, pronosticsMap, user };
 };
@@ -54,7 +61,7 @@ export const actions: Actions = {
 		// Verify match is still open (lock cutoff) and that teams are known
 		const { data: match } = await supabase
 			.from('matches')
-			.select('match_datetime, status, home_team, away_team, odds_home, odds_draw, odds_away')
+			.select('match_datetime, status, home_team, away_team, stage, odds_home, odds_draw, odds_away')
 			.eq('id', match_id)
 			.single();
 
@@ -63,6 +70,17 @@ export const actions: Actions = {
 		}
 		if (match.home_team === 'TBD' || match.away_team === 'TBD') {
 			return fail(400, { error: 'Équipes pas encore déterminées', match_id });
+		}
+
+		// Stage gate — previous round must be fully finished.
+		const prevStage = STAGE_PROGRESSION[(match as any).stage];
+		if (prevStage) {
+			const { count: prevUnfinished } = await supabase
+				.from('matches').select('*', { count: 'exact', head: true })
+				.eq('stage', prevStage).neq('status', 'finished');
+			if ((prevUnfinished ?? 0) > 0) {
+				return fail(400, { error: 'Tour précédent pas encore terminé', match_id });
+			}
 		}
 
 		const odds_used = resolveOddsUsed(predicted_home, predicted_away, match);
