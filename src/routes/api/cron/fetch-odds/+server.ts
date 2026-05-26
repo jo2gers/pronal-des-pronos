@@ -183,61 +183,6 @@ async function syncWcWinnerOdds(supabase: any) {
 	return { ok: true, updated };
 }
 
-async function syncTopScorerOdds(supabase: any) {
-	// Lock: stop refreshing 1 hour before the first WC match. Multipliers freeze
-	// at the last sync that ran before this cutoff.
-	const { data: firstMatch } = await supabase
-		.from('matches')
-		.select('match_datetime')
-		.eq('status', 'upcoming')
-		.neq('home_team', 'TBD')
-		.order('match_datetime', { ascending: true })
-		.limit(1)
-		.maybeSingle();
-
-	const LOCK_BEFORE_MS = 60 * 60 * 1000; // 1 hour
-	const firstMatchTime = (firstMatch as any)?.match_datetime
-		? new Date((firstMatch as any).match_datetime).getTime()
-		: null;
-	if (firstMatchTime && Date.now() >= firstMatchTime - LOCK_BEFORE_MS) {
-		return { ok: true, locked: true, updated: 0 };
-	}
-
-	const res = await fetch('https://gamma-api.polymarket.com/events?slug=2026-fifa-world-cup-top-goalscorer', {
-		headers: { Accept: 'application/json' }
-	});
-	if (!res.ok) return { ok: false, error: `Polymarket: ${res.status}` };
-
-	const raw = await res.json();
-	const events: any[] = Array.isArray(raw) ? raw : [raw];
-	const event = events[0];
-	const markets: any[] = Array.isArray(event?.markets) ? event.markets : [];
-
-	if (markets.length === 0 && event?.id) {
-		const mRes = await fetch(`https://gamma-api.polymarket.com/markets?event_id=${event.id}&limit=200`, {
-			headers: { Accept: 'application/json' }
-		});
-		if (mRes.ok) markets.push(...(await mRes.json()));
-	}
-	if (markets.length === 0) return { ok: false, error: 'No top-scorer markets' };
-
-	let updated = 0;
-	for (const market of markets) {
-		const q = market.question as string | undefined;
-		const m = q?.match(/^Will (.+?) be the top goalscorer at the 2026 FIFA World Cup\?$/i);
-		if (!m) continue;
-		const playerName = m[1].trim();
-		const prob = parsePrice(market);
-		if (prob <= 0) continue;
-		const odds = parseFloat(Math.min(3001, 1 / prob).toFixed(2));
-		const { error } = await supabase
-			.from('wc_top_scorers')
-			.upsert({ player_name: playerName, odds }, { onConflict: 'player_name' });
-		if (!error) updated++;
-	}
-	return { ok: true, updated };
-}
-
 export const GET: RequestHandler = async ({ request }) => {
 	// Vercel cron sends Authorization: Bearer ${CRON_SECRET}; allow either Vercel's
 	// internal trigger (user-agent vercel-cron) or a matching CRON_SECRET if set.
