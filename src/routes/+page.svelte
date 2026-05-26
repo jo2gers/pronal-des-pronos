@@ -239,44 +239,70 @@
 		</div>
 	</section>
 
-	<!-- ── User stats (single hairline strip, kept) ───────────────────────────── -->
+	<!-- ── User stats · editorial big-number grid (design-system aligned) ──── -->
 	{#if data.user && data.stats}
-		<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 px-1">
-			<div class="flex items-baseline gap-1.5">
-				<span class="text-sm text-faint">{t('your_rank')}</span>
-				<span class="text-lg font-bold text-fg tabular-nums" style="font-family: var(--font-display)">
-					#{data.stats.rank ?? '–'}
+		<section class="border-t border-wire/40 pt-6">
+			<div class="flex items-baseline justify-between mb-4 px-1">
+				<span class="text-[11px] uppercase tracking-[0.1em] text-faint" style="font-family: var(--font-mono)">
+					{t('your_rank')}
 				</span>
+				<a href="/leaderboard" class="text-[11px] uppercase tracking-[0.08em] text-muted hover:text-fg transition-colors"
+					style="font-family: var(--font-mono)">
+					{t('leaderboard_link')}
+				</a>
 			</div>
-			<span class="text-wire-hi hidden sm:inline">·</span>
-			<div class="flex items-baseline gap-1.5">
-				<span class="text-sm text-faint">{t('points')}</span>
-				<span class="text-lg font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
-					{data.stats.totalPoints.toFixed(2)}
-				</span>
-				{#if data.stats.teamBonus > 0}
-					<a href="/rules" class="text-xs tabular-nums whitespace-nowrap hover:underline" style="color: var(--color-bonus)">
-						+{data.stats.teamBonus.toFixed(2)} {t('team_bonus_short')}
-					</a>
-				{/if}
+			<div class="grid grid-cols-3 gap-4 px-1">
+				<div>
+					<div class="text-3xl sm:text-4xl font-semibold text-fg tabular-nums leading-none"
+						style="font-family: var(--font-display); letter-spacing: -0.03em">
+						#{data.stats.rank ?? '–'}
+					</div>
+					<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2"
+						style="font-family: var(--font-mono)">
+						{t('your_rank')}
+					</div>
+				</div>
+				<div>
+					<div class="text-3xl sm:text-4xl font-semibold text-accent tabular-nums leading-none"
+						style="font-family: var(--font-display); letter-spacing: -0.03em">
+						{data.stats.totalPoints.toFixed(2)}
+					</div>
+					<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2 flex items-baseline gap-2"
+						style="font-family: var(--font-mono)">
+						<span>{t('points')}</span>
+						{#if data.stats.teamBonus > 0}
+							<a href="/rules" class="normal-case tracking-normal hover:underline" style="color: var(--color-bonus)">
+								+{data.stats.teamBonus.toFixed(2)} {t('team_bonus_short')}
+							</a>
+						{/if}
+					</div>
+				</div>
+				<div>
+					<div class="text-3xl sm:text-4xl font-semibold text-fg tabular-nums leading-none"
+						style="font-family: var(--font-display); letter-spacing: -0.03em">
+						{data.stats.pronosticsCount}
+					</div>
+					<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2"
+						style="font-family: var(--font-mono)">
+						{t('picks')}
+					</div>
+				</div>
 			</div>
-			<span class="text-wire-hi hidden sm:inline">·</span>
-			<div class="flex items-baseline gap-1.5">
-				<span class="text-sm text-faint">{t('picks')}</span>
-				<span class="text-lg font-bold text-fg tabular-nums" style="font-family: var(--font-display)">
-					{data.stats.pronosticsCount}
-				</span>
-			</div>
-			<a href="/leaderboard" class="ml-auto text-xs text-accent hover:text-accent-hi whitespace-nowrap transition-colors">
-				{t('leaderboard_link')}
-			</a>
-		</div>
+		</section>
 	{/if}
 
 	<!-- ── Finished matches (hairline list) ───────────────────────────────────── -->
 	{#if data.user && data.finishedMatches?.length}
-		<section class="border-t border-wire pt-5">
-			<h2 class="text-base font-semibold text-fg mb-3 px-1">{t('last_matches')}</h2>
+		<section class="border-t border-wire pt-6">
+			<div class="mb-4 px-1">
+				<span class="text-[11px] uppercase tracking-[0.1em] text-faint" style="font-family: var(--font-mono)">
+					{data.finishedMatches.length.toString().padStart(2, '0')} · {t('last_matches').toLowerCase()}
+				</span>
+				<h2 class="text-2xl sm:text-3xl font-semibold text-fg mt-1"
+					style="font-family: var(--font-display); letter-spacing: -0.025em">
+					{t('last_matches')}
+				</h2>
+			</div>
 			<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40">
 				{#each data.finishedMatches as match}
 					<MatchPickRow {match}
@@ -289,10 +315,19 @@
 
 	<!-- ── Upcoming matches — inline-pick rows ────────────────────────────────── -->
 	<section>
-		<div class="flex items-baseline justify-between mb-4 px-1">
-			<h2 class="text-base font-semibold text-fg" style="font-family: var(--font-display)">{t('upcoming_matches')}</h2>
+		<div class="flex items-end justify-between mb-4 px-1 gap-3 flex-wrap">
+			<div>
+				<span class="text-[11px] uppercase tracking-[0.1em] text-faint" style="font-family: var(--font-mono)">
+					{(data.upcomingMatches?.length ?? 0).toString().padStart(2, '0')} · {t('upcoming_matches').toLowerCase()}
+				</span>
+				<h2 class="text-2xl sm:text-3xl font-semibold text-fg mt-1"
+					style="font-family: var(--font-display); letter-spacing: -0.025em">
+					{t('upcoming_matches')}
+				</h2>
+			</div>
 			{#if !data.user}
-				<a href="/auth/login" class="text-xs text-accent hover:text-accent-hi transition-colors">{t('login_to_pick')}</a>
+				<a href="/auth/login" class="text-xs uppercase tracking-[0.08em] text-accent hover:text-accent-hi transition-colors"
+					style="font-family: var(--font-mono)">{t('login_to_pick')}</a>
 			{/if}
 		</div>
 

@@ -113,7 +113,8 @@
 {/if}
 
 <div class="min-h-screen flex flex-col bg-canvas text-fg" style="font-family: var(--font-body)">
-	<nav class="sticky top-0 z-50 border-b border-wire bg-canvas">
+	<nav class="sticky top-0 z-50 border-b border-wire/60 backdrop-blur-xl"
+		style="background: color-mix(in srgb, var(--color-canvas) 70%, transparent)">
 		<div class="mx-auto flex h-14 max-w-6xl items-center px-4 gap-4">
 			<!-- Tifo · Mosaïque mark + wordmark. 5×5 stadium-tifo grid
 			     forming a T, with the bottom cell as the lime accent dot. -->
@@ -129,13 +130,19 @@
 					style="font-family: var(--font-display); letter-spacing: -0.04em">tifo</span>
 			</a>
 
-			<!-- Desktop nav -->
-			<div class="hidden sm:flex flex-1 items-center gap-5">
+			<!-- Desktop nav — active link gets a lime underline that bleeds
+			     past the bottom border, design-system style -->
+			<div class="hidden sm:flex flex-1 items-center gap-1 ml-6">
 				{#each navLinks as link}
+					{@const active = page.url.pathname === link.href}
 					<a href={link.href}
-						class="text-sm transition-colors hover:text-fg {page.url.pathname === link.href
-							? 'text-fg font-semibold'
-							: 'text-muted'}">{link.label}</a>
+						class="relative px-3 py-1.5 text-sm font-medium rounded transition-colors
+							{active ? 'text-fg' : 'text-faint hover:text-fg'}">
+						{link.label}
+						{#if active}
+							<span class="absolute left-3 right-3 -bottom-[15px] h-[2px] bg-accent" aria-hidden="true"></span>
+						{/if}
+					</a>
 				{/each}
 			</div>
 
