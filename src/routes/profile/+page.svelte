@@ -22,25 +22,20 @@
 			.sort((a, b) => a.label.localeCompare(b.label, getLang()))
 	);
 	let selectedTeam   = $state(data.profile?.favorite_team ?? '');
-	let selectedScorer = $state(data.profile?.top_scorer ?? '');
-	let scorerSearch   = $state('');
 	let editingTeam    = $state(false);
-	let editingScorer  = $state(false);
 	let justSaved      = $state(false);
 
 	const initial = {
 		display_name: data.profile?.display_name ?? '',
 		country: data.profile?.country ?? '',
-		favorite_team: data.profile?.favorite_team ?? '',
-		top_scorer: data.profile?.top_scorer ?? ''
+		favorite_team: data.profile?.favorite_team ?? ''
 	};
 
 	const dirty = $derived(
 		!justSaved && (
 			displayName !== initial.display_name ||
 			countryValue !== initial.country ||
-			selectedTeam !== initial.favorite_team ||
-			selectedScorer !== initial.top_scorer
+			selectedTeam !== initial.favorite_team
 		)
 	);
 
@@ -64,17 +59,9 @@
 			initial.display_name = displayName;
 			initial.country = countryValue;
 			initial.favorite_team = selectedTeam;
-			initial.top_scorer = selectedScorer;
 			setTimeout(() => (justSaved = false), 100);
 		}
 	});
-
-	const filteredScorers = $derived(
-		(data.scorers ?? []).filter((s) =>
-			s.player_name.toLowerCase().includes(scorerSearch.toLowerCase())
-		)
-	);
-	const selectedScorerData = $derived((data.scorers ?? []).find((s) => s.player_name === selectedScorer));
 
 	function teamFlag(name: string): string {
 		const t = _T.find((x) => x.name === name);
@@ -83,8 +70,7 @@
 
 	function onPickerKey(e: KeyboardEvent) {
 		if (e.key !== 'Escape') return;
-		if (editingTeam)   { editingTeam = false; e.preventDefault(); }
-		if (editingScorer) { editingScorer = false; e.preventDefault(); }
+		if (editingTeam) { editingTeam = false; e.preventDefault(); }
 	}
 </script>
 
@@ -119,13 +105,12 @@
 		</div>
 	{/if}
 
-	<!-- Bonus summary — accumulated team + scorer bonuses on the user's profile -->
-	{#if (data.profile?.team_bonus_points ?? 0) > 0 || (data.profile?.top_scorer_bonus_points ?? 0) > 0 || data.profile?.favorite_team || data.profile?.top_scorer}
-		{@const teamBonus   = data.profile?.team_bonus_points ?? 0}
-		{@const scorerBonus = data.profile?.top_scorer_bonus_points ?? 0}
+	<!-- Bonus summary — accumulated favorite-team bonus on the user's profile -->
+	{#if (data.profile?.team_bonus_points ?? 0) > 0 || data.profile?.favorite_team}
+		{@const teamBonus = data.profile?.team_bonus_points ?? 0}
 		<section class="space-y-3">
 			<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('profile_bonuses_title')}</h2>
-			<dl class="grid grid-cols-2 divide-x divide-wire/60 border-y border-wire">
+			<dl class="border-y border-wire">
 				<div class="p-3">
 					<dt class="text-[11px] text-faint uppercase tracking-widest mb-1">{t('profile_bonus_team')}</dt>
 					<dd class="font-bold tabular-nums text-xl" style="color: var(--color-bonus); font-family: var(--font-display)">
@@ -133,15 +118,6 @@
 					</dd>
 					{#if data.profile?.favorite_team}
 						<p class="text-[11px] text-faint mt-0.5 truncate">{teamLabel(data.profile.favorite_team)}</p>
-					{/if}
-				</div>
-				<div class="p-3">
-					<dt class="text-[11px] text-faint uppercase tracking-widest mb-1">{t('profile_bonus_scorer')}</dt>
-					<dd class="font-bold tabular-nums text-xl" style="color: var(--color-bonus); font-family: var(--font-display)">
-						+{scorerBonus.toFixed(2)}
-					</dd>
-					{#if data.profile?.top_scorer}
-						<p class="text-[11px] text-faint mt-0.5 truncate">{data.profile.top_scorer}</p>
 					{/if}
 				</div>
 			</dl>
@@ -277,88 +253,6 @@
 					</div>
 				{/if}
 			</div>
-
-			<!-- Top scorer picker -->
-			{#if data.scorers && data.scorers.length > 0}
-				<div>
-					<div class="flex items-center justify-between mb-2">
-						<label class="flex items-baseline gap-1.5 text-sm text-muted">
-							{t('top_scorer_label')}
-							<span class="cursor-help text-faint hover:text-fg transition-colors text-[11px]"
-								title={t('multiplier_help')} aria-label={t('multiplier_help')}>(?)</span>
-						</label>
-						{#if data.scorerLocked}
-							<span class="text-xs text-err font-medium border border-err/30 rounded px-1.5 py-0.5">{t('team_locked')}</span>
-						{:else if selectedScorerData}
-							<span class="text-xs text-accent font-semibold tabular-nums">
-								×{selectedScorerData.multiplier.toFixed(1)} {t('per_goal')}
-							</span>
-						{/if}
-					</div>
-					<input type="hidden" name="top_scorer" value={selectedScorer} />
-
-					{#if data.scorerLocked}
-						<div class="rounded-lg bg-raised border border-wire/50 px-3 py-2 text-muted text-sm opacity-70">
-							{selectedScorer || t('no_scorer')}
-							{#if selectedScorerData}
-								<span class="ml-2 text-xs text-faint">×{selectedScorerData.multiplier.toFixed(1)}</span>
-							{/if}
-						</div>
-					{:else if !editingScorer}
-						<button type="button" onclick={() => editingScorer = true}
-							class="w-full flex items-center gap-3 rounded-lg bg-raised border border-wire hover:border-accent px-3 py-2.5 text-left transition-colors cursor-pointer">
-							{#if selectedScorer}
-								<div class="w-8 h-6 rounded bg-canvas border border-wire flex items-center justify-center shrink-0">
-									<svg class="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 24 24">
-										<path d="M12 2 8.5 5.5l1 4.5h5l1-4.5L12 2z"/>
-									</svg>
-								</div>
-								<div class="flex-1 min-w-0">
-									<p class="text-sm font-semibold text-fg truncate">{selectedScorer}</p>
-									{#if selectedScorerData}
-										<p class="text-[11px] text-accent font-semibold tabular-nums">×{selectedScorerData.multiplier.toFixed(1)} {t('per_goal')}</p>
-									{/if}
-								</div>
-							{:else}
-								<div class="flex-1 text-sm text-muted">{t('no_scorer')}</div>
-							{/if}
-							<svg class="w-4 h-4 text-faint shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-									d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-							</svg>
-						</button>
-					{:else}
-						<input
-							type="text" bind:value={scorerSearch}
-							placeholder={t('search_player')}
-							class="w-full mb-2 rounded-lg bg-raised border border-wire px-3 py-1.5 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none"
-						/>
-
-						<button type="button" onclick={() => { selectedScorer = ''; editingScorer = false; }}
-							class="w-full text-left rounded-lg px-3 py-2 mb-2 text-sm border transition-colors cursor-pointer
-								{selectedScorer === '' ? 'bg-accent-lo border-accent/40 text-fg' : 'bg-raised border-wire text-muted hover:border-wire-hi'}">
-							{t('no_scorer')}
-						</button>
-
-						<div class="grid grid-cols-2 gap-1 max-h-56 overflow-y-auto pr-0.5">
-							{#each filteredScorers as s}
-								{@const isSelected = selectedScorer === s.player_name}
-								<button type="button" onclick={() => { selectedScorer = s.player_name; editingScorer = false; }}
-									class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left border transition-colors cursor-pointer
-										{isSelected
-											? 'bg-accent-lo border-accent/50 text-fg'
-											: 'bg-raised border-wire hover:border-wire-hi text-fg'}">
-									<span class="text-xs font-medium truncate">{s.player_name}</span>
-									<span class="text-[10px] font-semibold shrink-0 tabular-nums
-										{isSelected ? 'text-accent' : 'text-faint'}">
-										×{s.multiplier.toFixed(1)}
-									</span>
-								</button>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			{/if}
 
 			<!-- Country -->
 			<div>

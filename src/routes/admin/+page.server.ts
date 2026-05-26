@@ -1,12 +1,16 @@
 import { createServerClient } from '@supabase/ssr';
 import { fail, redirect } from '@sveltejs/kit';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
-import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
+import { SUPABASE_SERVICE_ROLE_KEY, ADMIN_PASSWORD } from '$env/static/private';
 import type { Actions, PageServerLoad } from './$types';
+
+const ADMIN_COOKIE = 'tifo_admin';
+// Cookie holds the env password (httpOnly so client JS can't read it).
+// Compared against $env/static/private at every request — change the env to
+// rotate everyone out.
 import {
 	syncMatchOdds as runSyncMatchOdds,
 	syncWCWinnerOdds as runSyncWCWinnerOdds,
-	syncTopScorerOdds as runSyncTopScorerOdds,
 	backfillPolymarketSlugs as runBackfillPolymarketSlugs
 } from '$lib/server/sync-odds';
 import { scoreMatch } from '$lib/server/scoring';
@@ -17,25 +21,27 @@ function adminClient() {
 	});
 }
 
-export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
+export const load: PageServerLoad = async ({ locals: { safeGetSession }, cookies }) => {
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
+
+	// Password gate — admin must enter ADMIN_PASSWORD env var.
+	// Cookie is httpOnly so even XSS can't steal the password.
+	if (cookies.get(ADMIN_COOKIE) !== ADMIN_PASSWORD) {
+		return { locked: true as const };
+	}
 
 	const supabase = adminClient();
 
 	const [
-		{ data: matches }, { data: scorers }, { data: groups },
-		oddsTs, wcTs, scorerTs
+		{ data: matches }, { data: groups },
+		oddsTs, wcTs
 	] = await Promise.all([
 		supabase
 			.from('matches')
 			.select('id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, status, home_score, away_score')
 			.neq('home_team', 'TBD')
 			.order('match_datetime', { ascending: true }),
-		supabase
-			.from('wc_top_scorers')
-			.select('player_name, team, odds, multiplier, goals_scored')
-			.order('goals_scored', { ascending: false }),
 		supabase
 			.from('groups')
 			.select('id, name, description, invite_code, is_public, created_at, group_members(count)')
@@ -44,8 +50,6 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
 			.select('odds_updated_at').not('odds_updated_at','is',null)
 			.order('odds_updated_at', { ascending: false }).limit(1).maybeSingle(),
 		supabase.from('wc_winner_odds')
-			.select('updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
-		supabase.from('wc_top_scorers')
 			.select('updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle()
 	]);
 
@@ -60,18 +64,39 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
 	}));
 
 	return {
+		locked: false as const,
 		matches: matches ?? [],
-		scorers: scorers ?? [],
 		groups: groupsWithCount,
 		oddsFreshness: {
 			matchOdds: (oddsTs.data as any)?.odds_updated_at ?? null,
-			wcWinnerOdds: (wcTs.data as any)?.updated_at ?? null,
-			topScorerOdds: (scorerTs.data as any)?.updated_at ?? null
+			wcWinnerOdds: (wcTs.data as any)?.updated_at ?? null
 		}
 	};
 };
 
 export const actions: Actions = {
+	// Password gate — accepts a 'password' form field, sets the cookie if it matches.
+	unlock: async ({ request, cookies }) => {
+		const form = await request.formData();
+		const pw = (form.get('password') as string ?? '').trim();
+		if (!pw || pw !== ADMIN_PASSWORD) {
+			return fail(401, { wrong: true });
+		}
+		cookies.set(ADMIN_COOKIE, pw, {
+			path: '/admin',
+			httpOnly: true,
+			sameSite: 'strict',
+			secure: true,
+			maxAge: 60 * 60 * 24 * 7 // 7 days
+		});
+		redirect(303, '/admin');
+	},
+
+	lock: async ({ cookies }) => {
+		cookies.delete(ADMIN_COOKIE, { path: '/admin' });
+		redirect(303, '/admin');
+	},
+
 	update: async ({ request }) => {
 		const supabase = adminClient();
 		const form = await request.formData();
@@ -197,56 +222,12 @@ export const actions: Actions = {
 		return { oddsSync: true, updated: r.updated, unmatched: r.unmatched };
 	},
 
-	syncTopScorerOdds: async () => {
-		const r = await runSyncTopScorerOdds(adminClient());
-		if (!r.ok) return fail(500, { error: r.error });
-		return { topScorerSync: true, updated: r.updated, skipped: r.skipped };
-	},
-
 	// One-shot backfill: pull Polymarket event slugs for every WC match and
-	// write them onto `matches.polymarket_event_slug`. After this runs once,
-	// the live-score cron (pg_cron → /api/cron/fetch-live-scores) can resolve
-	// each match to its Polymarket event by slug and auto-update scores +
-	// auto-score pronostics at FT.
+	// write them onto `matches.polymarket_event_slug`.
 	syncPolymarketSlugs: async () => {
 		const r = await runBackfillPolymarketSlugs(adminClient());
 		if (!r.ok) return fail(500, { error: r.error });
 		return { slugSync: true, updated: r.updated, alreadySet: r.alreadySet, unmatched: r.unmatched };
-	},
-
-	updateScorerGoals: async ({ request }) => {
-		const supabase = adminClient();
-		const form = await request.formData();
-		const playerName = form.get('player_name') as string;
-		const goals = parseInt(form.get('goals_scored') as string);
-
-		if (!playerName || isNaN(goals) || goals < 0) {
-			return fail(400, { error: 'Données invalides' });
-		}
-
-		const { error } = await supabase
-			.from('wc_top_scorers')
-			.update({ goals_scored: goals, updated_at: new Date().toISOString() })
-			.eq('player_name', playerName);
-
-		if (error) return fail(500, { error: error.message });
-
-		// Recompute top_scorer_bonus_points for every profile that picked this player
-		const { data: scorerRow } = await supabase
-			.from('wc_top_scorers')
-			.select('multiplier')
-			.eq('player_name', playerName)
-			.single();
-
-		const multiplier = parseFloat(String(scorerRow?.multiplier ?? 0));
-		const bonus = parseFloat((multiplier * goals).toFixed(2));
-
-		await supabase
-			.from('profiles')
-			.update({ top_scorer_bonus_points: bonus })
-			.eq('top_scorer', playerName);
-
-		return { goalsUpdated: true, player: playerName, goals, bonus };
 	},
 
 	resolveBracket: async () => {
@@ -273,15 +254,11 @@ export const actions: Actions = {
 		}).not('id', 'is', null);
 		if (e2) return fail(500, { error: `Matchs: ${e2.message}` });
 
-		// 3. Reset all team bonus points + top scorer bonus points
+		// 3. Reset team bonus points
 		const { error: e3 } = await supabase.from('profiles').update({
-			team_bonus_points: 0,
-			top_scorer_bonus_points: 0
+			team_bonus_points: 0
 		}).not('id', 'is', null);
 		if (e3) return fail(500, { error: `Profils: ${e3.message}` });
-
-		// 4. Reset goals scored for top scorers
-		await supabase.from('wc_top_scorers').update({ goals_scored: 0 }).gt('goals_scored', 0);
 
 		return { reset: true };
 	},

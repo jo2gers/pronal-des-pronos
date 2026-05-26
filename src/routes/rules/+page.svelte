@@ -99,56 +99,6 @@
 		</p>
 	</section>
 
-	<!-- Top scorer bonus -->
-	<section class="space-y-5 border-t border-wire pt-10">
-		<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('rules_scorer_title')}</h2>
-
-		<p class="text-sm sm:text-base text-muted leading-relaxed">
-			{t('rules_scorer_intro_pre')} <strong class="text-fg">{t('rules_scorer_intro_strong')}</strong> {t('rules_scorer_intro_post')}
-		</p>
-
-		<div class="rounded-lg border border-wire/60 px-4 py-3 bg-raised/30">
-			<p class="text-xs tabular-nums text-fg font-semibold" style="font-family: var(--font-display); letter-spacing: 0.02em">
-				{t('rules_scorer_formula')}
-			</p>
-			<p class="text-xs sm:text-sm text-faint mt-1.5">{t('rules_scorer_formula_hint')}</p>
-		</div>
-
-		<div>
-			<p class="text-[11px] text-faint uppercase tracking-widest mb-2">{t('rules_scorer_examples_title')}</p>
-			<table class="w-full text-sm border-y border-wire">
-				<thead>
-					<tr class="border-b border-wire">
-						<th class="px-1 py-2.5 text-left text-[11px] text-faint font-semibold uppercase tracking-widest">{t('rules_scorer_example_col_odds')}</th>
-						<th class="px-1 py-2.5 text-right text-[11px] text-faint font-semibold uppercase tracking-widest">{t('rules_scorer_example_col_mult')}</th>
-						<th class="px-1 py-2.5 text-right text-[11px] text-faint font-semibold uppercase tracking-widest">{t('rules_scorer_example_col_5goals')}</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each [
-						{ odds: '3.0',  mult: 1.1, total: 5.5 },
-						{ odds: '7.0',  mult: 1.9, total: 9.5 },
-						{ odds: '15',   mult: 2.7, total: 13.5 },
-						{ odds: '30',   mult: 3.4, total: 17.0 },
-						{ odds: '60',   mult: 4.1, total: 20.5 }
-					] as ex}
-						<tr class="border-b border-wire/40 last:border-0">
-							<td class="px-1 py-2.5 text-muted tabular-nums">{ex.odds}</td>
-							<td class="px-1 py-2.5 text-right font-bold tabular-nums" style="color: var(--color-bonus); font-family: var(--font-display)">
-								{ex.mult.toFixed(1)}
-							</td>
-							<td class="px-1 py-2.5 text-right tabular-nums text-fg" style="font-family: var(--font-display)">
-								{ex.total.toFixed(1)} pts
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-
-		<p class="text-xs sm:text-sm text-faint">{t('rules_scorer_note')}</p>
-	</section>
-
 	<!-- Deadlines -->
 	<section class="space-y-4 border-t border-wire pt-10">
 		<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('rules_deadlines_title')}</h2>

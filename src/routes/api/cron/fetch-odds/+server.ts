@@ -262,18 +262,16 @@ export const GET: RequestHandler = async ({ request }) => {
 	const { data: bracketResolved, error: bracketErr } = await supabase.rpc('resolve_bracket');
 
 	// 2. Sync odds for every known match (group + newly-resolved knockouts) and
-	//    the WC-winner / top-scorer markets in parallel.
-	const [matchRes, wcRes, scorerRes] = await Promise.all([
+	//    the WC-winner market in parallel.
+	const [matchRes, wcRes] = await Promise.all([
 		syncMatchOdds(supabase),
-		syncWcWinnerOdds(supabase),
-		syncTopScorerOdds(supabase)
+		syncWcWinnerOdds(supabase)
 	]);
 
 	return json({
 		ts: new Date().toISOString(),
 		bracket: bracketErr ? { ok: false, error: bracketErr.message } : { ok: true, ...(bracketResolved as object) },
 		matchOdds: matchRes,
-		wcWinnerOdds: wcRes,
-		topScorerOdds: scorerRes
+		wcWinnerOdds: wcRes
 	});
 };

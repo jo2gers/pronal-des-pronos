@@ -7,15 +7,6 @@
 	let loading = $state(false);
 	let username = $state(form?.username ?? data.profile?.username ?? data.suggestedUsername ?? '');
 	let selectedTeam = $state(form?.favorite_team ?? data.profile?.favorite_team ?? '');
-	let selectedScorer = $state(form?.top_scorer ?? data.profile?.top_scorer ?? '');
-	let scorerSearch = $state('');
-
-	const filteredScorers = $derived(
-		(data.scorers ?? []).filter((s) =>
-			s.player_name.toLowerCase().includes(scorerSearch.toLowerCase())
-		)
-	);
-	const selectedScorerData = $derived((data.scorers ?? []).find((s) => s.player_name === selectedScorer));
 </script>
 
 <div class="mx-auto max-w-md mt-12">
@@ -85,45 +76,6 @@
 				{/each}
 			</div>
 		</div>
-
-		{#if data.scorers && data.scorers.length > 0}
-			<div>
-				<div class="flex items-center justify-between mb-2">
-					<label class="flex items-baseline gap-1.5 text-sm text-muted">
-						<span>{t('top_scorer_label')} <span class="text-faint">{t('auth_optional')}</span></span>
-					</label>
-					{#if selectedScorerData}
-						<span class="text-xs text-accent font-semibold tabular-nums">
-							×{selectedScorerData.multiplier.toFixed(1)} {t('per_goal')}
-						</span>
-					{/if}
-				</div>
-				<input type="hidden" name="top_scorer" value={selectedScorer} />
-
-				<input
-					type="text" bind:value={scorerSearch}
-					placeholder={t('search_player')}
-					class="w-full mb-2 rounded-lg bg-raised border border-wire px-3 py-1.5 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none"
-				/>
-
-				<div class="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto pr-0.5">
-					{#each filteredScorers as s}
-						{@const isSelected = selectedScorer === s.player_name}
-						<button type="button" onclick={() => selectedScorer = isSelected ? '' : s.player_name}
-							class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left border transition-colors cursor-pointer
-								{isSelected
-									? 'bg-accent-lo border-accent/50 text-fg'
-									: 'bg-raised border-wire hover:border-wire-hi text-fg'}">
-							<span class="text-xs font-medium truncate">{s.player_name}</span>
-							<span class="text-[10px] font-semibold shrink-0 tabular-nums
-								{isSelected ? 'text-accent' : 'text-faint'}">
-								×{s.multiplier.toFixed(1)}
-							</span>
-						</button>
-					{/each}
-				</div>
-			</div>
-		{/if}
 
 		<button
 			type="submit" disabled={loading}

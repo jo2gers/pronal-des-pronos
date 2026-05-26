@@ -144,36 +144,6 @@
 			</div>
 		{/if}
 
-		<!-- Top scorer pick -->
-		{#if data.profile.top_scorer}
-			<div class="mt-3 pt-3 border-t border-wire flex items-center gap-4">
-				<div class="w-14 h-10 rounded-md bg-raised border border-wire flex items-center justify-center shrink-0">
-					<svg class="w-6 h-6 text-accent" fill="currentColor" viewBox="0 0 24 24">
-						<path d="M12 2 8.5 5.5l1 4.5h5l1-4.5L12 2zm-7 7-2 1 1 4 4 .5L9 11 5 9zm14 0-4 2 1 4 4-.5 1-4-2-1.5zM7 14l-2 4 2 3 4-1 1-4-5-2zm10 0-5 2 1 4 4 1 2-3-2-4z"/>
-					</svg>
-				</div>
-				<div class="flex-1 min-w-0">
-					<p class="text-xs text-faint mb-0.5">{t('top_scorer_label')}</p>
-					<p class="text-lg font-bold text-fg leading-tight" style="font-family: var(--font-display)">
-						{data.profile.top_scorer}
-					</p>
-					{#if data.scorerInfo}
-						<p class="text-xs text-faint mt-0.5">
-							{data.scorerInfo.goals} {data.scorerInfo.goals > 1 ? t('goal_plural') : t('goal_singular')} · ×{data.scorerInfo.multiplier.toFixed(1)} {t('per_goal')}
-						</p>
-					{/if}
-				</div>
-				{#if (data.scorerBonus ?? 0) > 0}
-					<div class="text-right shrink-0">
-						<p class="text-xl font-bold tabular-nums leading-none" style="color: var(--color-bonus); font-family: var(--font-display)">
-							+{data.scorerBonus.toFixed(2)}
-						</p>
-						<p class="text-[10px] text-faint mt-0.5">pts bonus</p>
-					</div>
-				{/if}
-			</div>
-		{/if}
-
 		<!-- Stats: flat horizontal strip, no hero number -->
 		<dl class="mt-6 pt-5 border-t border-wire flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-sm">
 			<div class="flex items-baseline gap-1.5">
@@ -192,13 +162,6 @@
 				<div class="flex items-baseline gap-1.5">
 					<dt class="text-faint">{t('team_bonus_short')}</dt>
 					<dd class="font-semibold tabular-nums" style="color: var(--color-bonus)">+{data.teamBonus.toFixed(2)}</dd>
-				</div>
-			{/if}
-			{#if (data.scorerBonus ?? 0) > 0}
-				<span class="text-wire-hi hidden sm:inline">·</span>
-				<div class="flex items-baseline gap-1.5">
-					<dt class="text-faint">{t('profile_scorer_bonus')}</dt>
-					<dd class="font-semibold tabular-nums" style="color: var(--color-bonus)">+{data.scorerBonus.toFixed(2)}</dd>
 				</div>
 			{/if}
 			<span class="text-wire-hi hidden sm:inline">·</span>

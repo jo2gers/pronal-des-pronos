@@ -7,8 +7,6 @@
 	let { data, form } = $props();
 	let loading = $state(false);
 	let selectedTeam = $state(form?.favorite_team ?? '');
-	let selectedScorer = $state(form?.top_scorer ?? '');
-	let scorerSearch = $state('');
 	let password = $state('');
 
 	const pwScore = $derived.by(() => {
@@ -25,12 +23,6 @@
 		pwScore <= 1 ? 'pw_weak' : pwScore === 2 ? 'pw_ok' : pwScore === 3 ? 'pw_good' : 'pw_strong'
 	);
 
-	const filteredScorers = $derived(
-		(data.scorers ?? []).filter((s) =>
-			s.player_name.toLowerCase().includes(scorerSearch.toLowerCase())
-		)
-	);
-	const selectedScorerData = $derived((data.scorers ?? []).find((s) => s.player_name === selectedScorer));
 </script>
 
 <div class="mx-auto max-w-md mt-16">
@@ -140,49 +132,6 @@
 				</div>
 				<p class="text-xs text-faint mt-1.5">{t('auth_required_team_hint')}</p>
 			</div>
-
-			<!-- Top scorer picker -->
-			{#if data.scorers && data.scorers.length > 0}
-				<div>
-					<div class="flex items-center justify-between mb-2">
-						<label class="flex items-baseline gap-1.5 text-sm text-muted">
-							<span>{t('top_scorer_label')} <span class="text-faint">{t('auth_optional')}</span></span>
-							<span class="cursor-help text-faint hover:text-fg transition-colors text-[11px]"
-								title={t('multiplier_help')} aria-label={t('multiplier_help')}>(?)</span>
-						</label>
-						{#if selectedScorerData}
-							<span class="text-xs text-accent font-semibold tabular-nums">
-								×{selectedScorerData.multiplier.toFixed(1)} {t('per_goal')}
-							</span>
-						{/if}
-					</div>
-					<input type="hidden" name="top_scorer" value={selectedScorer} />
-					<p class="text-[11px] text-faint mb-2">{t('auth_scorer_bonus_hint_a')} {selectedScorerData ? `${selectedScorerData.multiplier.toFixed(1)} ${t('auth_scorer_bonus_hint_pts')}` : t('auth_scorer_bonus_hint_some')} {t('auth_scorer_bonus_hint_b')}</p>
-
-					<input
-						type="text" bind:value={scorerSearch}
-						placeholder={t('search_player')}
-						class="w-full mb-2 rounded-lg bg-raised border border-wire px-3 py-1.5 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none"
-					/>
-
-					<div class="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto pr-0.5">
-						{#each filteredScorers as s}
-							{@const isSelected = selectedScorer === s.player_name}
-							<button type="button" onclick={() => selectedScorer = isSelected ? '' : s.player_name}
-								class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left border transition-colors cursor-pointer
-									{isSelected
-										? 'bg-accent-lo border-accent/50 text-fg'
-										: 'bg-raised border-wire hover:border-wire-hi text-fg'}">
-								<span class="text-xs font-medium truncate">{s.player_name}</span>
-								<span class="text-[10px] font-semibold shrink-0 tabular-nums
-									{isSelected ? 'text-accent' : 'text-faint'}">
-									×{s.multiplier.toFixed(1)}
-								</span>
-							</button>
-						{/each}
-					</div>
-				</div>
-			{/if}
 
 			<button
 				type="submit" disabled={loading}

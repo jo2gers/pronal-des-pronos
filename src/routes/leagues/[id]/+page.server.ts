@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	const [{ data: members }, pronosticsResult, friendshipsResult] = await Promise.all([
 		supabase
 			.from('group_members')
-			.select('role, joined_at, profiles(id, username, display_name, avatar_url, team_bonus_points, top_scorer_bonus_points)')
+			.select('role, joined_at, profiles(id, username, display_name, avatar_url, team_bonus_points)')
 			.eq('group_id', params.id),
 		supabase
 			.from('pronostics')
@@ -78,7 +78,6 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 			const id = p?.id;
 			const s = stats.get(id) ?? { picks: 0, winners: 0, exact: 0, pronoPts: 0 };
 			const teamBonus   = parseFloat(String(p?.team_bonus_points ?? 0));
-			const scorerBonus = parseFloat(String(p?.top_scorer_bonus_points ?? 0));
 			return {
 				profile: p,
 				role: m.role,
@@ -87,8 +86,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 				exact: s.exact,
 				pronoPts: parseFloat(s.pronoPts.toFixed(2)),
 				teamBonus,
-				scorerBonus,
-				points: parseFloat((s.pronoPts + teamBonus + scorerBonus).toFixed(2))
+				points: parseFloat((s.pronoPts + teamBonus).toFixed(2))
 			};
 		})
 		.sort((a, b) => b.points - a.points);
