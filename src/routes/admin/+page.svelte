@@ -11,8 +11,9 @@
 	const stageOrder = ['group', 'round_of_32', 'round_of_16', 'quarters', 'semis', 'third', 'final'];
 
 	const grouped = $derived(
+		data.locked ? [] :
 		stageOrder.flatMap((s) => {
-			const matches = data.matches.filter((m) => m.stage === s);
+			const matches = (data.matches ?? []).filter((m) => m.stage === s);
 			return matches.length ? [{ stage: s, matches }] : [];
 		})
 	);
@@ -21,13 +22,10 @@
 	let confirmReset = $state(false);
 	let oddsLoading = $state(false);
 	let wcOddsLoading = $state(false);
-	let scorerOddsLoading = $state(false);
-	let goalLoadingPlayer = $state<string | null>(null);
 	let resetFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let oddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 	let wcOddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
-	let scorerOddsFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
-	let goalsFeedback = $state<{ ok: boolean; msg: string } | null>(null);
+	let unlockError = $state(false);
 	let bracketLoading = $state(false);
 	let bracketFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 	let calcAllLoading = $state(false);
@@ -36,8 +34,8 @@
 	let slugSyncLoading = $state(false);
 	let slugSyncFeedback = $state<{ ok: boolean; msg: string; detail?: string } | null>(null);
 
-	const liveCount = $derived(data.matches.filter((m) => m.status === 'live').length);
-	const finishedCount = $derived(data.matches.filter((m) => m.status === 'finished').length);
+	const liveCount = $derived(data.locked ? 0 : data.matches.filter((m) => m.status === 'live').length);
+	const finishedCount = $derived(data.locked ? 0 : data.matches.filter((m) => m.status === 'finished').length);
 
 	function ago(ts: string | null): string {
 		if (!ts) return 'jamais';
@@ -67,13 +65,50 @@
 </script>
 
 <div class="space-y-6">
+{#if data.locked}
+	<!-- ── Password gate ──────────────────────────────────────────────── -->
+	<div class="max-w-sm mx-auto mt-12 rounded-xl bg-panel border border-wire p-6 space-y-4">
+		<div>
+			<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">
+				Admin
+			</h1>
+			<p class="text-xs text-faint mt-1">Accès réservé · entre le mot de passe pour continuer.</p>
+		</div>
+
+		{#if form?.wrong}
+			<p class="text-xs text-err">Mot de passe incorrect.</p>
+		{/if}
+
+		<form method="POST" action="?/unlock" class="space-y-3">
+			<input
+				type="password"
+				name="password"
+				required
+				autocomplete="current-password"
+				autofocus
+				placeholder="••••••••"
+				class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg placeholder:text-faint focus:border-accent focus:outline-none" />
+			<button type="submit"
+				class="w-full rounded-lg bg-accent hover:bg-accent-hi px-4 py-2 text-sm font-bold text-canvas transition-colors cursor-pointer">
+				Déverrouiller
+			</button>
+		</form>
+	</div>
+{:else}
 	<div class="flex items-baseline justify-between flex-wrap gap-2">
 		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">Simulateur de matchs</h1>
-		<p class="text-xs text-faint">Cron : cotes 1×/jour (06:00 UTC) · scores live 1×/min</p>
+		<div class="flex items-center gap-3">
+			<p class="text-xs text-faint">Cron : cotes 1×/jour (06:00 UTC) · scores live 1×/min</p>
+			<form method="POST" action="?/lock">
+				<button type="submit" class="text-[11px] text-faint hover:text-err transition-colors cursor-pointer">
+					Verrouiller →
+				</button>
+			</form>
+		</div>
 	</div>
 
 	<!-- KPI status strip — at-a-glance freshness for every sync source -->
-	<dl class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+	<dl class="grid grid-cols-3 gap-3">
 		<div class="rounded-lg bg-panel border border-wire px-3 py-2.5">
 			<dt class="text-[11px] text-faint">Cotes matchs</dt>
 			<dd class="text-sm font-semibold mt-0.5 {staleClass(data.oddsFreshness?.matchOdds ?? null)}">
@@ -84,12 +119,6 @@
 			<dt class="text-[11px] text-faint">Cotes vainqueur</dt>
 			<dd class="text-sm font-semibold mt-0.5 {staleClass(data.oddsFreshness?.wcWinnerOdds ?? null)}">
 				{ago(data.oddsFreshness?.wcWinnerOdds ?? null)}
-			</dd>
-		</div>
-		<div class="rounded-lg bg-panel border border-wire px-3 py-2.5">
-			<dt class="text-[11px] text-faint">Cotes buteur</dt>
-			<dd class="text-sm font-semibold mt-0.5 {staleClass(data.oddsFreshness?.topScorerOdds ?? null)}">
-				{ago(data.oddsFreshness?.topScorerOdds ?? null)}
 			</dd>
 		</div>
 		<div class="rounded-lg bg-panel border border-wire px-3 py-2.5">
@@ -144,43 +173,6 @@
 		</div>
 	{/if}
 
-	<!-- Sync top scorer odds from Polymarket -->
-	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
-		<div class="flex-1 min-w-0">
-			<p class="text-sm font-semibold text-fg">Cotes meilleur buteur · Polymarket</p>
-			<p class="text-xs text-faint mt-0.5">Met à jour les cotes « Meilleur buteur de la CM » dans wc_top_scorers (utilisées pour le bonus buteur).</p>
-			<p class="text-[11px] text-faint mt-1">Dernière mise à jour : <span class="text-muted">{ago(data.oddsFreshness?.topScorerOdds ?? null)}</span></p>
-		</div>
-		<form method="POST" action="?/syncTopScorerOdds" use:enhance={() => {
-			scorerOddsLoading = true;
-			scorerOddsFeedback = null;
-			return async ({ result, update }) => {
-				scorerOddsLoading = false;
-				if (result.type === 'success' && result.data) {
-					const d = result.data as any;
-					const detail = d.skipped?.length ? `Ignorés : ${d.skipped.join(', ')}` : undefined;
-					scorerOddsFeedback = { ok: true, msg: `${d.updated} buteur(s) mis à jour`, detail };
-					setTimeout(() => scorerOddsFeedback = null, 8000);
-				} else if (result.type === 'failure') {
-					scorerOddsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
-				}
-				await update({ reset: false });
-			};
-		}}>
-			<button type="submit" disabled={scorerOddsLoading}
-				class="rounded-lg bg-raised border border-wire hover:border-wire-hi disabled:opacity-40 px-4 py-2 text-sm text-fg transition-colors cursor-pointer whitespace-nowrap">
-				{scorerOddsLoading ? '...' : 'Sync buteurs'}
-			</button>
-		</form>
-	</div>
-
-	{#if scorerOddsFeedback}
-		<div class="rounded px-4 py-3 text-sm {scorerOddsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
-			{scorerOddsFeedback.msg}
-			{#if scorerOddsFeedback.detail}<p class="text-xs mt-1 opacity-70">{scorerOddsFeedback.detail}</p>{/if}
-		</div>
-	{/if}
-
 	<!-- Sync Polymarket event slugs (enables live-score auto-sync) -->
 	<div class="rounded-xl bg-panel border border-wire p-4 flex items-center gap-4 flex-wrap">
 		<div class="flex-1 min-w-0">
@@ -221,81 +213,6 @@
 	<!-- ── ZONE 2 · Édition manuelle ──────────────────────────────── -->
 	<section class="space-y-3 pt-2">
 		<h2 class="text-[11px] text-faint uppercase tracking-[0.2em] font-semibold">Édition manuelle</h2>
-
-	<!-- Goals scored editor (collapsible) -->
-	{#if data.scorers && data.scorers.length > 0}
-		<details open class="group/details rounded-xl bg-panel border border-wire overflow-hidden">
-			<summary class="cursor-pointer px-4 py-3 flex items-center justify-between hover:bg-raised/40 transition-colors gap-3 select-none">
-				<div class="min-w-0">
-					<p class="text-sm font-semibold text-fg">Buts marqués par buteur</p>
-					<p class="text-xs text-faint mt-0.5">{data.scorers.length} joueurs · cliquer pour replier/déplier</p>
-				</div>
-				<svg class="w-4 h-4 text-faint shrink-0 transition-transform group-open/details:rotate-180"
-					fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-				</svg>
-			</summary>
-			<div class="px-4 pb-4 pt-1 border-t border-wire/60">
-				<p class="text-xs text-faint mb-3">Mettre à jour le nombre de buts. Le bonus = ROUND(LN(cote), 1) × buts.</p>
-				{#if goalsFeedback}
-					<div class="rounded px-3 py-2 text-xs mb-3 {goalsFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
-						{goalsFeedback.msg}
-					</div>
-				{/if}
-				<div class="overflow-x-auto">
-				<table class="w-full text-sm">
-					<thead>
-						<tr class="text-left text-[11px] text-faint font-semibold border-b border-wire">
-							<th class="px-2 py-2">Joueur</th>
-							<th class="px-2 py-2 text-right">Cote</th>
-							<th class="px-2 py-2 text-right">Mult.</th>
-							<th class="px-2 py-2 text-right">Buts</th>
-							<th class="px-2 py-2"></th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each data.scorers as s}
-							<tr class="border-b border-wire/40 last:border-0">
-								<td class="px-2 py-2 text-fg font-medium">{s.player_name}</td>
-								<td class="px-2 py-2 text-right tabular-nums text-muted">{Number(s.odds).toFixed(2)}</td>
-								<td class="px-2 py-2 text-right tabular-nums text-accent font-semibold">{Number(s.multiplier).toFixed(1)}</td>
-								<td class="px-2 py-2 text-right">
-									<form method="POST" action="?/updateScorerGoals" use:enhance={() => {
-										goalLoadingPlayer = s.player_name;
-										goalsFeedback = null;
-										return async ({ result, update }) => {
-											goalLoadingPlayer = null;
-											if (result.type === 'success' && result.data) {
-												const d = result.data as any;
-												goalsFeedback = { ok: true, msg: `${d.player} : ${d.goals} but(s) · bonus ${d.bonus} pts` };
-												setTimeout(() => goalsFeedback = null, 5000);
-											} else if (result.type === 'failure') {
-												goalsFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
-											}
-											await update({ reset: false });
-										};
-									}} class="flex items-center justify-end gap-1.5">
-										<input type="hidden" name="player_name" value={s.player_name} />
-										<input
-											type="number" name="goals_scored" min="0" max="50"
-											value={s.goals_scored}
-											class="w-16 rounded bg-raised border border-wire px-2 py-1 text-right text-sm text-fg focus:border-accent focus:outline-none"
-										/>
-										<button type="submit" disabled={goalLoadingPlayer === s.player_name}
-											class="rounded bg-accent hover:bg-accent-hi disabled:opacity-40 px-2.5 py-1 text-xs font-semibold text-canvas transition-colors cursor-pointer">
-											{goalLoadingPlayer === s.player_name ? '…' : 'OK'}
-										</button>
-									</form>
-								</td>
-								<td></td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-			</div>
-		</details>
-	{/if}
 
 	</section>
 
@@ -597,6 +514,7 @@
 			</div>
 		</details>
 	{/each}
+{/if}
 </div>
 
 <style>
