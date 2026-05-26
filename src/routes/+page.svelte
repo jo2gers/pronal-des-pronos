@@ -64,26 +64,6 @@
 
 <div class="space-y-8">
 
-	<!-- ── Mobile-only greeting · "Salut Jules / Prochain match dans 15j 23h"
-	     Mirrors the design canvas mobile-home pattern. Hidden on desktop
-	     where the hero countdown carries the same role. -->
-	{#if data.user && data.profile && nextMatch && countdown && !liveMatches.length}
-		{@const firstName = (data.profile.display_name ?? data.profile.username ?? '').split(' ')[0]}
-		{@const totalDays = countdown.days}
-		{@const totalHours = countdown.hours}
-		<div class="sm:hidden px-1">
-			<div class="text-[10.5px] uppercase tracking-[0.08em] text-faint"
-				style="font-family: var(--font-mono)">
-				{t('greeting')} {firstName}
-			</div>
-			<h1 class="text-3xl font-bold mt-1.5 leading-[1.05]"
-				style="font-family: var(--font-display); letter-spacing: -0.03em">
-				{t('next_match')}<br/>
-				<span class="text-muted">{t('in_short')} {totalDays}{t('days_short')} {totalHours}{t('hours_short')}.</span>
-			</h1>
-		</div>
-	{/if}
-
 	<!-- ── Hero: circular countdown dials over a tinted canvas ───────────────── -->
 	<section class="relative overflow-hidden rounded-2xl border border-wire bg-panel">
 		<!-- Single subtle accent glow in top-right corner (purposeful, not decorative noise) -->
