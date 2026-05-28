@@ -5,19 +5,21 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="text-scale" content="scale" />
 
-		<!-- PWA manifest. ?v=2 cache-busts after icon redesign so iOS/Android
-		     fetch the new files instead of serving the cached generic ones. -->
-		<link rel="manifest" href="/manifest.webmanifest?v=3" />
-		<meta name="theme-color" content="#0a0a0a" />
+		<!-- PWA manifest. ?v=4 cache-busts after the Mosaïque rebrand so
+		     iOS/Android fetch the new icon files instead of serving the
+		     cached amber-bitmap from the previous design. -->
+		<link rel="manifest" href="/manifest.webmanifest?v=4" />
+		<meta name="theme-color" content="#0a0a0c" />
 		<meta name="application-name" content="Tifo" />
 
 		<!-- iOS add-to-home-screen support -->
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="Tifo" />
-		<link rel="apple-touch-icon" href="/icon-192.png?v=3" />
-		<link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png?v=3" />
-		<link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png?v=3" />
+		<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180.png?v=4" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon-180.png?v=4" />
+		<link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png?v=4" />
+		<link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png?v=4" />
 
 		%sveltekit.head%
 	</head>
