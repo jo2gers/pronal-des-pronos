@@ -9,9 +9,6 @@
 	let { data, form } = $props();
 	let loadingProfile = $state(false);
 	let loadingAvatar  = $state(false);
-	let resetting      = $state(false);
-	let confirmReset   = $state(false);
-	let resetFeedback  = $state<{ ok: boolean; msg: string } | null>(null);
 	// Pre-fill display_name with username fallback so the field is never empty
 	// for a user who has already chosen a handle.
 	let displayName    = $state(data.profile?.display_name ?? data.profile?.username ?? '');
@@ -281,54 +278,4 @@
 			</div>
 		</form>
 	</div>
-
-	<!-- Reset still-editable picks -->
-	<section class="rounded-xl bg-panel border border-wire p-6">
-		<h2 class="text-base font-semibold text-fg mb-2" style="font-family: var(--font-display)">{t('reset_picks_title')}</h2>
-		<p class="text-xs text-faint mb-4">{t('reset_picks_hint')}</p>
-
-		{#if resetFeedback}
-			<div class="rounded px-3 py-2 text-sm mb-3 {resetFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
-				{resetFeedback.msg}
-			</div>
-		{/if}
-
-		{#if confirmReset}
-			<div class="flex items-center justify-between gap-3 flex-wrap">
-				<span class="text-xs text-faint">{t('reset_picks_confirm')}</span>
-				<div class="flex items-center gap-2 shrink-0">
-					<form method="POST" action="?/resetPicks" use:enhance={() => {
-						resetting = true;
-						resetFeedback = null;
-						confirmReset = false;
-						return async ({ result, update }) => {
-							resetting = false;
-							if (result.type === 'success' && result.data) {
-								const n = (result.data as any).resetCount as number;
-								resetFeedback = { ok: true, msg: n === 0 ? t('reset_picks_none') : `${n} ${t('reset_picks_done')}` };
-								setTimeout(() => (resetFeedback = null), 6000);
-							} else if (result.type === 'failure') {
-								resetFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
-							}
-							await update({ reset: false });
-						};
-					}}>
-						<button type="submit" disabled={resetting}
-							class="rounded bg-err/10 border border-err/40 hover:bg-err/20 disabled:opacity-40 px-3 py-1.5 text-xs text-err transition-colors cursor-pointer">
-							{resetting ? '...' : t('reset_picks_confirm_yes')}
-						</button>
-					</form>
-					<button onclick={() => (confirmReset = false)}
-						class="text-xs text-muted hover:text-fg transition-colors cursor-pointer">
-						{t('cancel')}
-					</button>
-				</div>
-			</div>
-		{:else}
-			<button onclick={() => (confirmReset = true)}
-				class="rounded-lg border border-err/30 hover:border-err/60 px-4 py-2 text-sm text-err/80 hover:text-err transition-colors cursor-pointer">
-				{t('reset_picks_button')}
-			</button>
-		{/if}
-	</section>
 </div>

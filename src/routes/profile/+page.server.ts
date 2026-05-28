@@ -69,44 +69,6 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
-	// Reset all picks that are still editable (match still upcoming and
-	// kickoff is > 5 min away — i.e. inside the user's normal edit window).
-	// Locked picks (within 5 min of kickoff), live picks, and finished/scored
-	// picks are NEVER touched.
-	resetPicks: async ({ locals: { supabase, safeGetSession } }) => {
-		const { user } = await safeGetSession();
-		if (!user) return fail(401, { error: 'Non authentifié' });
-
-		const cutoffIso = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-		// Pull the user's pronostics with their matches, filter in code: only
-		// delete rows where match.status='upcoming' AND match_datetime > cutoff.
-		const { data: pronos, error: fetchErr } = await supabase
-			.from('pronostics')
-			.select('id, matches(status, match_datetime)')
-			.eq('user_id', user.id);
-		if (fetchErr) return fail(500, { error: fetchErr.message });
-
-		const deletable = (pronos ?? []).filter((p: any) => {
-			const m = p.matches;
-			if (!m) return false;
-			if (m.status !== 'upcoming') return false;
-			return new Date(m.match_datetime).toISOString() > cutoffIso;
-		});
-
-		if (deletable.length === 0) {
-			return { resetCount: 0 };
-		}
-
-		const { error: delErr } = await supabase
-			.from('pronostics')
-			.delete()
-			.in('id', deletable.map((p: any) => p.id));
-		if (delErr) return fail(500, { error: delErr.message });
-
-		return { resetCount: deletable.length };
-	},
-
 	avatar: async ({ request, locals: { supabase, safeGetSession } }) => {
 		const { user } = await safeGetSession();
 		if (!user) return fail(401, { error: 'Non authentifié' });
