@@ -142,13 +142,13 @@
 			loadingAvatar = true;
 			return async ({ update }) => { loadingAvatar = false; await update(); };
 		}}>
-			<div class="flex gap-2">
+			<div class="flex flex-col gap-2">
 				<input
 					name="avatar" type="file" accept="image/*"
-					class="flex-1 text-sm text-muted file:mr-3 file:rounded file:bg-raised file:border-0 file:text-fg file:px-3 file:py-1.5 file:cursor-pointer"
+					class="w-full text-sm text-muted file:mr-3 file:rounded file:bg-raised file:border-0 file:text-fg file:px-3 file:py-1.5 file:cursor-pointer"
 				/>
 				<button type="submit" disabled={loadingAvatar}
-					class="rounded bg-raised hover:bg-wire disabled:opacity-50 px-4 py-1.5 text-sm text-fg transition-colors cursor-pointer">
+					class="w-full rounded bg-raised hover:bg-wire disabled:opacity-50 px-4 py-2 text-sm text-fg transition-colors cursor-pointer">
 					{loadingAvatar ? '...' : t('profile_upload')}
 				</button>
 			</div>
