@@ -401,8 +401,11 @@
 		</div>
 	</nav>
 
-	<!-- Devsigny attribution — appears on every page, pinned to bottom -->
-	<footer class="mt-auto border-t border-wire">
+	<!-- Devsigny attribution — desktop only. On mobile the bottom tab bar
+	     owns the lower edge, so the footer would either fight it for space
+	     or sit weirdly above it after scroll. The /rules page already
+	     credits Devsigny if mobile users want to find it. -->
+	<footer class="mt-auto border-t border-wire hidden sm:block">
 		<div class="mx-auto max-w-6xl px-4 py-6 flex items-center justify-between gap-3 flex-wrap">
 			<a href="https://devsigny.com" target="_blank" rel="noopener noreferrer"
 				class="group inline-flex items-baseline gap-1.5 text-xs text-faint hover:text-fg transition-colors"
