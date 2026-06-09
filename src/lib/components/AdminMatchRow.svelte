@@ -19,21 +19,35 @@
 
 	let { match }: { match: MatchLike } = $props();
 
-	let home = $state(match.home_score ?? 0);
-	let away = $state(match.away_score ?? 0);
+	let home   = $state(match.home_score ?? 0);
+	let away   = $state(match.away_score ?? 0);
 	let status = $state<MatchLike['status']>(match.status);
-	let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
-	let saveError = $state<string | null>(null);
+
+	// Inline edit mode: clicking the score digit shows a text input.
+	let editingHome = $state(false);
+	let editingAway = $state(false);
+
+	let saveStatus  = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	let saveMessage = $state<string | null>(null);  // e.g. "12 picks scored"
+	let saveError   = $state<string | null>(null);
 	let calcLoading = $state(false);
 	let calcMessage = $state<string | null>(null);
 	let formEl: HTMLFormElement | null = null;
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
+	function clamp(v: number) { return Math.max(0, Math.min(99, v)); }
+
 	function bump(side: 'home' | 'away', dir: 1 | -1) {
-		if (side === 'home') home = Math.max(0, Math.min(99, home + dir));
-		else                 away = Math.max(0, Math.min(99, away + dir));
+		if (side === 'home') home = clamp(home + dir);
+		else                 away = clamp(away + dir);
 		// Auto-flip to "live" the moment a goal is entered on an upcoming match.
 		if (status === 'upcoming' && (home > 0 || away > 0)) status = 'live';
+		scheduleSave();
+	}
+
+	function commitScore(side: 'home' | 'away') {
+		if (side === 'home') { home = clamp(home); editingHome = false; }
+		else                 { away = clamp(away); editingAway = false; }
 		scheduleSave();
 	}
 
@@ -63,7 +77,7 @@
 </script>
 
 <div class="border-b border-wire last:border-0 p-4">
-	<!-- Match header line: flags + names + date -->
+	<!-- Match header: flags + names + date -->
 	<div class="flex items-center gap-2 mb-3 text-sm flex-wrap">
 		<Flag code={match.home_flag} size={24} />
 		<span class="font-semibold text-fg">{teamLabel(match.home_team)}</span>
@@ -73,14 +87,22 @@
 		<span class="ml-auto text-xs text-faint">{formatDate(match.match_datetime)}</span>
 	</div>
 
-	<!-- Hidden form for auto-save -->
+	<!-- Hidden form — submitted programmatically on every change -->
 	<form bind:this={formEl} method="POST" action="?/update"
 		use:enhance={() => {
 			return async ({ result, update }) => {
 				if (result.type === 'success') {
+					const d = result.data as any;
 					saveStatus = 'saved';
 					saveError = null;
-					setTimeout(() => { if (saveStatus === 'saved') saveStatus = 'idle'; }, 1500);
+					// Show how many picks were scored, if any.
+					const picked: number = d?.scored ?? 0;
+					saveMessage = picked > 0
+						? `${picked} pronostic${picked > 1 ? 's' : ''} calculé${picked > 1 ? 's' : ''}`
+						: null;
+					setTimeout(() => {
+						if (saveStatus === 'saved') { saveStatus = 'idle'; saveMessage = null; }
+					}, 4000);
 				} else if (result.type === 'failure') {
 					saveStatus = 'error';
 					saveError = (result.data as any)?.error ?? null;
@@ -91,14 +113,15 @@
 				await update({ reset: false });
 			};
 		}}>
-		<input type="hidden" name="id" value={match.id} />
-		<input type="hidden" name="status" value={status} />
-		<input type="hidden" name="home_score" value={home} />
-		<input type="hidden" name="away_score" value={away} />
+		<input type="hidden" name="id"         value={match.id} />
+		<input type="hidden" name="status"      value={status} />
+		<input type="hidden" name="home_score"  value={home} />
+		<input type="hidden" name="away_score"  value={away} />
 	</form>
 
 	<!-- Controls row -->
 	<div class="flex items-center gap-3 flex-wrap">
+
 		<!-- Status toggle: 3-button bar -->
 		<div class="inline-flex rounded-lg bg-canvas border border-wire overflow-hidden text-xs">
 			{#each [
@@ -117,38 +140,75 @@
 			{/each}
 		</div>
 
-		<!-- Home stepper -->
+		<!-- Score entry: stepper buttons + clickable digit input -->
+		<!-- HOME -->
 		<div class="flex items-center gap-1.5">
 			<button type="button" onclick={() => bump('home', -1)}
 				disabled={home === 0}
 				aria-label="−"
-				class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">−</button>
-			<span class="text-2xl font-bold tabular-nums w-8 text-center text-fg leading-none"
-				style="font-family: var(--font-display)">{home}</span>
+				class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">−</button>
+
+			{#if editingHome}
+				<input
+					type="number" min="0" max="99"
+					bind:value={home}
+					autofocus
+					onblur={() => commitScore('home')}
+					onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') commitScore('home'); }}
+					class="w-12 h-9 rounded-lg bg-canvas border border-accent text-2xl font-bold tabular-nums text-center text-fg focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+					style="font-family: var(--font-display)"
+				/>
+			{:else}
+				<button type="button" onclick={() => editingHome = true}
+					title="Cliquer pour saisir"
+					class="w-12 h-9 rounded-lg bg-canvas hover:bg-raised border border-wire hover:border-accent text-2xl font-bold tabular-nums text-center text-fg transition-colors cursor-text leading-none"
+					style="font-family: var(--font-display)">
+					{home}
+				</button>
+			{/if}
+
 			<button type="button" onclick={() => bump('home', 1)}
 				disabled={home === 99}
 				aria-label="+"
-				class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">+</button>
+				class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">+</button>
 		</div>
 
 		<span class="text-xl text-wire-hi" style="font-family: var(--font-display)">–</span>
 
-		<!-- Away stepper -->
+		<!-- AWAY -->
 		<div class="flex items-center gap-1.5">
 			<button type="button" onclick={() => bump('away', -1)}
 				disabled={away === 0}
 				aria-label="−"
-				class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">−</button>
-			<span class="text-2xl font-bold tabular-nums w-8 text-center text-fg leading-none"
-				style="font-family: var(--font-display)">{away}</span>
+				class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">−</button>
+
+			{#if editingAway}
+				<input
+					type="number" min="0" max="99"
+					bind:value={away}
+					autofocus
+					onblur={() => commitScore('away')}
+					onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') commitScore('away'); }}
+					class="w-12 h-9 rounded-lg bg-canvas border border-accent text-2xl font-bold tabular-nums text-center text-fg focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+					style="font-family: var(--font-display)"
+				/>
+			{:else}
+				<button type="button" onclick={() => editingAway = true}
+					title="Cliquer pour saisir"
+					class="w-12 h-9 rounded-lg bg-canvas hover:bg-raised border border-wire hover:border-accent text-2xl font-bold tabular-nums text-center text-fg transition-colors cursor-text leading-none"
+					style="font-family: var(--font-display)">
+					{away}
+				</button>
+			{/if}
+
 			<button type="button" onclick={() => bump('away', 1)}
 				disabled={away === 99}
 				aria-label="+"
-				class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">+</button>
+				class="w-9 h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95">+</button>
 		</div>
 
-		<!-- Save indicator -->
-		<div class="flex items-center text-[11px] min-w-[80px]">
+		<!-- Save / score feedback -->
+		<div class="flex items-center gap-2 text-[11px] min-w-[100px]">
 			{#if saveStatus === 'saving'}
 				<span class="text-faint flex items-center gap-1.5">
 					<span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
@@ -159,19 +219,15 @@
 					<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
 					</svg>
-					Enregistré
+					{saveMessage ?? 'Enregistré'}
 				</span>
 			{:else if saveStatus === 'error'}
-				<span class="text-err" title={saveError ?? ''}>! {saveError}</span>
+				<span class="text-err" title={saveError ?? ''}>⚠ {saveError}</span>
 			{/if}
 		</div>
 
-		<!-- Calculate scores: shown when finished. Always uses force=1 so re-clicks
-		     after a score correction (or after our scoring fixes) actually recompute
-		     existing pronostics. Team-bonus double-award is guarded server-side by
-		     match.bonus_calculated, so re-running is safe. -->
+		<!-- Recalculer — shown when finished, for when a score correction needs a forced rerun -->
 		{#if status === 'finished'}
-			{@const pending = saveStatus === 'saving' || calcLoading}
 			<div class="ml-auto inline-flex items-center gap-2">
 				<form method="POST" action="?/calculate" use:enhance={() => {
 					calcLoading = true;
@@ -182,7 +238,7 @@
 							const scored = (result.data as any).scored ?? 0;
 							calcMessage = scored === 0
 								? 'Aucun pronostic à calculer'
-								: `${scored} pronostic(s) calculé(s)`;
+								: `${scored} pronostic(s) recalculé(s)`;
 							setTimeout(() => calcMessage = null, 4000);
 						} else if (result.type === 'failure') {
 							calcMessage = `Erreur : ${(result.data as any)?.error ?? '?'}`;
@@ -191,14 +247,13 @@
 					};
 				}}>
 					<input type="hidden" name="match_id" value={match.id} />
-					<input type="hidden" name="force" value="1" />
-					<button type="submit" disabled={pending}
-						title={saveStatus === 'saving' ? 'Attends que le score soit enregistré…' : 'Recompute scores from current home/away values'}
-						class="rounded-lg bg-accent-lo border border-accent/40 hover:bg-accent/20 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors cursor-pointer whitespace-nowrap">
-						{calcLoading ? '…' : saveStatus === 'saving' ? 'Sauvegarde…' : 'Calculer scores'}
+					<input type="hidden" name="force"    value="1" />
+					<button type="submit" disabled={calcLoading || saveStatus === 'saving'}
+						title="Forcer un recalcul (utile si le score a été corrigé après coup)"
+						class="rounded-lg bg-raised border border-wire hover:border-wire-hi disabled:opacity-40 px-3 py-1.5 text-xs text-muted hover:text-fg transition-colors cursor-pointer whitespace-nowrap">
+						{calcLoading ? '…' : 'Recalculer'}
 					</button>
 				</form>
-
 				{#if calcMessage}
 					<span class="text-[11px] {calcMessage.startsWith('Erreur') ? 'text-err' : 'text-accent'}">{calcMessage}</span>
 				{/if}

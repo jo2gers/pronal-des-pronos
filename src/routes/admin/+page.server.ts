@@ -106,20 +106,48 @@ export const actions: Actions = {
 		const home_score = form.get('home_score') !== '' ? parseInt(form.get('home_score') as string) : null;
 		const away_score = form.get('away_score') !== '' ? parseInt(form.get('away_score') as string) : null;
 
-		const update: Record<string, unknown> = { status };
+		const patch: Record<string, unknown> = { status };
 		if (status === 'live' || status === 'finished') {
-			update.home_score = isNaN(home_score as number) ? null : home_score;
-			update.away_score = isNaN(away_score as number) ? null : away_score;
+			patch.home_score = isNaN(home_score as number) ? null : home_score;
+			patch.away_score = isNaN(away_score as number) ? null : away_score;
 		}
 		if (status === 'upcoming') {
-			update.home_score = null;
-			update.away_score = null;
+			patch.home_score = null;
+			patch.away_score = null;
 		}
 
-		const { error } = await supabase.from('matches').update(update).eq('id', id);
+		// Whenever we save a finished match (new or correction), reset the bonus
+		// flag so scoreMatch re-evaluates team bonuses against the correct score.
+		const isFinishedWithScores =
+			status === 'finished' &&
+			patch.home_score != null &&
+			patch.away_score != null;
+		if (isFinishedWithScores) {
+			patch.bonus_calculated = false;
+		}
+
+		const { error } = await supabase.from('matches').update(patch).eq('id', id);
 		if (error) return fail(500, { error: error.message });
 
-		return { success: true };
+		// Auto-score immediately — no separate "Calculer" step needed.
+		let scored = 0;
+		let bonusAwarded = 0;
+		if (isFinishedWithScores) {
+			const { data: match } = await supabase
+				.from('matches')
+				.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated')
+				.eq('id', id)
+				.single();
+			if (match) {
+				const result = await scoreMatch(supabase, match);
+				scored = result.scored;
+				bonusAwarded = result.bonusAwarded;
+				// Non-fatal: sync match odds in case a knockout slot just opened.
+				try { await runSyncMatchOdds(supabase); } catch { /* swallow */ }
+			}
+		}
+
+		return { success: true, scored, bonusAwarded };
 	},
 
 	// Score one match directly via the admin client. Bypasses the
