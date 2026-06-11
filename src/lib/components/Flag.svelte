@@ -31,10 +31,14 @@
 	const src = $derived(code ? `https://flagcdn.com/w${cdnWidth}/${code.toLowerCase()}.png` : '');
 </script>
 
+<!-- aspect-ratio + height:auto (not a fixed height): when a tight flex column
+     squeezes the image below its natural width (preflight img max-width:100%),
+     the flag scales down proportionally instead of cropping to a portrait
+     sliver. The flag's shape always wins over its size. -->
 {#if src}
 	<img {src} {alt} class="object-cover shrink-0 {ringClass} {extra}"
-		style="width: {width}px; height: {size}px; border-radius: {radius}px;" />
+		style="width: {width}px; height: auto; aspect-ratio: 3 / 2; border-radius: {radius}px;" />
 {:else}
 	<span class="shrink-0 bg-raised {ringClass} {extra}"
-		style="width: {width}px; height: {size}px; border-radius: {radius}px;"></span>
+		style="width: {width}px; max-width: 100%; aspect-ratio: 3 / 2; border-radius: {radius}px;"></span>
 {/if}
