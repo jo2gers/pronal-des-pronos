@@ -5,6 +5,7 @@
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import Flag from '$lib/components/Flag.svelte';
+	import FilterCarousel from '$lib/components/FilterCarousel.svelte';
 
 	function flagSrc(iso: string | null | undefined) {
 		return iso ? `https://flagcdn.com/w80/${iso.toLowerCase()}.png` : '';
@@ -25,11 +26,11 @@
 	// 'all' | 'friends' | a league id — tabs render in that order (leagues in the middle)
 	let pronoFilter = $state<string>('all');
 
-	// Carousel behavior: picking a tab also nudges it fully into view.
-	function pickPronoFilter(f: string, e: MouseEvent) {
-		pronoFilter = f;
-		(e.currentTarget as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
-	}
+	const pronoFilterItems = $derived([
+		{ id: 'all', label: t('match_all_filter') },
+		...(data.myLeagues ?? []).map((l: any) => ({ id: l.id, label: l.name })),
+		...((data.friendIds ?? []).length > 0 ? [{ id: 'friends', label: t('match_friends_filter') }] : [])
+	]);
 
 	// Locked when: kickoff lock fired, OR teams are still TBD, OR the whole
 	// stage hasn't opened yet (previous round still has unfinished matches —
@@ -441,30 +442,7 @@
 				</h2>
 				<!-- Tabs: Tous | each league | Amis — horizontally swipeable on mobile -->
 				{#if data.user && ((data.friendIds ?? []).length > 0 || (data.myLeagues ?? []).length > 0)}
-					<div class="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
-						[mask-image:linear-gradient(to_right,black_0,black_calc(100%-32px),transparent_100%)] sm:[mask-image:none]">
-						<div class="flex gap-0.5 rounded-lg bg-raised border border-wire p-0.5 w-max">
-							<button onclick={(e) => pickPronoFilter('all', e)}
-								class="rounded px-3 py-1 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap
-									{pronoFilter === 'all' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
-								{t('match_all_filter')}
-							</button>
-							{#each data.myLeagues ?? [] as league (league.id)}
-								<button onclick={(e) => pickPronoFilter(league.id, e)}
-									class="rounded px-3 py-1 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap max-w-[10rem] truncate
-										{pronoFilter === league.id ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
-									{league.name}
-								</button>
-							{/each}
-							{#if (data.friendIds ?? []).length > 0}
-								<button onclick={(e) => pickPronoFilter('friends', e)}
-									class="rounded px-3 py-1 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap
-										{pronoFilter === 'friends' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
-									{t('match_friends_filter')}
-								</button>
-							{/if}
-						</div>
-					</div>
+					<FilterCarousel compact items={pronoFilterItems} active={pronoFilter} onpick={(id) => (pronoFilter = id)} />
 				{/if}
 			</div>
 
