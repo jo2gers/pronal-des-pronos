@@ -136,26 +136,28 @@
 				</div>
 
 				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
-					<div class="flex flex-col items-center gap-3 min-w-0">
+					<a href="/teams/{encodeURIComponent(nextMatch.home_team)}"
+						class="flex flex-col items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
 						<Flag code={nextMatch.home_flag} size={64} alt={teamLabel(nextMatch.home_team)} />
 						<div class="text-base sm:text-lg font-semibold text-center truncate max-w-full"
 							style="font-family: var(--font-display); letter-spacing: -0.02em">
 							{teamLabel(nextMatch.home_team)}
 						</div>
-					</div>
+					</a>
 					<div class="text-center px-1.5">
 						<div class="text-2xl sm:text-3xl text-faint tabular-nums leading-none"
 							style="font-family: var(--font-display); letter-spacing: -0.02em">—</div>
 						<div class="text-[10.5px] uppercase tracking-[0.1em] text-faint mt-1"
 							style="font-family: var(--font-mono)">VS</div>
 					</div>
-					<div class="flex flex-col items-center gap-3 min-w-0">
+					<a href="/teams/{encodeURIComponent(nextMatch.away_team)}"
+						class="flex flex-col items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
 						<Flag code={nextMatch.away_flag} size={64} alt={teamLabel(nextMatch.away_team)} />
 						<div class="text-base sm:text-lg font-semibold text-center truncate max-w-full"
 							style="font-family: var(--font-display); letter-spacing: -0.02em">
 							{teamLabel(nextMatch.away_team)}
 						</div>
-					</div>
+					</a>
 				</div>
 
 				<!-- Footer info row: kickoff · venue -->
@@ -325,19 +327,21 @@
 
 				<!-- Teams + venue (single line, no decorative card) -->
 				<div class="flex items-center justify-center gap-3 sm:gap-4">
-					<div class="flex items-center gap-2 min-w-0">
+					<a href="/teams/{encodeURIComponent(nextMatch.home_team)}"
+						class="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity">
 						<Flag code={nextMatch.home_flag} size={36} />
 						<span class="font-semibold text-fg truncate" style="font-family: var(--font-display); letter-spacing: 0.01em">
 							{teamLabel(nextMatch.home_team)}
 						</span>
-					</div>
+					</a>
 					<span class="text-faint text-xs uppercase tracking-widest">vs</span>
-					<div class="flex items-center gap-2 min-w-0">
+					<a href="/teams/{encodeURIComponent(nextMatch.away_team)}"
+						class="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity">
 						<span class="font-semibold text-fg truncate" style="font-family: var(--font-display); letter-spacing: 0.01em">
 							{teamLabel(nextMatch.away_team)}
 						</span>
 						<Flag code={nextMatch.away_flag} size={36} />
-					</div>
+					</a>
 				</div>
 				<p class="text-[11px] text-faint mt-2 text-center">
 					{formatDate(nextMatch.match_datetime)}{nextMatch.venue ? ` · ${nextMatch.venue}` : ''}

@@ -144,10 +144,11 @@
 									</span>
 								</td>
 								<td class="px-2 py-2">
-									<div class="flex items-center gap-1.5 min-w-0">
+									<a href="/teams/{encodeURIComponent(row.team)}"
+										class="flex items-center gap-1.5 min-w-0 hover:opacity-75 transition-opacity">
 										<Flag code={row.flag} size={20} />
 										<span class="text-xs truncate {posColor(row.pos, g.played, g.total)}">{teamLabel(row.team)}</span>
-									</div>
+									</a>
 								</td>
 								<td class="px-1.5 py-2 text-right text-xs text-muted tabular-nums">{row.played}</td>
 								<td class="px-1.5 py-2 text-right text-xs tabular-nums {row.gd > 0 ? 'text-fg' : row.gd < 0 ? 'text-faint' : 'text-muted'}">

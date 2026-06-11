@@ -132,8 +132,16 @@
 		<!-- Teams + score -->
 		<div class="flex items-center justify-center gap-6 sm:gap-10">
 			<div class="text-center flex-1 flex flex-col items-center">
-				<Flag code={data.match.home_flag} size={88} alt={teamLabel(data.match.home_team)} class="mb-2" />
-				<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.home_team)}</p>
+				{#if data.match.home_team !== 'TBD'}
+					<a href="/teams/{encodeURIComponent(data.match.home_team)}"
+						class="flex flex-col items-center group/team" title={teamLabel(data.match.home_team)}>
+						<Flag code={data.match.home_flag} size={88} alt={teamLabel(data.match.home_team)} class="mb-2 group-hover/team:scale-105 transition-transform" />
+						<p class="font-bold text-base text-fg leading-tight group-hover/team:text-accent transition-colors">{teamLabel(data.match.home_team)}</p>
+					</a>
+				{:else}
+					<Flag code={data.match.home_flag} size={88} alt={teamLabel(data.match.home_team)} class="mb-2" />
+					<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.home_team)}</p>
+				{/if}
 			</div>
 
 			<div class="text-center shrink-0">
@@ -178,8 +186,16 @@
 			</div>
 
 			<div class="text-center flex-1 flex flex-col items-center">
-				<Flag code={data.match.away_flag} size={88} alt={teamLabel(data.match.away_team)} class="mb-2" />
-				<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.away_team)}</p>
+				{#if data.match.away_team !== 'TBD'}
+					<a href="/teams/{encodeURIComponent(data.match.away_team)}"
+						class="flex flex-col items-center group/team" title={teamLabel(data.match.away_team)}>
+						<Flag code={data.match.away_flag} size={88} alt={teamLabel(data.match.away_team)} class="mb-2 group-hover/team:scale-105 transition-transform" />
+						<p class="font-bold text-base text-fg leading-tight group-hover/team:text-accent transition-colors">{teamLabel(data.match.away_team)}</p>
+					</a>
+				{:else}
+					<Flag code={data.match.away_flag} size={88} alt={teamLabel(data.match.away_team)} class="mb-2" />
+					<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.away_team)}</p>
+				{/if}
 			</div>
 		</div>
 
