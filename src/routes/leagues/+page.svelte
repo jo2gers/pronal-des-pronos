@@ -149,7 +149,12 @@
 									<div class="flex items-center gap-3 py-2.5">
 										<div class="flex-1 min-w-0">
 											<p class="text-sm text-fg font-medium truncate">{req.group_name}</p>
-											<p class="text-xs text-faint">{t('groups_awaiting')}</p>
+											<p class="text-xs text-faint">
+												{t('groups_awaiting')}
+												{#if req.invite_code}
+													· <span class="font-mono text-muted select-all">{req.invite_code}</span>
+												{/if}
+											</p>
 										</div>
 										<span class="text-[10px] text-faint border border-wire rounded px-2 py-0.5 font-mono shrink-0">
 											{t('groups_request_pending')}

@@ -43,10 +43,12 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		}));
 	}
 
-	// Current user's own pending requests (groups they asked to join, not yet a member)
+	// Current user's own pending requests (groups they asked to join, not yet a
+	// member). Policy groups_select_requested exposes name + invite_code to the
+	// requester so the card can remind them which code they used.
 	const { data: myRequests } = await supabase
 		.from('group_join_requests')
-		.select('id, group_id, created_at, groups(id, name)')
+		.select('id, group_id, created_at, groups(id, name, invite_code)')
 		.eq('user_id', user.id)
 		.eq('status', 'pending');
 
@@ -54,6 +56,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		id: r.id,
 		group_id: r.group_id,
 		group_name: (r.groups as { name: string } | null)?.name ?? '',
+		invite_code: (r.groups as { invite_code: string } | null)?.invite_code ?? null,
 		created_at: r.created_at
 	}));
 
