@@ -375,6 +375,19 @@
 
 	<main class="flex-1 w-full mx-auto max-w-6xl px-4 py-8 pb-24 sm:pb-8">
 		{@render children()}
+
+		<!-- Devsigny attribution · mobile — the desktop footer is hidden on
+		     phones (the tab bar owns the lower edge), so credit lives at the
+		     end of the page content instead. -->
+		<div class="sm:hidden mt-14 pt-5 border-t border-wire/60 text-center">
+			<a href="https://devsigny.com" target="_blank" rel="noopener noreferrer"
+				class="inline-flex items-baseline gap-1.5 text-[11px] text-faint active:text-fg"
+				aria-label="Devsigny — dev & AI consulting">
+				<span>{t('footer_built_by')}</span>
+				<span class="font-bold text-muted" style="font-family: var(--font-display); letter-spacing: 0.04em">Devsigny</span>
+				<span aria-hidden="true">→</span>
+			</a>
+		</div>
 	</main>
 
 	<!-- ── Mobile bottom tab bar · primary navigation on small screens ─────
