@@ -2,6 +2,7 @@
 	import { invalidateAll, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { groupByDay, daysUntilMatch } from '$lib/utils';
+	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
 
@@ -28,27 +29,25 @@
 		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	// Group filter also lives in the URL (?group=A) so it survives navigation.
-	const groupFilter = $derived(page.url.searchParams.get('group') ?? '');
+	// View mode: by date (default, day buckets) or by group (Groupe A → L
+	// sections, all matches of each group on one scrollable page). URL-persisted
+	// via ?view=groups.
+	const view = $derived<'date' | 'groups'>(
+		page.url.searchParams.get('view') === 'groups' ? 'groups' : 'date'
+	);
 
-	function setGroup(g: string) {
+	function setView(next: 'date' | 'groups') {
 		const url = new URL(page.url);
-		if (!g) url.searchParams.delete('group');
-		else    url.searchParams.set('group', g);
+		if (next === 'date') url.searchParams.delete('view');
+		else                 url.searchParams.set('view', next);
 		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	// Distinct group labels present in the data (A…L)
-	const groupOptions = $derived(
-		[...new Set((data.matches ?? []).map((m) => m.group_label).filter(Boolean))].sort() as string[]
-	);
-
-	// Filter to the active tab (+ optional group), then bucket by calendar day.
+	// Date view: filter to the active tab, then bucket by calendar day.
 	// Ended-tab buckets are reversed so the most recent day appears first.
 	const dayBuckets = $derived.by(() => {
 		const filtered = (data.matches ?? []).filter((m) =>
-			(tab === 'ended' ? m.status === 'finished' : m.status !== 'finished') &&
-			(!groupFilter || m.group_label === groupFilter)
+			tab === 'ended' ? m.status === 'finished' : m.status !== 'finished'
 		);
 		filtered.sort((a, b) => {
 			const da = new Date(a.match_datetime).getTime();
@@ -57,6 +56,36 @@
 		});
 		return groupByDay(filtered, getLang());
 	});
+
+	// Group view: ALL matches (played or not — no tab filter), one section per
+	// group A → L, knockout stages appended after under their stage labels.
+	const groupBuckets = $derived.by(() => {
+		const matches = [...(data.matches ?? [])].sort(
+			(a, b) => new Date(a.match_datetime).getTime() - new Date(b.match_datetime).getTime()
+		);
+		const buckets: { key: string; label: string; items: typeof matches }[] = [];
+
+		const labels = [...new Set(matches.map((m) => m.group_label).filter(Boolean))].sort() as string[];
+		for (const g of labels) {
+			buckets.push({
+				key: `g-${g}`,
+				label: `${t('card_group')} ${g}`,
+				items: matches.filter((m) => m.group_label === g)
+			});
+		}
+
+		const stageOrder = ['round_of_32', 'round_of_16', 'quarters', 'semis', 'third', 'final'];
+		const stageLabels = getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN;
+		for (const s of stageOrder) {
+			const items = matches.filter((m) => m.stage === s);
+			if (items.length > 0) {
+				buckets.push({ key: `s-${s}`, label: stageLabels[s] ?? s, items });
+			}
+		}
+		return buckets;
+	});
+
+	const buckets = $derived(view === 'groups' ? groupBuckets : dayBuckets);
 </script>
 
 <div class="space-y-8">
@@ -71,33 +100,37 @@
 		{/if}
 	</div>
 
-	<!-- Tabs + group filter + standings shortcut -->
+	<!-- View toggle + tabs + standings shortcut -->
 	<div class="flex flex-wrap items-center gap-2">
+		<!-- Date / Group view toggle -->
 		<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-fit">
 			<button
-				onclick={() => setTab('upcoming')}
-				class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {tab === 'upcoming' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
-				{t('upcoming')}
+				onclick={() => setView('date')}
+				class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {view === 'date' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
+				{t('matches_view_date')}
 			</button>
 			<button
-				onclick={() => setTab('ended')}
-				class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {tab === 'ended' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
-				{t('ended')}
+				onclick={() => setView('groups')}
+				class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {view === 'groups' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
+				{t('matches_view_groups')}
 			</button>
 		</div>
 
-		{#if groupOptions.length > 0}
-			<select
-				value={groupFilter}
-				onchange={(e) => setGroup((e.currentTarget as HTMLSelectElement).value)}
-				aria-label={t('matches_group_filter')}
-				class="rounded-lg bg-raised border border-wire px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none cursor-pointer
-					{groupFilter ? 'border-accent/60 text-accent font-semibold' : 'text-muted'}">
-				<option value="">{t('matches_all_groups')}</option>
-				{#each groupOptions as g (g)}
-					<option value={g}>{t('group_short')} {g}</option>
-				{/each}
-			</select>
+		<!-- Upcoming / Ended tabs — date view only; the group view always shows
+		     every match of each group -->
+		{#if view === 'date'}
+			<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-fit">
+				<button
+					onclick={() => setTab('upcoming')}
+					class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {tab === 'upcoming' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
+					{t('upcoming')}
+				</button>
+				<button
+					onclick={() => setTab('ended')}
+					class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {tab === 'ended' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
+					{t('ended')}
+				</button>
+			</div>
 		{/if}
 
 		<a href="/schedule"
@@ -107,15 +140,15 @@
 		</a>
 	</div>
 
-	{#if dayBuckets.length === 0}
+	{#if buckets.length === 0}
 		<div class="rounded-xl bg-panel border border-wire px-6 py-10 text-center">
 			<p class="text-muted">{tab === 'ended' ? t('no_ended') : t('no_upcoming')}</p>
 			<p class="text-sm text-faint mt-2">{tab === 'ended' ? t('no_ended_hint') : ''}</p>
 		</div>
 	{:else}
 		<div class="space-y-6">
-			{#each dayBuckets as bucket (bucket.key)}
-				{@const countdown = daysUntilMatch(bucket.items[0].match_datetime, getLang())}
+			{#each buckets as bucket (bucket.key)}
+				{@const countdown = view === 'date' ? daysUntilMatch(bucket.items[0].match_datetime, getLang()) : null}
 				<section>
 					<div class="flex items-center gap-3 mb-2 px-1">
 						<span class="flex-1 h-px bg-wire"></span>
