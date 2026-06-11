@@ -171,10 +171,17 @@
 										{String(countdown.hours).padStart(2, '0')}h{String(countdown.mins).padStart(2, '0')}
 									</span>
 								</p>
-							{:else}
-								<p class="text-4xl font-bold {urgencyColor[urgency()]} min-w-[7rem] text-center"
+							{:else if countdown.hours > 0}
+								<!-- Hours left: hours + minutes only — narrower, the flags keep
+								     their room. Seconds only appear inside the final hour. -->
+								<p class="text-4xl font-bold tabular-nums {urgencyColor[urgency()]} text-center"
 									style="font-family: var(--font-display)">
-									{String(countdown.hours).padStart(2, '0')}:{String(countdown.mins).padStart(2, '0')}:{String(countdown.secs).padStart(2, '0')}
+									{countdown.hours}<span class="text-2xl">h</span>{String(countdown.mins).padStart(2, '0')}
+								</p>
+							{:else}
+								<p class="text-4xl font-bold tabular-nums {urgencyColor[urgency()]} text-center"
+									style="font-family: var(--font-display)">
+									{String(countdown.mins).padStart(2, '0')}:{String(countdown.secs).padStart(2, '0')}
 								</p>
 							{/if}
 							<p class="text-xs text-faint">{formatDate(data.match.match_datetime)}</p>

@@ -277,14 +277,19 @@
 					{@const totalMinsToKickoff = countdown.days * 24 * 60 + countdown.hours * 60 + countdown.mins}
 					{@const useDials = totalMinsToKickoff < 24 * 60}
 					{#if useDials}
-						<!-- Final-24h state: full animated dials (high anticipation) -->
+						<!-- Final-24h state: animated dials. Two units max — hours+minutes
+						     while hours remain, minutes+seconds inside the final hour. -->
+						{@const dialUnits = countdown.hours > 0
+							? [
+								{ v: countdown.hours, max: 24, label: t('hours'), fast: false },
+								{ v: countdown.mins,  max: 60, label: t('mins'),  fast: false }
+							]
+							: [
+								{ v: countdown.mins,  max: 60, label: t('mins'), fast: false },
+								{ v: countdown.secs,  max: 60, label: t('secs'), fast: true }
+							]}
 						<div class="flex justify-center gap-3 sm:gap-6 mb-6">
-							{#each [
-								{ v: countdown.days,  max: 30, label: t('days') },
-								{ v: countdown.hours, max: 24, label: t('hours') },
-								{ v: countdown.mins,  max: 60, label: t('mins') },
-								{ v: countdown.secs,  max: 60, label: t('secs') }
-							] as unit, i}
+							{#each dialUnits as unit (unit.label)}
 								<div class="relative flex flex-col items-center">
 									<div class="relative w-[68px] h-[68px] sm:w-[88px] sm:h-[88px]">
 										<svg viewBox="0 0 64 64" class="w-full h-full -rotate-90" aria-hidden="true">
@@ -297,7 +302,7 @@
 												stroke-linecap="round"
 												stroke-dasharray={DIAL_CIRC}
 												stroke-dashoffset={dialOffset(unit.v, unit.max)}
-												style="transition: stroke-dashoffset {i === 3 ? '0.3s' : '0.8s'} cubic-bezier(0.16, 1, 0.3, 1)" />
+												style="transition: stroke-dashoffset {unit.fast ? '0.3s' : '0.8s'} cubic-bezier(0.16, 1, 0.3, 1)" />
 										</svg>
 										<div class="absolute inset-0 flex items-center justify-center">
 											<span class="text-2xl sm:text-4xl font-bold text-fg tabular-nums leading-none"
