@@ -6,6 +6,12 @@
 	// 'global' | 'friends' | a league id — tabs render Tous | leagues | Amis
 	let filter = $state<string>('global');
 
+	// Carousel behavior: picking a tab also nudges it fully into view.
+	function pickFilter(f: string, e: MouseEvent) {
+		filter = f;
+		(e.currentTarget as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+	}
+
 	function flagUrl(teamName: string | undefined, size = 40): string {
 		if (!teamName) return '';
 		const team = WC2026_TEAMS.find((t) => t.name === teamName);
@@ -53,19 +59,22 @@
 		{/if}
 	</div>
 
-	<!-- Filter tabs: Tous | each of my leagues | Amis (last) — swipeable on mobile -->
+	<!-- Filter tabs: Tous | each of my leagues | Amis (last) — horizontal
+	     carousel on mobile: momentum scroll, hidden scrollbar, right-edge fade
+	     as the "there's more" affordance. -->
 	{#if data.currentUser && (data.friendIds.length > 0 || (data.myLeagues ?? []).length > 0)}
-		<div class="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+		<div class="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+			[mask-image:linear-gradient(to_right,black_0,black_calc(100%-32px),transparent_100%)] sm:[mask-image:none]">
 			<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-max">
 				<button
-					onclick={() => (filter = 'global')}
+					onclick={(e) => pickFilter('global', e)}
 					class="rounded px-4 py-1.5 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap
 						{filter === 'global' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
 					{t('lb_all')}
 				</button>
 				{#each data.myLeagues ?? [] as league (league.id)}
 					<button
-						onclick={() => (filter = league.id)}
+						onclick={(e) => pickFilter(league.id, e)}
 						class="rounded px-4 py-1.5 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap max-w-[11rem] truncate
 							{filter === league.id ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
 						{league.name}
@@ -73,7 +82,7 @@
 				{/each}
 				{#if data.friendIds.length > 0}
 					<button
-						onclick={() => (filter = 'friends')}
+						onclick={(e) => pickFilter('friends', e)}
 						class="rounded px-4 py-1.5 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap
 							{filter === 'friends' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
 						{t('lb_friends')}
