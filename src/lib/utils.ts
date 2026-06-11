@@ -147,6 +147,20 @@ export function effectiveStatus(
 	return match.status;
 }
 
+// Real match clock from Polymarket (matches.live_elapsed / live_period).
+// Returns "67′", "45+2′", "MT"/"HT" at halftime… or null when no data yet —
+// callers fall back to their own estimate.
+export function liveClock(
+	elapsed: string | null | undefined,
+	period: string | null | undefined,
+	lang: 'fr' | 'en' = 'fr'
+): string | null {
+	if (period === 'HT') return lang === 'fr' ? 'MT' : 'HT';
+	if (period === 'FT' || period === 'VFT') return null; // finished — no clock
+	if (elapsed) return `${elapsed}′`;
+	return null;
+}
+
 export function timeUntilMatch(matchDatetime: string): string {
 	const diff = new Date(matchDatetime).getTime() - Date.now();
 	if (diff <= 0) return 'Commencé';

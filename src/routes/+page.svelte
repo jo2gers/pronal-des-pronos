@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { formatDate, groupByDay, daysUntilMatch } from '$lib/utils';
+	import { formatDate, groupByDay, daysUntilMatch, liveClock } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import Flag from '$lib/components/Flag.svelte';
@@ -25,11 +25,15 @@
 		return () => clearInterval(interval);
 	});
 
-	function matchMinute(kickoffIso: string, now: number): string {
-		const elapsedMin = Math.floor((now - new Date(kickoffIso).getTime()) / 60000);
+	// Real clock from Polymarket when available; kickoff-based estimate as the
+	// fallback (first seconds of a match, before the first live poll lands).
+	function matchMinute(match: { match_datetime: string; live_elapsed?: string | null; live_period?: string | null }, now: number): string {
+		const real = liveClock(match.live_elapsed, match.live_period, getLang() as 'fr' | 'en');
+		if (real) return real;
+		const elapsedMin = Math.floor((now - new Date(match.match_datetime).getTime()) / 60000);
 		if (elapsedMin < 0)   return "0'";
 		if (elapsedMin <= 45) return `${elapsedMin}'`;
-		if (elapsedMin < 60)  return 'HT';
+		if (elapsedMin < 60)  return getLang() === 'fr' ? 'MT' : 'HT';
 		if (elapsedMin < 105) return `${elapsedMin - 15}'`;
 		return "90+'";
 	}
@@ -240,7 +244,7 @@
 										<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>
 										LIVE
 										<span class="opacity-80">·</span>
-										<span class="tabular-nums">{matchMinute(match.match_datetime, liveNowMs)}</span>
+										<span class="tabular-nums">{matchMinute(match, liveNowMs)}</span>
 									</span>
 								</div>
 								<div class="flex-1 min-w-0 flex flex-col items-center max-w-[40%]">

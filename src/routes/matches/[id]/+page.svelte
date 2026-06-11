@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { formatDate, isMatchLocked } from '$lib/utils';
+	import { formatDate, isMatchLocked, liveClock } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import Flag from '$lib/components/Flag.svelte';
@@ -160,6 +160,11 @@
 					<span class="inline-flex items-center gap-1.5 mt-2">
 						<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
 						<span class="text-xs font-bold text-live uppercase tracking-widest">LIVE</span>
+						{#if liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en')}
+							<span class="text-xs font-bold text-live tabular-nums">
+								· {liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en')}
+							</span>
+						{/if}
 					</span>
 				{:else}
 					{#if countdown}

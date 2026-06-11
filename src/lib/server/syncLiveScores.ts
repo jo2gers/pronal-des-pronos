@@ -145,6 +145,17 @@ export async function syncLiveScores(
 		if (willTransitionToFinished) patch.status = 'finished';
 		else if (!isFinished && m.status === 'upcoming') patch.status = 'live';
 
+		// Real match clock: written on every live poll so the UI shows
+		// Polymarket's minute (handles halftime, stoppage, extra time) instead
+		// of a computed estimate. Cleared at FT.
+		if (isFinished) {
+			patch.live_elapsed = null;
+			patch.live_period = 'FT';
+		} else {
+			patch.live_elapsed = ev.elapsed ?? null;
+			patch.live_period = ev.period ?? null;
+		}
+
 		if (Object.keys(patch).length === 0) continue;
 
 		const { error } = await supabase.from('matches').update(patch).eq('id', m.id);
