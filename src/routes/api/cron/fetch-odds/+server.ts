@@ -147,7 +147,9 @@ async function syncWcWinnerOdds(supabase: any) {
 		return { ok: true, locked: true, updated: 0 };
 	}
 
-	const res = await fetch('https://gamma-api.polymarket.com/events?slug=2026-fifa-world-cup-winner-595', {
+	// Polymarket retired the old `2026-fifa-world-cup-winner-595` slug; the
+	// market now lives at `world-cup-winner` (same question format).
+	const res = await fetch('https://gamma-api.polymarket.com/events?slug=world-cup-winner', {
 		headers: { Accept: 'application/json' }
 	});
 	if (!res.ok) return { ok: false, error: `Polymarket: ${res.status}` };
