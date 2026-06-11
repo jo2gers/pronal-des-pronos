@@ -222,10 +222,10 @@
 							? `${stageLabel} · ${getLang() === 'fr' ? 'Groupe' : 'Group'} ${match.group_label}`
 							: stageLabel}
 						<a href="/matches/{match.id}"
-							class="rounded-xl bg-canvas border border-live/30 hover:border-live transition-colors {sole ? 'px-6 py-8 sm:py-10' : 'px-4 py-5'} text-center block">
+							class="rounded-xl bg-canvas border border-live/30 hover:border-live transition-colors {sole ? 'px-6 py-8 sm:py-10' : 'px-4 py-5'} text-center block min-w-0 overflow-hidden">
 							<p class="{sole ? 'text-xs' : 'text-[11px]'} text-muted mb-4 uppercase tracking-widest">{stageLabelFull}</p>
 							<div class="flex items-center justify-center gap-4 sm:gap-8">
-								<div class="flex-1 flex flex-col items-center max-w-[40%]">
+								<div class="flex-1 min-w-0 flex flex-col items-center max-w-[40%]">
 									<Flag code={match.home_flag} size={sole ? 80 : 48} alt={teamLabel(match.home_team)} class="mb-2" />
 									<p class="{sole ? 'text-base sm:text-lg' : 'text-sm'} font-semibold text-fg leading-tight truncate max-w-full">{teamLabel(match.home_team)}</p>
 								</div>
@@ -243,7 +243,7 @@
 										<span class="tabular-nums">{matchMinute(match.match_datetime, liveNowMs)}</span>
 									</span>
 								</div>
-								<div class="flex-1 flex flex-col items-center max-w-[40%]">
+								<div class="flex-1 min-w-0 flex flex-col items-center max-w-[40%]">
 									<Flag code={match.away_flag} size={sole ? 80 : 48} alt={teamLabel(match.away_team)} class="mb-2" />
 									<p class="{sole ? 'text-base sm:text-lg' : 'text-sm'} font-semibold text-fg leading-tight truncate max-w-full">{teamLabel(match.away_team)}</p>
 								</div>
