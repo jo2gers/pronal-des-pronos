@@ -135,7 +135,7 @@
 					{/if}
 				</div>
 
-				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
+				<div class="grid grid-cols-[1fr_auto_1fr] items-start gap-3 sm:gap-4">
 					<a href="/teams/{encodeURIComponent(nextMatch.home_team)}"
 						class="flex flex-col items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
 						<Flag code={nextMatch.home_flag} size={64} alt={teamLabel(nextMatch.home_team)} />
@@ -144,7 +144,7 @@
 							{teamLabel(nextMatch.home_team)}
 						</div>
 					</a>
-					<div class="text-center px-1.5">
+					<div class="text-center px-1.5 self-center">
 						<div class="text-2xl sm:text-3xl text-faint tabular-nums leading-none"
 							style="font-family: var(--font-display); letter-spacing: -0.02em">—</div>
 						<div class="text-[10.5px] uppercase tracking-[0.1em] text-faint mt-1"

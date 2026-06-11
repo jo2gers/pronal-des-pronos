@@ -129,8 +129,9 @@
 			{/if}
 		</div>
 
-		<!-- Teams + score -->
-		<div class="flex items-center justify-center gap-6 sm:gap-10">
+		<!-- Teams + score. items-start pins both flags to the same row — a
+		     two-line team name ("South Africa") must never push its flag up. -->
+		<div class="flex items-start justify-center gap-6 sm:gap-10">
 			<div class="text-center flex-1 flex flex-col items-center">
 				{#if data.match.home_team !== 'TBD'}
 					<a href="/teams/{encodeURIComponent(data.match.home_team)}"
@@ -144,7 +145,7 @@
 				{/if}
 			</div>
 
-			<div class="text-center shrink-0">
+			<div class="text-center shrink-0 self-center">
 				{#if data.match.status === 'finished' && data.match.home_score != null}
 					<p class="text-5xl font-bold text-accent tabular-nums leading-none"
 						style="font-family: var(--font-display)">
