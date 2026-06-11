@@ -111,10 +111,11 @@
 					</a>
 				</div>
 
-				<!-- Stats strip · 104 · 48 · 16 -->
+				<!-- Stats strip · 104 · 48 · 16 — centered on phones, editorial
+				     left-align from sm up -->
 				<div class="grid grid-cols-3 gap-0 mt-16 pt-6 border-t border-wire/60">
 					{#each [['104', t('pitch_stat_matches')], ['48', t('pitch_stat_teams')], ['16', t('pitch_stat_cities')]] as [n, label]}
-						<div>
+						<div class="text-center sm:text-left">
 							<div class="text-3xl sm:text-4xl lg:text-5xl font-semibold tabular-nums leading-none"
 								style="font-family: var(--font-display); letter-spacing: -0.03em">{n}</div>
 							<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2"
@@ -129,7 +130,10 @@
 				<div class="flex items-center justify-between mb-8">
 					<span class="text-[10.5px] uppercase tracking-[0.08em] text-faint"
 						style="font-family: var(--font-mono)">
-						{t('card_match_opener')}{nextMatch.group_label ? ` · ${t('card_group')} ${nextMatch.group_label}` : ''}
+						<!-- "Opening match" only while nothing has been played yet -->
+						{(data.finishedMatches?.length ?? 0) === 0 && liveMatches.length === 0
+							? t('card_match_opener')
+							: t('next_match')}{nextMatch.group_label ? ` · ${t('card_group')} ${nextMatch.group_label}` : ''}
 					</span>
 					{#if countdown}
 						<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-accent text-canvas text-[11px] font-bold tabular-nums"
