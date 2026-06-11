@@ -382,8 +382,10 @@
 					{t('leaderboard_link')}
 				</a>
 			</div>
+			<!-- Centered on phones (full-width columns feel lopsided left-aligned);
+			     back to editorial left alignment from sm up. -->
 			<div class="grid grid-cols-3 gap-4 px-1">
-				<div>
+				<div class="text-center sm:text-left">
 					<div class="text-3xl sm:text-4xl font-semibold text-fg tabular-nums leading-none"
 						style="font-family: var(--font-display); letter-spacing: -0.03em">
 						#{data.stats.rank ?? '–'}
@@ -393,12 +395,12 @@
 						{t('your_rank')}
 					</div>
 				</div>
-				<div>
+				<div class="text-center sm:text-left">
 					<div class="text-3xl sm:text-4xl font-semibold text-accent tabular-nums leading-none"
 						style="font-family: var(--font-display); letter-spacing: -0.03em">
 						{data.stats.totalPoints.toFixed(2)}
 					</div>
-					<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2 flex items-baseline gap-2"
+					<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2 flex items-baseline gap-2 justify-center sm:justify-start"
 						style="font-family: var(--font-mono)">
 						<span>{t('points')}</span>
 						{#if data.stats.teamBonus > 0}
@@ -408,7 +410,7 @@
 						{/if}
 					</div>
 				</div>
-				<div>
+				<div class="text-center sm:text-left">
 					<div class="text-3xl sm:text-4xl font-semibold text-fg tabular-nums leading-none"
 						style="font-family: var(--font-display); letter-spacing: -0.03em">
 						{data.stats.pronosticsCount}
