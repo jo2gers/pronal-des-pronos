@@ -31,14 +31,15 @@
 	const src = $derived(code ? `https://flagcdn.com/w${cdnWidth}/${code.toLowerCase()}.png` : '');
 </script>
 
-<!-- aspect-ratio + height:auto (not a fixed height): when a tight flex column
-     squeezes the image below its natural width (preflight img max-width:100%),
-     the flag scales down proportionally instead of cropping to a portrait
-     sliver. The flag's shape always wins over its size. -->
-{#if src}
-	<img {src} {alt} class="object-cover shrink-0 {ringClass} {extra}"
-		style="width: {width}px; height: auto; aspect-ratio: 3 / 2; border-radius: {radius}px;" />
-{:else}
-	<span class="shrink-0 bg-raised {ringClass} {extra}"
-		style="width: {width}px; max-width: 100%; aspect-ratio: 3 / 2; border-radius: {radius}px;"></span>
-{/if}
+<!-- Padding-ratio wrapper (not CSS aspect-ratio: iOS Safari computes a zero
+     height for aspect-ratio + height:auto images inside flex columns). The
+     spacer's padding-bottom is a % of the wrapper width, so the slot is always
+     3:2 — and max-width:100% lets a tight column scale the whole flag down
+     proportionally instead of cropping it into a portrait sliver. -->
+<span class="relative block shrink-0 overflow-hidden {src ? '' : 'bg-raised'} {ringClass} {extra}"
+	style="width: {width}px; max-width: 100%; border-radius: {radius}px;">
+	<span class="block" style="padding-bottom: 66.667%" aria-hidden="true"></span>
+	{#if src}
+		<img {src} {alt} class="absolute inset-0 w-full h-full object-cover" />
+	{/if}
+</span>

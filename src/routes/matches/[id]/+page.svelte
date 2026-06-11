@@ -132,10 +132,10 @@
 		<!-- Teams + score. items-start pins both flags to the same row — a
 		     two-line team name ("South Africa") must never push its flag up. -->
 		<div class="flex items-start justify-center gap-6 sm:gap-10">
-			<div class="text-center flex-1 flex flex-col items-center">
+			<div class="text-center flex-1 min-w-0 flex flex-col items-center">
 				{#if data.match.home_team !== 'TBD'}
 					<a href="/teams/{encodeURIComponent(data.match.home_team)}"
-						class="flex flex-col items-center group/team" title={teamLabel(data.match.home_team)}>
+						class="flex flex-col items-center group/team max-w-full" title={teamLabel(data.match.home_team)}>
 						<Flag code={data.match.home_flag} size={88} alt={teamLabel(data.match.home_team)} class="mb-2 group-hover/team:scale-105 transition-transform" />
 						<p class="font-bold text-base text-fg leading-tight group-hover/team:text-accent transition-colors">{teamLabel(data.match.home_team)}</p>
 					</a>
@@ -193,10 +193,10 @@
 				{/if}
 			</div>
 
-			<div class="text-center flex-1 flex flex-col items-center">
+			<div class="text-center flex-1 min-w-0 flex flex-col items-center">
 				{#if data.match.away_team !== 'TBD'}
 					<a href="/teams/{encodeURIComponent(data.match.away_team)}"
-						class="flex flex-col items-center group/team" title={teamLabel(data.match.away_team)}>
+						class="flex flex-col items-center group/team max-w-full" title={teamLabel(data.match.away_team)}>
 						<Flag code={data.match.away_flag} size={88} alt={teamLabel(data.match.away_team)} class="mb-2 group-hover/team:scale-105 transition-transform" />
 						<p class="font-bold text-base text-fg leading-tight group-hover/team:text-accent transition-colors">{teamLabel(data.match.away_team)}</p>
 					</a>
