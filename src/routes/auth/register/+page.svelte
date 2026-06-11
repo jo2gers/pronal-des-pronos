@@ -143,7 +143,8 @@
 
 		<p class="mt-6 text-center text-sm text-muted">
 			{t('auth_already_account')}
-			<a href="/auth/login" class="text-accent hover:text-accent-hi">{t('auth_login_link')}</a>
+			<a href="/auth/login{(form?.next ?? data.next ?? '/') !== '/' ? `?next=${encodeURIComponent(form?.next ?? data.next ?? '/')}` : ''}"
+				class="text-accent hover:text-accent-hi">{t('auth_login_link')}</a>
 		</p>
 	</div>
 </div>

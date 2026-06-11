@@ -63,7 +63,8 @@
 
 		<p class="mt-6 text-center text-sm text-muted">
 			{t('auth_no_account')}
-			<a href="/auth/register" class="text-accent hover:text-accent-hi">{t('auth_signup_link')}</a>
+			<a href="/auth/register{(form?.next ?? data.next ?? '/') !== '/' ? `?next=${encodeURIComponent(form?.next ?? data.next ?? '/')}` : ''}"
+				class="text-accent hover:text-accent-hi">{t('auth_signup_link')}</a>
 		</p>
 	</div>
 </div>

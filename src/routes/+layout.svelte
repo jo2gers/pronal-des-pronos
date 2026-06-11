@@ -12,6 +12,14 @@
 
 	const totalNotif = $derived((data.friendNotifCount ?? 0) + (data.groupNotifCount ?? 0) + (data.inviteCount ?? 0));
 
+	// Keep an invite/deep link alive across the auth pages: when the current URL
+	// carries ?next= (e.g. /auth/login?next=/leagues/join/abc), the nav's own
+	// login/register links must forward it, or the link is lost on click.
+	const authQS = $derived.by(() => {
+		const next = page.url.searchParams.get('next');
+		return next ? `?next=${encodeURIComponent(next)}` : '';
+	});
+
 	const navLinks = $derived([
 		{ href: '/',            label: t('nav_home') },
 		{ href: '/matches',     label: t('nav_matches') },
@@ -260,8 +268,8 @@
 						{t('nav_logout')}
 					</button>
 				{:else}
-					<a href="/auth/login" class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
-					<a href="/auth/register"
+					<a href="/auth/login{authQS}" class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
+					<a href="/auth/register{authQS}"
 						class="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-canvas hover:bg-accent-hi transition-colors">
 						{t('nav_register')}
 					</a>
@@ -356,8 +364,8 @@
 						</a>
 							<button onclick={logout} class="text-sm text-faint hover:text-err transition-colors cursor-pointer">{t('nav_logout')}</button>
 						{:else}
-							<a href="/auth/login" onclick={closeMenu} class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
-							<a href="/auth/register" onclick={closeMenu} class="text-sm text-accent font-semibold">{t('nav_register')}</a>
+							<a href="/auth/login{authQS}" onclick={closeMenu} class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
+							<a href="/auth/register{authQS}" onclick={closeMenu} class="text-sm text-accent font-semibold">{t('nav_register')}</a>
 						{/if}
 					</div>
 				</div>
