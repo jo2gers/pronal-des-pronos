@@ -27,8 +27,8 @@
 
 	// Real clock from Polymarket when available; kickoff-based estimate as the
 	// fallback (first seconds of a match, before the first live poll lands).
-	function matchMinute(match: { match_datetime: string; live_elapsed?: string | null; live_period?: string | null }, now: number): string {
-		const real = liveClock(match.live_elapsed, match.live_period, getLang() as 'fr' | 'en');
+	function matchMinute(match: { match_datetime: string; live_elapsed?: string | null; live_period?: string | null; last_score_sync_at?: string | null }, now: number): string {
+		const real = liveClock(match.live_elapsed, match.live_period, getLang() as 'fr' | 'en', match.last_score_sync_at);
 		if (real) return real;
 		const elapsedMin = Math.floor((now - new Date(match.match_datetime).getTime()) / 60000);
 		if (elapsedMin < 0)   return "0'";

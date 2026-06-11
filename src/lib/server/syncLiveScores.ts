@@ -70,8 +70,10 @@ function isDueForSync(match: LiveMatchRow, nowMs: number): boolean {
 
 async function fetchPolymarketEvent(slug: string): Promise<PolymarketEvent | null> {
 	try {
-		const res = await fetch(`https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(slug)}`, {
-			headers: { Accept: 'application/json' }
+		// Cache-buster: gamma's CDN serves ~5-min-stale snapshots otherwise,
+		// which lags the live score/minute behind the real match.
+		const res = await fetch(`https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(slug)}&_=${Date.now()}`, {
+			headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' }
 		});
 		if (!res.ok) return null;
 		const raw = await res.json();

@@ -89,6 +89,11 @@
 	// Points/badges only mean something once the match result is in.
 	const isScoredView = $derived(data.match.status === 'finished');
 
+	// Real Polymarket match clock for the LIVE badge (null until first poll).
+	const liveMatchClock = $derived(
+		liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en', data.match.last_score_sync_at)
+	);
+
 	// Whether the user's own pick is already in the list
 	const myPronoInList = $derived(
 		data.allPronostics?.some((p: any) => p.user_id === data.user?.id) ?? false
@@ -160,10 +165,8 @@
 					<span class="inline-flex items-center gap-1.5 mt-2">
 						<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
 						<span class="text-xs font-bold text-live uppercase tracking-widest">LIVE</span>
-						{#if liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en')}
-							<span class="text-xs font-bold text-live tabular-nums">
-								· {liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en')}
-							</span>
+						{#if liveMatchClock}
+							<span class="text-xs font-bold text-live tabular-nums">· {liveMatchClock}</span>
 						{/if}
 					</span>
 				{:else}

@@ -150,15 +150,28 @@ export function effectiveStatus(
 // Real match clock from Polymarket (matches.live_elapsed / live_period).
 // Returns "67′", "45+2′", "MT"/"HT" at halftime… or null when no data yet —
 // callers fall back to their own estimate.
+//
+// `syncedAt` (matches.last_score_sync_at) lets us extrapolate between polls:
+// gamma's CDN snapshots can lag a few minutes, so we add the time elapsed
+// since the value was fetched. Only safe for plain numeric minutes in open
+// play — stoppage-time strings ("45+2") and halftime are shown as-is.
 export function liveClock(
 	elapsed: string | null | undefined,
 	period: string | null | undefined,
-	lang: 'fr' | 'en' = 'fr'
+	lang: 'fr' | 'en' = 'fr',
+	syncedAt?: string | null
 ): string | null {
 	if (period === 'HT') return lang === 'fr' ? 'MT' : 'HT';
 	if (period === 'FT' || period === 'VFT') return null; // finished — no clock
-	if (elapsed) return `${elapsed}′`;
-	return null;
+	if (!elapsed) return null;
+
+	if (/^\d+$/.test(elapsed) && syncedAt && (period === '1H' || period === '2H')) {
+		const driftMin = Math.max(0, Math.floor((Date.now() - new Date(syncedAt).getTime()) / 60000));
+		const cap = period === '1H' ? 45 : 90;
+		const minute = parseInt(elapsed, 10) + driftMin;
+		return minute > cap ? `${cap}+′` : `${minute}′`;
+	}
+	return `${elapsed}′`;
 }
 
 export function timeUntilMatch(matchDatetime: string): string {
