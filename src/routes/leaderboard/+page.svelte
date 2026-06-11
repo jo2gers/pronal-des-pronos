@@ -3,7 +3,8 @@
 	import { t } from '$lib/i18n.svelte';
 
 	let { data } = $props();
-	let filter = $state<'global' | 'friends'>('global');
+	// 'global' | 'friends' | a league id — tabs render Tous | leagues | Amis
+	let filter = $state<string>('global');
 
 	function flagUrl(teamName: string | undefined, size = 40): string {
 		if (!teamName) return '';
@@ -11,13 +12,19 @@
 		return team ? `https://flagcdn.com/w${size}/${team.flag.toLowerCase()}.png` : '';
 	}
 
-	const visible = $derived(
-		filter === 'friends' && data.currentUser
-			? data.leaderboard.filter(
-					(r) => r.userId === data.currentUser!.id || data.friendIds.includes(r.userId)
-			  )
-			: data.leaderboard
-	);
+	const visible = $derived.by(() => {
+		if (filter === 'friends' && data.currentUser) {
+			return data.leaderboard.filter(
+				(r) => r.userId === data.currentUser!.id || data.friendIds.includes(r.userId)
+			);
+		}
+		const league = (data.myLeagues ?? []).find((l) => l.id === filter);
+		if (league) {
+			const members = new Set(league.memberIds);
+			return data.leaderboard.filter((r) => members.has(r.userId));
+		}
+		return data.leaderboard;
+	});
 
 	const ranked = $derived(visible.map((r, i) => ({ ...r, displayRank: i + 1 })));
 
@@ -46,21 +53,33 @@
 		{/if}
 	</div>
 
-	<!-- Friends filter -->
-	{#if data.currentUser && data.friendIds.length > 0}
-		<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-fit">
-			<button
-				onclick={() => (filter = 'global')}
-				class="rounded px-4 py-1.5 text-sm font-semibold transition-colors cursor-pointer
-					{filter === 'global' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
-				{t('lb_all')}
-			</button>
-			<button
-				onclick={() => (filter = 'friends')}
-				class="rounded px-4 py-1.5 text-sm font-semibold transition-colors cursor-pointer
-					{filter === 'friends' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
-				{t('lb_friends')}
-			</button>
+	<!-- Filter tabs: Tous | each of my leagues | Amis (last) — swipeable on mobile -->
+	{#if data.currentUser && (data.friendIds.length > 0 || (data.myLeagues ?? []).length > 0)}
+		<div class="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+			<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-max">
+				<button
+					onclick={() => (filter = 'global')}
+					class="rounded px-4 py-1.5 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap
+						{filter === 'global' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
+					{t('lb_all')}
+				</button>
+				{#each data.myLeagues ?? [] as league (league.id)}
+					<button
+						onclick={() => (filter = league.id)}
+						class="rounded px-4 py-1.5 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap max-w-[11rem] truncate
+							{filter === league.id ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
+						{league.name}
+					</button>
+				{/each}
+				{#if data.friendIds.length > 0}
+					<button
+						onclick={() => (filter = 'friends')}
+						class="rounded px-4 py-1.5 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap
+							{filter === 'friends' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
+						{t('lb_friends')}
+					</button>
+				{/if}
+			</div>
 		</div>
 	{/if}
 

@@ -177,6 +177,38 @@
 		</dl>
 	</div>
 
+	<!-- Picks on matches currently in play (locked, not yet scored) -->
+	{#if (data.livePicks ?? []).length > 0}
+		<section class="pt-2">
+			<header class="flex items-center gap-2 border-t border-wire pt-5 mb-3">
+				<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
+				<h2 class="text-base font-semibold text-fg">{t('profile_live_picks')}</h2>
+			</header>
+			<div class="-mx-4 sm:mx-0 sm:rounded-xl sm:border sm:border-wire overflow-hidden border-y border-wire sm:border-y-0">
+				{#each data.livePicks as p}
+					{@const match = p.match as any}
+					<a href="/matches/{match?.id}"
+						class="flex items-center gap-3 px-4 py-3 border-b border-wire/40 last:border-0 hover:bg-raised/40 transition-colors">
+						<div class="flex-1 min-w-0">
+							<p class="text-sm font-medium text-fg truncate">{match?.home_team} – {match?.away_team}</p>
+							<p class="text-xs text-faint mt-0.5">
+								{#if match?.status === 'live'}
+									<span class="text-live font-semibold">LIVE</span>
+									· {match?.home_score ?? 0}–{match?.away_score ?? 0}
+								{:else}
+									{formatDate(match?.match_datetime)}
+								{/if}
+							</p>
+						</div>
+						<span class="text-sm font-mono tabular-nums text-fg shrink-0">
+							{p.predicted_home}–{p.predicted_away}
+						</span>
+					</a>
+				{/each}
+			</div>
+		</section>
+	{/if}
+
 	<!-- Pronostics history — flat section, full-bleed table on mobile -->
 	<section class="pt-2">
 		<header class="flex items-baseline justify-between border-t border-wire pt-5 mb-4">

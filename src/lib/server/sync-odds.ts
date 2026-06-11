@@ -149,6 +149,23 @@ export async function backfillPolymarketSlugs(supabase: SupabaseClient) {
 
 // ── WC winner odds (team-level, for favorite-team bonus) ───────────────────
 export async function syncWCWinnerOdds(supabase: SupabaseClient) {
+	// Hard freeze 5 minutes before the tournament's first kickoff: these
+	// multipliers drive every future team bonus, so once the WC starts they
+	// must never move again — even via the admin sync button.
+	const { data: firstMatch } = await supabase
+		.from('matches')
+		.select('match_datetime')
+		.neq('home_team', 'TBD')
+		.order('match_datetime', { ascending: true })
+		.limit(1)
+		.maybeSingle();
+	const firstKickoff = firstMatch?.match_datetime
+		? new Date(firstMatch.match_datetime).getTime()
+		: null;
+	if (firstKickoff && Date.now() >= firstKickoff - 5 * 60 * 1000) {
+		return { ok: true as const, locked: true, updated: 0, unmatched: [] as string[] };
+	}
+
 	// Polymarket retired the old `2026-fifa-world-cup-winner-595` slug; the
 	// market now lives at `world-cup-winner` (same question format).
 	const res = await fetch(

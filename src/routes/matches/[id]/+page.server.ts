@@ -39,20 +39,35 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		);
 	}
 
-	// After match: load all pronostics ordered by points, plus compute the
-	// team bonus this specific match awarded to supporters of the winning team.
-	// Bonus only exists for decisive group-stage / knockout wins (no draws).
+	// Once the match is locked (5 min before kickoff), everyone's picks become
+	// public — RLS opens them at the same cutoff. Ordered by points for finished
+	// matches, by name otherwise (nothing is scored yet).
+	const matchLocked =
+		match.status === 'live' ||
+		match.status === 'finished' ||
+		new Date(match.match_datetime).getTime() - Date.now() < 5 * 60000;
+
 	let allPronostics = null;
 	let matchBonus: { amount: number; winnerTeam: string } | null = null;
-	if (match.status === 'finished') {
+
+	if (matchLocked && match.home_team !== 'TBD') {
 		const { data } = await supabase
 			.from('pronostics')
 			.select('user_id, predicted_home, predicted_away, points_earned, is_scored, profiles(id, username, display_name, avatar_url, favorite_team)')
-			.eq('match_id', params.id)
-			.eq('is_scored', true)
-			.order('points_earned', { ascending: false });
-		allPronostics = data;
+			.eq('match_id', params.id);
 
+		allPronostics = (data ?? []).sort((a, b) => {
+			const pa = a.is_scored ? (a.points_earned ?? 0) : -1;
+			const pb = b.is_scored ? (b.points_earned ?? 0) : -1;
+			if (pb !== pa) return pb - pa;
+			const na = ((a.profiles as any)?.display_name ?? (a.profiles as any)?.username ?? '').toLowerCase();
+			const nb = ((b.profiles as any)?.display_name ?? (b.profiles as any)?.username ?? '').toLowerCase();
+			return na.localeCompare(nb);
+		});
+	}
+
+	// Team bonus annotation only makes sense once the result exists.
+	if (match.status === 'finished') {
 		const STAGE_BONUS: Record<string, number> = {
 			group: 1, round_of_32: 2, round_of_16: 3, quarters: 5, semis: 8, final: 13, third: 3
 		};
@@ -78,12 +93,39 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		}
 	}
 
+	// The viewer's leagues + their member lists → per-league filter tabs on the
+	// pronostics list. Two cheap queries (league count per user is tiny).
+	let myLeagues: { id: string; name: string; memberIds: string[] }[] = [];
+	if (user && allPronostics) {
+		const { data: memberships } = await supabase
+			.from('group_members')
+			.select('group_id, groups(id, name)')
+			.eq('user_id', user.id);
+
+		const groupIds = (memberships ?? []).map((m) => m.group_id);
+		if (groupIds.length > 0) {
+			const { data: allMembers } = await supabase
+				.from('group_members')
+				.select('group_id, user_id')
+				.in('group_id', groupIds);
+
+			myLeagues = (memberships ?? []).map((m) => ({
+				id: m.group_id,
+				name: (m.groups as any)?.name ?? '?',
+				memberIds: (allMembers ?? [])
+					.filter((r) => r.group_id === m.group_id)
+					.map((r) => r.user_id)
+			}));
+		}
+	}
+
 	return {
 		match,
 		userPronostic: pronosticResult.data,
 		allPronostics,
 		matchBonus,
 		friendIds,
+		myLeagues,
 		user
 	};
 };

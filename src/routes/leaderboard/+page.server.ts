@@ -43,18 +43,42 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		? (leaderboard.findIndex((r) => r.userId === user.id) + 1) || null
 		: null;
 
-	// Friend IDs for "friends" filter
+	// Friend IDs for the "friends" filter + the viewer's leagues for per-league
+	// tabs (Tous | each league | Amis).
 	let friendIds: string[] = [];
+	let myLeagues: { id: string; name: string; memberIds: string[] }[] = [];
 	if (user) {
-		const { data: friendships } = await supabase
-			.from('friendships')
-			.select('requester_id, addressee_id')
-			.eq('status', 'accepted')
-			.or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+		const [{ data: friendships }, { data: memberships }] = await Promise.all([
+			supabase
+				.from('friendships')
+				.select('requester_id, addressee_id')
+				.eq('status', 'accepted')
+				.or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),
+			supabase
+				.from('group_members')
+				.select('group_id, groups(id, name)')
+				.eq('user_id', user.id)
+		]);
 		friendIds = (friendships ?? []).map((f) =>
 			f.requester_id === user.id ? f.addressee_id : f.requester_id
 		);
+
+		const groupIds = (memberships ?? []).map((m) => m.group_id);
+		if (groupIds.length > 0) {
+			const { data: allMembers } = await supabase
+				.from('group_members')
+				.select('group_id, user_id')
+				.in('group_id', groupIds);
+
+			myLeagues = (memberships ?? []).map((m) => ({
+				id: m.group_id,
+				name: (m.groups as any)?.name ?? '?',
+				memberIds: (allMembers ?? [])
+					.filter((r) => r.group_id === m.group_id)
+					.map((r) => r.user_id)
+			}));
+		}
 	}
 
-	return { leaderboard, userRank, currentUser: user, friendIds };
+	return { leaderboard, userRank, currentUser: user, friendIds, myLeagues };
 };

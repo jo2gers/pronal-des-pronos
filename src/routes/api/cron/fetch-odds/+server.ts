@@ -96,7 +96,7 @@ async function syncMatchOdds(supabase: any) {
 		);
 		if (!dbMatch) continue;
 
-		// Lock: don't refresh odds within 1h of kickoff
+		// Lock: don't refresh odds within 5 min of kickoff
 		const kickoff = new Date(dbMatch.match_datetime).getTime();
 		if (kickoff - now < LOCK_MS) {
 			lockedSkipped++;
@@ -128,18 +128,18 @@ async function syncMatchOdds(supabase: any) {
 }
 
 async function syncWcWinnerOdds(supabase: any) {
-	// Lock: stop refreshing 1 hour before the first WC match. Multipliers freeze
-	// at the last sync that ran before this cutoff.
+	// Lock: stop refreshing 5 minutes before the tournament's FIRST match (any
+	// status — filtering on 'upcoming' would re-unlock between matches once the
+	// opener finishes). Multipliers freeze at the last sync before this cutoff.
 	const { data: firstMatch } = await supabase
 		.from('matches')
 		.select('match_datetime')
-		.eq('status', 'upcoming')
 		.neq('home_team', 'TBD')
 		.order('match_datetime', { ascending: true })
 		.limit(1)
 		.maybeSingle();
 
-	const LOCK_BEFORE_MS = 60 * 60 * 1000; // 1 hour
+	const LOCK_BEFORE_MS = 5 * 60 * 1000; // 5 minutes — same cutoff as match picks
 	const firstMatchTime = (firstMatch as any)?.match_datetime
 		? new Date((firstMatch as any).match_datetime).getTime()
 		: null;

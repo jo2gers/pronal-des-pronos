@@ -5,21 +5,25 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
 
+	// First match of the WHOLE tournament (any status) — using only 'upcoming'
+	// would shift the lock anchor to the next match once the opener finishes,
+	// re-unlocking the favorite team mid-tournament.
 	const [{ data: profile }, { data: firstMatch }, { data: oddsData }] = await Promise.all([
 		supabase.from('profiles').select('*').eq('id', user.id).single(),
 		supabase
 			.from('matches')
 			.select('match_datetime')
-			.eq('status', 'upcoming')
+			.neq('home_team', 'TBD')
 			.order('match_datetime', { ascending: true })
 			.limit(1)
 			.maybeSingle(),
 		supabase.from('wc_winner_odds').select('team_name_en, multiplier')
 	]);
 
-	// Lock favorite_team 1 hour before kick-off of the first WC match.
+	// Lock favorite_team 5 minutes before kick-off of the first WC match —
+	// same cutoff as individual match picks.
 	const firstMatchTime = firstMatch?.match_datetime ? new Date(firstMatch.match_datetime) : null;
-	const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 60 * 60 * 1000) : null;
+	const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 5 * 60 * 1000) : null;
 	const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
 
 	const oddsMap = Object.fromEntries(
@@ -39,17 +43,18 @@ export const actions: Actions = {
 		const favorite_team = form.get('favorite_team') as string;
 		const country = form.get('country') as string;
 
-		// Check lock status server-side
+		// Check lock status server-side — anchored on the tournament's very first
+		// match (any status), not the next upcoming one.
 		const { data: firstMatch } = await supabase
 			.from('matches')
 			.select('match_datetime')
-			.eq('status', 'upcoming')
+			.neq('home_team', 'TBD')
 			.order('match_datetime', { ascending: true })
 			.limit(1)
 			.maybeSingle();
 
 		const firstMatchTime = firstMatch?.match_datetime ? new Date(firstMatch.match_datetime) : null;
-		const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 60 * 60 * 1000) : null;
+		const lockCutoff = firstMatchTime ? new Date(firstMatchTime.getTime() - 5 * 60 * 1000) : null;
 		const teamLocked = lockCutoff ? new Date() >= lockCutoff : false;
 
 		const { data: currentProfile } = await supabase

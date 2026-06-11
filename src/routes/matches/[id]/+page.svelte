@@ -22,7 +22,8 @@
 	let home      = $state(data.userPronostic?.predicted_home ?? 0);
 	let away      = $state(data.userPronostic?.predicted_away ?? 0);
 	let loading   = $state(false);
-	let pronoFilter = $state<'friends' | 'all'>('friends');
+	// 'all' | 'friends' | a league id — tabs render in that order (leagues in the middle)
+	let pronoFilter = $state<string>('all');
 
 	// Locked when: kickoff lock fired, OR teams are still TBD, OR the whole
 	// stage hasn't opened yet (previous round still has unfinished matches —
@@ -73,12 +74,20 @@
 	// Friends + self set for filtering
 	const friendSet = $derived(new Set([...(data.friendIds ?? []), data.user?.id ?? '']));
 
-	// Filtered pronostics
+	// Filtered pronostics: all | friends | one league's members
 	const visiblePronostics = $derived(() => {
 		if (!data.allPronostics) return [];
 		if (pronoFilter === 'friends') return data.allPronostics.filter((p: any) => friendSet.has(p.user_id));
+		const league = (data.myLeagues ?? []).find((l: any) => l.id === pronoFilter);
+		if (league) {
+			const members = new Set(league.memberIds);
+			return data.allPronostics.filter((p: any) => members.has(p.user_id));
+		}
 		return data.allPronostics;
 	});
+
+	// Points/badges only mean something once the match result is in.
+	const isScoredView = $derived(data.match.status === 'finished');
 
 	// Whether the user's own pick is already in the list
 	const myPronoInList = $derived(
@@ -344,26 +353,37 @@
 		</section>
 	{/if}
 
-	<!-- Post-match leaderboard -->
+	<!-- Pronostics list — visible to everyone once the match is locked -->
 	{#if data.allPronostics && data.allPronostics.length > 0}
 		<section class="border-t border-wire pt-6">
-			<div class="flex items-center justify-between mb-3">
+			<div class="mb-3 space-y-2.5">
 				<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs flex items-baseline gap-2">
-					{t('match_pronostics')} <span class="text-faint font-normal tabular-nums normal-case tracking-normal">{data.allPronostics.length}</span>
+					{t('match_pronostics')} <span class="text-faint font-normal tabular-nums normal-case tracking-normal">{visiblePronostics().length}</span>
 				</h2>
-				<!-- Friends / All filter (only if user has friends) -->
-				{#if data.user && (data.friendIds ?? []).length > 0}
-					<div class="flex gap-0.5 rounded-lg bg-raised border border-wire p-0.5">
-						<button onclick={() => pronoFilter = 'friends'}
-							class="rounded px-3 py-1 text-xs font-semibold transition-colors cursor-pointer
-								{pronoFilter === 'friends' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
-							{t('match_friends_filter')}
-						</button>
-						<button onclick={() => pronoFilter = 'all'}
-							class="rounded px-3 py-1 text-xs font-semibold transition-colors cursor-pointer
-								{pronoFilter === 'all' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
-							{t('match_all_filter')}
-						</button>
+				<!-- Tabs: Tous | each league | Amis — horizontally swipeable on mobile -->
+				{#if data.user && ((data.friendIds ?? []).length > 0 || (data.myLeagues ?? []).length > 0)}
+					<div class="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+						<div class="flex gap-0.5 rounded-lg bg-raised border border-wire p-0.5 w-max">
+							<button onclick={() => pronoFilter = 'all'}
+								class="rounded px-3 py-1 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap
+									{pronoFilter === 'all' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
+								{t('match_all_filter')}
+							</button>
+							{#each data.myLeagues ?? [] as league (league.id)}
+								<button onclick={() => pronoFilter = league.id}
+									class="rounded px-3 py-1 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap max-w-[10rem] truncate
+										{pronoFilter === league.id ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
+									{league.name}
+								</button>
+							{/each}
+							{#if (data.friendIds ?? []).length > 0}
+								<button onclick={() => pronoFilter = 'friends'}
+									class="rounded px-3 py-1 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap
+										{pronoFilter === 'friends' ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
+									{t('match_friends_filter')}
+								</button>
+							{/if}
+						</div>
 					</div>
 				{/if}
 			</div>
@@ -375,13 +395,15 @@
 					{#each visiblePronostics() as p, i (p.user_id)}
 						{@const me = isMe(p.user_id)}
 						{@const friend = isFriend(p.user_id)}
-						{@const badge = rowBadge(p.points_earned, p.predicted_home, p.predicted_away)}
+						{@const badge = isScoredView && p.is_scored ? rowBadge(p.points_earned, p.predicted_home, p.predicted_away) : null}
 						<a href="/profile/{p.user_id}"
 							class="flex items-center gap-3 px-4 py-3 border-b border-wire/40 last:border-0 transition-colors
 								{me ? 'bg-accent-lo/60 hover:bg-accent-lo' : 'hover:bg-raised'}">
 
-							<!-- Rank -->
-							<span class="text-xs text-faint w-5 tabular-nums shrink-0">{i + 1}</span>
+							<!-- Rank — only meaningful once the match is scored -->
+							{#if isScoredView}
+								<span class="text-xs text-faint w-5 tabular-nums shrink-0">{i + 1}</span>
+							{/if}
 
 							<!-- Avatar -->
 							{#if (p.profiles as any)?.avatar_url}
@@ -423,11 +445,13 @@
 								<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: var(--color-success)"></span>
 							{/if}
 
-							<!-- Points -->
-							<span class="font-bold tabular-nums w-14 text-right shrink-0 {badge === 'exact' ? 'text-accent' : badge === 'correct' ? 'text-fg' : 'text-faint'}"
-								style="font-family: var(--font-display)">
-								{p.points_earned?.toFixed(2) ?? '0.00'}
-							</span>
+							<!-- Points — dash until the match is scored -->
+							{#if isScoredView}
+								<span class="font-bold tabular-nums w-14 text-right shrink-0 {badge === 'exact' ? 'text-accent' : badge === 'correct' ? 'text-fg' : 'text-faint'}"
+									style="font-family: var(--font-display)">
+									{p.is_scored ? (p.points_earned?.toFixed(2) ?? '0.00') : '—'}
+								</span>
+							{/if}
 						</a>
 					{/each}
 				{/if}

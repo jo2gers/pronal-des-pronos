@@ -26,6 +26,24 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		const dateB = new Date((b.match as any)?.match_datetime ?? 0).getTime();
 		return dateB - dateA; // Newest first
 	});
+
+	// Picks on locked-but-not-yet-scored matches (live, or kickoff within 5 min).
+	// RLS only returns other users' picks once the match is locked, so this list
+	// never leaks an open pick — for non-self profiles everything we received is
+	// already public.
+	const nowMs = Date.now();
+	const livePicks = (pronostics ?? [])
+		.filter((p) => {
+			if (p.is_scored) return false;
+			const m = p.match as any;
+			if (!m) return false;
+			return m.status === 'live' || m.status === 'finished' ||
+				new Date(m.match_datetime).getTime() - nowMs < 5 * 60000;
+		})
+		.sort((a, b) =>
+			new Date((a.match as any)?.match_datetime ?? 0).getTime() -
+			new Date((b.match as any)?.match_datetime ?? 0).getTime()
+		);
 	const pronoPoints  = scored.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
 	const teamBonus    = profile.team_bonus_points ?? 0;
 	const totalPoints  = pronoPoints + teamBonus;
@@ -116,6 +134,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	return {
 		profile,
 		pronostics: scoredWithBonus,
+		livePicks,
 		pronoPoints,
 		teamBonus,
 		totalPoints,
