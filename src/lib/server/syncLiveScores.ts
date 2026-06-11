@@ -14,6 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
+import { fetchEspnEvents } from './espnEvents';
 
 type LiveMatchRow = {
 	id: string;
@@ -94,6 +95,7 @@ export async function syncLiveScores(
 	updated: number;
 	ended: number;
 	scoredPronostics: number;
+	eventsUpdated?: number;
 	bracketUpdated?: number;
 	slugsUpdated?: number;
 	oddsUpdated?: number;
@@ -183,6 +185,41 @@ export async function syncLiveScores(
 		}
 	}
 
+	// ── Timeline (goals + cards) from ESPN ─────────────────────────────────
+	// One scoreboard request covers every match of the day. Runs whenever a
+	// match is in play (or just ended this tick, to capture stoppage-time
+	// events in the final write). Non-fatal.
+	let eventsUpdated = 0;
+	const timelineCandidates = matches.filter(
+		(m) => m.status !== 'upcoming' || new Date(m.match_datetime).getTime() <= nowMs
+	);
+	if (timelineCandidates.length > 0) {
+		try {
+			const espn = await fetchEspnEvents();
+			if (espn.size > 0) {
+				// Current rows (live_events not in the main select — fetch lazily)
+				const { data: currentRows } = await supabase
+					.from('matches')
+					.select('id, home_team, away_team, live_events')
+					.in('id', timelineCandidates.map((m) => m.id));
+
+				for (const row of currentRows ?? []) {
+					const events = espn.get(`${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`);
+					if (!events || events.length === 0) continue;
+					const next = JSON.stringify(events);
+					if (JSON.stringify(row.live_events ?? []) === next) continue;
+					const { error } = await supabase
+						.from('matches')
+						.update({ live_events: events })
+						.eq('id', row.id);
+					if (!error) eventsUpdated++;
+				}
+			}
+		} catch {
+			// non-fatal — timeline simply doesn't update this tick
+		}
+	}
+
 	// ── Cascade after any FT transition ────────────────────────────────────
 	// When a match ends, the bracket may now be ready to fill one or more
 	// knockout slots (e.g. last group match → R32 pairings, last R32 → R16).
@@ -219,6 +256,7 @@ export async function syncLiveScores(
 		updated,
 		ended,
 		scoredPronostics,
+		eventsUpdated,
 		bracketUpdated,
 		slugsUpdated,
 		oddsUpdated

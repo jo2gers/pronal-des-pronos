@@ -103,7 +103,12 @@
       "Bash(powershell -Command \"Stop-Process -Id 25956 -Force\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://tifo.devsigny.com/teams/France\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://tifo.devsigny.com/teams/Mexico\")",
-      "Bash(curl -s \"https://gamma-api.polymarket.com/events?slug=fifwc-mex-rsa-2026-06-11\")"
+      "Bash(curl -s \"https://gamma-api.polymarket.com/events?slug=fifwc-mex-rsa-2026-06-11\")",
+      "Bash(curl -s \"https://gamma-api.polymarket.com/events?slug=fifwc-mex-rsa-2026-06-11&_=$\\(date +%s\\)\")",
+      "Bash(python -c \"import json,sys; ev=json.load\\(sys.stdin\\)[0]; print\\('gamma elapsed:', ev.get\\('elapsed'\\), ev.get\\('period'\\)\\)\")",
+      "Bash(curl -s -o /dev/null -w \"games?id: %{http_code}\\\\n\" \"https://gamma-api.polymarket.com/games?id=90086908\")",
+      "Bash(curl -s \"https://gamma-api.polymarket.com/games/90086908\")",
+      "Bash(curl -s \"https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard\")"
     ]
   }
 }

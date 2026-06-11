@@ -251,6 +251,47 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Timeline: goals + cards (ESPN), home events left / away events right -->
+		{#if (data.match.live_events ?? []).length > 0}
+			<div class="mt-6 pt-4 border-t border-wire">
+				<p class="text-xs text-faint text-center mb-3">{t('match_timeline')}</p>
+				<div class="space-y-1.5">
+					{#each data.match.live_events as ev}
+						{@const isHome = ev.side === 'home'}
+						<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
+							<div class="text-right min-w-0 {isHome ? '' : 'invisible'}">
+								<span class="inline-flex items-center gap-1.5 max-w-full">
+									<span class="text-fg truncate">{ev.player ?? '—'}</span>
+									{#if ev.type === 'goal' || ev.type === 'og' || ev.type === 'pen'}
+										<span class="shrink-0">⚽</span>
+										{#if ev.type === 'og'}<span class="text-[10px] text-faint shrink-0">{t('match_og')}</span>{/if}
+										{#if ev.type === 'pen'}<span class="text-[10px] text-faint shrink-0">{t('match_pen')}</span>{/if}
+									{:else}
+										<span class="w-2.5 h-3.5 rounded-[2px] shrink-0 {ev.type === 'red' ? 'bg-err' : ''}"
+											style={ev.type === 'yellow' ? 'background: var(--color-warn, #eab308)' : ''}></span>
+									{/if}
+								</span>
+							</div>
+							<span class="text-[11px] text-faint tabular-nums w-12 text-center shrink-0">{ev.minute}</span>
+							<div class="text-left min-w-0 {isHome ? 'invisible' : ''}">
+								<span class="inline-flex items-center gap-1.5 max-w-full">
+									{#if ev.type === 'goal' || ev.type === 'og' || ev.type === 'pen'}
+										<span class="shrink-0">⚽</span>
+										{#if ev.type === 'og'}<span class="text-[10px] text-faint shrink-0">{t('match_og')}</span>{/if}
+										{#if ev.type === 'pen'}<span class="text-[10px] text-faint shrink-0">{t('match_pen')}</span>{/if}
+									{:else}
+										<span class="w-2.5 h-3.5 rounded-[2px] shrink-0 {ev.type === 'red' ? 'bg-err' : ''}"
+											style={ev.type === 'yellow' ? 'background: var(--color-warn, #eab308)' : ''}></span>
+									{/if}
+									<span class="text-fg truncate">{ev.player ?? '—'}</span>
+								</span>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
 	</div>
 
 	<!-- My pronostic -->
