@@ -8,6 +8,7 @@
  * so syncLiveScores can call it the moment a match transitions to ended.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveOddsUsed } from '$lib/utils';
 
 export const STAGE_BONUS: Record<string, number> = {
 	group:       1,
@@ -27,6 +28,9 @@ export type ScorableMatch = {
 	away_score: number | null;
 	stage: string;
 	bonus_calculated: boolean;
+	odds_home?: number | null;
+	odds_draw?: number | null;
+	odds_away?: number | null;
 };
 
 export async function scoreMatch(
@@ -35,10 +39,26 @@ export async function scoreMatch(
 ): Promise<{ scored: number; bonusAwarded: number }> {
 	if (match.home_score == null || match.away_score == null) return { scored: 0, bonusAwarded: 0 };
 
+	// Everyone is scored against the SAME odds: the match odds frozen 5 min
+	// before kickoff (the odds-sync lock), NOT the odds at pick time. Fetch
+	// them from the match row if the caller didn't pass them along.
+	let { odds_home, odds_draw, odds_away } = match;
+	if (odds_home === undefined) {
+		const { data: oddsRow } = await supabase
+			.from('matches')
+			.select('odds_home, odds_draw, odds_away')
+			.eq('id', match.id)
+			.single();
+		odds_home = oddsRow?.odds_home ?? null;
+		odds_draw = oddsRow?.odds_draw ?? null;
+		odds_away = oddsRow?.odds_away ?? null;
+	}
+	const oddsSource = { odds_home, odds_draw, odds_away };
+
 	// 1. Per-pronostic points
 	const { data: pronostics } = await supabase
 		.from('pronostics')
-		.select('id, predicted_home, predicted_away, odds_used')
+		.select('id, predicted_home, predicted_away')
 		.eq('match_id', match.id);
 
 	let scored = 0;
@@ -52,13 +72,16 @@ export async function scoreMatch(
 			Math.sign(ph - pa) === Math.sign(mh - ma) ? 1 :
 			0;
 
-		const odds = typeof p.odds_used === 'number' ? p.odds_used : Number(p.odds_used);
-		const safeOdds = Number.isFinite(odds) && odds >= 1 ? odds : 1.0;
-		const points = basePoints === 0 ? 0 : parseFloat((basePoints * safeOdds).toFixed(2));
+		// resolveOddsUsed picks home/draw/away odds for the predicted outcome,
+		// with a 1.0 floor when odds are missing.
+		const finalOdds = resolveOddsUsed(ph, pa, oddsSource);
+		const points = basePoints === 0 ? 0 : parseFloat((basePoints * finalOdds).toFixed(2));
 
+		// odds_used is overwritten with the final locked odds so every surface
+		// (profiles, match page) shows the value the points were computed from.
 		await supabase
 			.from('pronostics')
-			.update({ points_earned: points, is_scored: true })
+			.update({ points_earned: points, is_scored: true, odds_used: finalOdds })
 			.eq('id', p.id);
 		scored++;
 	}

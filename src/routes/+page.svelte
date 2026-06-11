@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { formatDate, groupByDay, daysUntilMatch, liveClock } from '$lib/utils';
+	import { formatDate, groupByDay, daysUntilMatch, liveClock, resolveOddsUsed } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import Flag from '$lib/components/Flag.svelte';
@@ -213,7 +213,7 @@
 						{@const liveAway = match.away_score ?? 0}
 						{@const liveOutcome = Math.sign(liveHome - liveAway)}
 						{@const predOutcome = prono ? Math.sign(prono.predicted_home - prono.predicted_away) : null}
-						{@const safeOdds = (prono?.odds_used ?? 0) >= 1 ? prono!.odds_used! : 1.0}
+						{@const safeOdds = prono ? resolveOddsUsed(prono.predicted_home, prono.predicted_away, match) : 1.0}
 						{@const livePotential = prono
 							? (prono.predicted_home === liveHome && prono.predicted_away === liveAway
 								? { pts: 3 * safeOdds, label: 'exact' }
