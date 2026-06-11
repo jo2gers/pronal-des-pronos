@@ -282,6 +282,23 @@ export const actions: Actions = {
 		}).not('id', 'is', null);
 		if (e2) return fail(500, { error: `Matchs: ${e2.message}` });
 
+		// 2b. Knockout slots: clear simulated team names back to TBD so
+		// resolve_bracket can fill them from real results. Without this, stale
+		// names from a simulation block the real bracket forever (resolve_bracket
+		// only touches TBD slots).
+		const { error: e2b } = await supabase.from('matches').update({
+			home_team: 'TBD',
+			away_team: 'TBD',
+			home_flag: null,
+			away_flag: null,
+			odds_home: null,
+			odds_draw: null,
+			odds_away: null,
+			polymarket_event_slug: null,
+			last_score_sync_at: null
+		}).neq('stage', 'group');
+		if (e2b) return fail(500, { error: `Bracket: ${e2b.message}` });
+
 		// 3. Reset team bonus points
 		const { error: e3 } = await supabase.from('profiles').update({
 			team_bonus_points: 0
