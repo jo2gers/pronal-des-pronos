@@ -28,11 +28,27 @@
 		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	// Filter to the active tab, then bucket by calendar day. Ended-tab buckets
-	// are reversed so the most recent day appears first.
+	// Group filter also lives in the URL (?group=A) so it survives navigation.
+	const groupFilter = $derived(page.url.searchParams.get('group') ?? '');
+
+	function setGroup(g: string) {
+		const url = new URL(page.url);
+		if (!g) url.searchParams.delete('group');
+		else    url.searchParams.set('group', g);
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	// Distinct group labels present in the data (A…L)
+	const groupOptions = $derived(
+		[...new Set((data.matches ?? []).map((m) => m.group_label).filter(Boolean))].sort() as string[]
+	);
+
+	// Filter to the active tab (+ optional group), then bucket by calendar day.
+	// Ended-tab buckets are reversed so the most recent day appears first.
 	const dayBuckets = $derived.by(() => {
 		const filtered = (data.matches ?? []).filter((m) =>
-			tab === 'ended' ? m.status === 'finished' : m.status !== 'finished'
+			(tab === 'ended' ? m.status === 'finished' : m.status !== 'finished') &&
+			(!groupFilter || m.group_label === groupFilter)
 		);
 		filtered.sort((a, b) => {
 			const da = new Date(a.match_datetime).getTime();
@@ -55,8 +71,8 @@
 		{/if}
 	</div>
 
-	<!-- Tabs -->
-	<div class="space-y-2">
+	<!-- Tabs + group filter + standings shortcut -->
+	<div class="flex flex-wrap items-center gap-2">
 		<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-fit">
 			<button
 				onclick={() => setTab('upcoming')}
@@ -69,6 +85,26 @@
 				{t('ended')}
 			</button>
 		</div>
+
+		{#if groupOptions.length > 0}
+			<select
+				value={groupFilter}
+				onchange={(e) => setGroup((e.currentTarget as HTMLSelectElement).value)}
+				aria-label={t('matches_group_filter')}
+				class="rounded-lg bg-raised border border-wire px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none cursor-pointer
+					{groupFilter ? 'border-accent/60 text-accent font-semibold' : 'text-muted'}">
+				<option value="">{t('matches_all_groups')}</option>
+				{#each groupOptions as g (g)}
+					<option value={g}>{t('group_short')} {g}</option>
+				{/each}
+			</select>
+		{/if}
+
+		<a href="/schedule"
+			class="ml-auto inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors">
+			{t('matches_standings_link')}
+			<span aria-hidden="true">→</span>
+		</a>
 	</div>
 
 	{#if dayBuckets.length === 0}

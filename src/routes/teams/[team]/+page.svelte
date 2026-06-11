@@ -46,6 +46,9 @@
 			{ key: 'L', pct: (losses / played) * 100, color: 'var(--color-err)' }
 		].filter((s) => s.pct > 0);
 	});
+
+	// Form: last 5 results, oldest → newest (reading order ends on the latest)
+	const form = $derived(data.finished.slice(0, 5).reverse().map(outcome));
 </script>
 
 <div class="max-w-2xl mx-auto space-y-6">
@@ -105,8 +108,47 @@
 						{data.stats.diff > 0 ? '+' : ''}{data.stats.diff}
 					</dd>
 				</div>
+				{#if data.stats.cleanSheets > 0}
+					<div class="flex items-baseline gap-1.5">
+						<dt class="text-[11px] text-faint">{t('team_clean_sheets')}</dt>
+						<dd class="font-semibold text-fg">{data.stats.cleanSheets}</dd>
+					</div>
+				{/if}
 			</dl>
+
+			<!-- Form: last 5, oldest → latest -->
+			{#if form.length >= 2}
+				<div class="flex items-center gap-2">
+					<span class="text-[11px] text-faint">{t('team_form')}</span>
+					<div class="flex gap-1">
+						{#each form as res, i (i)}
+							<span class="w-4 h-4 rounded-sm flex items-center justify-center text-[9px] font-bold"
+								style="background: {outcomeStyle[res].bg}; color: var(--color-canvas)">
+								{outcomeStyle[res].label}
+							</span>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</section>
+	{/if}
+
+	<!-- ── Flavour stats: WC winner odds + supporters ──────────────────── -->
+	{#if data.winnerOdds || data.supporters > 0}
+		<dl class="flex items-center gap-5 text-sm tabular-nums {data.stats.played > 0 ? 'pt-4 border-t border-wire/60' : ''}">
+			{#if data.winnerOdds}
+				<div class="flex items-baseline gap-1.5" title={t('team_winner_odds_title')}>
+					<dt class="text-[11px] text-faint">{t('team_winner_odds')}</dt>
+					<dd class="font-semibold text-accent">×{data.winnerOdds.toFixed(2)}</dd>
+				</div>
+			{/if}
+			{#if data.supporters > 0}
+				<div class="flex items-baseline gap-1.5">
+					<dt class="text-[11px] text-faint">{t('team_supporters')}</dt>
+					<dd class="font-semibold text-fg">{data.supporters}</dd>
+				</div>
+			{/if}
+		</dl>
 	{/if}
 
 	<!-- ── Live now ─────────────────────────────────────────────────────── -->

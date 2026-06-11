@@ -100,7 +100,9 @@
       "Bash(python -m json.tool)",
       "mcp__Claude_Preview__preview_start",
       "Bash(netstat -ano)",
-      "Bash(powershell -Command \"Stop-Process -Id 25956 -Force\")"
+      "Bash(powershell -Command \"Stop-Process -Id 25956 -Force\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://tifo.devsigny.com/teams/France\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://tifo.devsigny.com/teams/Mexico\")"
     ]
   }
 }
