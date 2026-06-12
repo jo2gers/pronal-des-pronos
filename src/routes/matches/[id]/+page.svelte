@@ -22,7 +22,18 @@
 
 	let home      = $state(data.userPronostic?.predicted_home ?? 0);
 	let away      = $state(data.userPronostic?.predicted_away ?? 0);
-	let loading   = $state(false);
+
+	// Auto-save: every stepper tap schedules a debounced submit — no explicit
+	// save button. Status line below the steppers gives the feedback.
+	let pickFormEl = $state<HTMLFormElement | null>(null);
+	let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function scheduleSave() {
+		if (saveTimer) clearTimeout(saveTimer);
+		saveStatus = 'saving';
+		saveTimer = setTimeout(() => pickFormEl?.requestSubmit(), 700);
+	}
 	// 'all' | 'friends' | a league id — tabs render in that order (leagues in the middle)
 	let pronoFilter = $state<string>('all');
 
@@ -345,28 +356,21 @@
 
 			{:else if data.match.status !== 'finished'}
 				<!-- Upcoming / live: prediction form -->
-				{#if form?.error}
-					<div class="mb-4 rounded bg-err/10 border border-err/20 px-3 py-2.5 text-sm text-err">{form.error}</div>
-				{/if}
-				{#if form?.success}
-					<div class="mb-4 rounded px-3 py-2.5 text-sm font-medium border"
-						style="background: oklch(from var(--color-success) l c h / 0.08); border-color: oklch(from var(--color-success) l c h / 0.25); color: var(--color-success)">
-						{t('match_saved')}
-					</div>
-				{/if}
-
-				<form method="POST" action="?/pronostic" use:enhance={() => {
-					loading = true;
-					return async ({ update }) => { loading = false; await update(); };
+				<form bind:this={pickFormEl} method="POST" action="?/pronostic" use:enhance={() => {
+					saveStatus = 'saving';
+					return async ({ result, update }) => {
+						saveStatus = result.type === 'success' ? 'saved' : 'error';
+						await update({ reset: false });
+					};
 				}}>
 					<div class="flex items-center justify-center gap-4 sm:gap-5 mb-5">
 						<div class="text-center">
 							<p class="text-xs text-muted mb-3">{teamLabel(data.match.home_team)}</p>
 							<div class="flex items-center gap-2 sm:gap-2.5">
-								<button type="button" disabled={locked || home === 0} onclick={() => home--}
+								<button type="button" disabled={locked || home === 0} onclick={() => { home--; scheduleSave(); }}
 									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">−</button>
 								<span class="text-4xl font-bold text-fg w-10 sm:w-12 text-center tabular-nums" style="font-family: var(--font-display)">{home}</span>
-								<button type="button" disabled={locked || home >= 20} onclick={() => home++}
+								<button type="button" disabled={locked || home >= 20} onclick={() => { home++; scheduleSave(); }}
 									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">+</button>
 							</div>
 							<input type="hidden" name="predicted_home" value={home} />
@@ -377,10 +381,10 @@
 						<div class="text-center">
 							<p class="text-xs text-muted mb-3">{teamLabel(data.match.away_team)}</p>
 							<div class="flex items-center gap-2 sm:gap-2.5">
-								<button type="button" disabled={locked || away === 0} onclick={() => away--}
+								<button type="button" disabled={locked || away === 0} onclick={() => { away--; scheduleSave(); }}
 									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">−</button>
 								<span class="text-4xl font-bold text-fg w-10 sm:w-12 text-center tabular-nums" style="font-family: var(--font-display)">{away}</span>
-								<button type="button" disabled={locked || away >= 20} onclick={() => away++}
+								<button type="button" disabled={locked || away >= 20} onclick={() => { away++; scheduleSave(); }}
 									class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg bg-canvas hover:bg-wire-hi disabled:opacity-25 text-fg text-base font-bold transition-colors cursor-pointer border border-wire active:scale-95 tabular-nums">+</button>
 							</div>
 							<input type="hidden" name="predicted_away" value={away} />
@@ -396,19 +400,26 @@
 								· {t('match_winner')} <span class="text-muted">{((oddsUsed ?? 1) * 1).toFixed(2)} {t('match_pts')}</span>
 							</p>
 						{/if}
-						{@const critical = urgency() === 'critical'}
-						<button type="submit" disabled={loading}
-							class="w-full rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-50 px-4 py-3 font-semibold text-canvas transition-colors cursor-pointer {critical ? 'ring-2 ring-live/60' : ''}">
-							{#if loading}
-								{t('saving')}
-							{:else if critical}
-								{t('match_lock_now')}
-							{:else if data.userPronostic}
-								{t('match_modify')}
+						<!-- Auto-save status — replaces the old explicit submit button -->
+						<div class="min-h-[2rem] flex items-center justify-center text-sm" aria-live="polite">
+							{#if saveStatus === 'saving'}
+								<span class="text-faint flex items-center gap-2">
+									<span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
+									{t('saving')}
+								</span>
+							{:else if saveStatus === 'saved' || (saveStatus === 'idle' && data.userPronostic)}
+								<span class="flex items-center gap-1.5 font-medium" style="color: var(--color-success)">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+									</svg>
+									{t('match_autosaved')}
+								</span>
+							{:else if saveStatus === 'error'}
+								<span class="text-err text-xs">{form?.error ?? t('match_save_error')}</span>
 							{:else}
-								{t('match_submit')}
+								<span class="text-xs text-faint">{t('match_autosave_hint')}</span>
 							{/if}
-						</button>
+						</div>
 					{:else}
 						<!-- Locked, but had/has a pick — picker is read-only above; just acknowledge -->
 						<p class="text-center text-sm text-faint">{t('match_picks_closed')}</p>
