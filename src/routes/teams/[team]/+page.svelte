@@ -133,13 +133,15 @@
 		</section>
 	{/if}
 
-	<!-- ── Flavour stats: WC winner odds + supporters ──────────────────── -->
-	{#if data.winnerOdds || data.supporters > 0}
+	<!-- ── Flavour stats: bonus multiplier + supporters ────────────────── -->
+	<!-- The MULTIPLIER, not the raw Polymarket odds: it's the number the
+	     site actually applies to favorite-team bonuses. -->
+	{#if data.multiplier || data.supporters > 0}
 		<dl class="flex items-center gap-5 text-sm tabular-nums {data.stats.played > 0 ? 'pt-4 border-t border-wire/60' : ''}">
-			{#if data.winnerOdds}
+			{#if data.multiplier}
 				<div class="flex items-baseline gap-1.5" title={t('team_winner_odds_title')}>
 					<dt class="text-[11px] text-faint">{t('team_winner_odds')}</dt>
-					<dd class="font-semibold text-accent">×{data.winnerOdds.toFixed(2)}</dd>
+					<dd class="font-semibold text-accent">×{data.multiplier.toFixed(1)}</dd>
 				</div>
 			{/if}
 			{#if data.supporters > 0}

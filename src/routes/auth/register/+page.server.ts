@@ -6,12 +6,14 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const next = url.searchParams.get('next') ?? '/';
 	if (user) redirect(303, next);
 
+	// multiplier (not raw odds): the bonus multiplier is what the site
+	// actually applies — show users the number their points will use.
 	const { data: oddsData } = await supabase
 		.from('wc_winner_odds')
-		.select('team_name_en, odds');
+		.select('team_name_en, multiplier');
 
 	const oddsMap = Object.fromEntries(
-		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.odds))])
+		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.multiplier))])
 	);
 
 	return { next, oddsMap };

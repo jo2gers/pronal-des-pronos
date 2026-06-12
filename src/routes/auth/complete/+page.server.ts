@@ -7,15 +7,17 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
 	const next = url.searchParams.get('next') ?? '/';
 
+	// multiplier (not raw odds): the bonus multiplier is what the site
+	// actually applies — show users the number their points will use.
 	const [{ data: profile }, { data: oddsData }] = await Promise.all([
 		supabase.from('profiles').select('username, favorite_team').eq('id', user.id).maybeSingle(),
-		supabase.from('wc_winner_odds').select('team_name_en, odds')
+		supabase.from('wc_winner_odds').select('team_name_en, multiplier')
 	]);
 
 	if (profile?.username && profile?.favorite_team) redirect(303, next);
 
 	const oddsMap = Object.fromEntries(
-		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.odds))])
+		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.multiplier))])
 	);
 
 	// Suggest a username from email prefix
