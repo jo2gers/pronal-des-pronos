@@ -29,6 +29,16 @@
 	// flagcdn ships sizes w20, w40, w80, w160 — pick the next-larger for crisp DPR
 	const cdnWidth = $derived(width <= 40 ? 80 : width <= 80 ? 160 : 320);
 	const src = $derived(code ? `https://flagcdn.com/w${cdnWidth}/${code.toLowerCase()}.png` : '');
+
+	// Hydration repair. Day buckets are computed in LOCAL time, so the server
+	// (UTC) can order rows differently than the client; Svelte repairs text
+	// mismatches during hydration but deliberately never re-sets img `src`
+	// (anti-flicker optimisation) — leaving the wrong country on a row whose
+	// other content was fixed. Re-assert the src imperatively after mount.
+	let imgEl = $state<HTMLImageElement | null>(null);
+	$effect(() => {
+		if (imgEl && src && imgEl.src !== src) imgEl.src = src;
+	});
 </script>
 
 <!-- Padding-ratio wrapper (not CSS aspect-ratio: iOS Safari computes a zero
@@ -45,6 +55,6 @@
 	style="width: 100%; max-width: {width}px; border-radius: {radius}px;">
 	<span class="block" style="padding-bottom: 66.667%" aria-hidden="true"></span>
 	{#if src}
-		<img {src} {alt} class="absolute inset-0 w-full h-full object-cover" />
+		<img bind:this={imgEl} {src} {alt} class="absolute inset-0 w-full h-full object-cover" />
 	{/if}
 </span>
