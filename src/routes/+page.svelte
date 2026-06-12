@@ -338,18 +338,21 @@
 					</p>
 				{/if}
 
-				<!-- Teams + venue (single line, no decorative card) -->
+				<!-- Teams + venue (single line, no decorative card). flex-1 basis-0
+				     gives each side an EQUAL half: a long name ("Bosnia and
+				     Herzegovina") truncates on its own side instead of squeezing
+				     the short name opposite it out of existence. -->
 				<div class="flex items-center justify-center gap-3 sm:gap-4">
 					<a href="/teams/{encodeURIComponent(nextMatch.home_team)}"
-						class="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity">
+						class="flex flex-1 basis-0 items-center justify-end gap-2 min-w-0 hover:opacity-80 transition-opacity">
 						<Flag code={nextMatch.home_flag} size={36} />
 						<span class="font-semibold text-fg truncate" style="font-family: var(--font-display); letter-spacing: 0.01em">
 							{teamLabel(nextMatch.home_team)}
 						</span>
 					</a>
-					<span class="text-faint text-xs uppercase tracking-widest">vs</span>
+					<span class="text-faint text-xs uppercase tracking-widest shrink-0">vs</span>
 					<a href="/teams/{encodeURIComponent(nextMatch.away_team)}"
-						class="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity">
+						class="flex flex-1 basis-0 items-center gap-2 min-w-0 hover:opacity-80 transition-opacity">
 						<span class="font-semibold text-fg truncate" style="font-family: var(--font-display); letter-spacing: 0.01em">
 							{teamLabel(nextMatch.away_team)}
 						</span>

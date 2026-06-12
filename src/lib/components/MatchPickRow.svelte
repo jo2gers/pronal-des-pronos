@@ -334,19 +334,21 @@
 				</a>
 			</div>
 
-			<!-- Save status line (shared) -->
+			<!-- Save status line (shared) — same feedback as the match detail
+			     page: the green check stays visible whenever a pick is on
+			     record, so users always know their score is in. -->
 			<div class="mt-1.5 flex items-center justify-center gap-2 h-4 text-[11px]">
 				{#if saveStatus === 'saving'}
 					<span class="text-faint flex items-center gap-1.5">
 						<span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
 						{t('saving')}
 					</span>
-				{:else if saveStatus === 'saved'}
-					<span class="text-accent flex items-center gap-1">
+				{:else if saveStatus === 'saved' || (saveStatus === 'idle' && hasProno)}
+					<span class="flex items-center gap-1 font-medium" style="color: var(--color-success)">
 						<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
 						</svg>
-						{t('match_saved')}
+						{t('match_autosaved')}
 					</span>
 				{:else if saveStatus === 'error'}
 					<span class="text-err flex items-center gap-2">
