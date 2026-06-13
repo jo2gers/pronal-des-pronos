@@ -14,7 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
-import { fetchEspnEvents } from './espnEvents';
+import { fetchEspnEvents, fetchEspnVideos, resolveEspnGameId } from './espnEvents';
 
 type LiveMatchRow = {
 	id: string;
@@ -96,6 +96,7 @@ export async function syncLiveScores(
 	ended: number;
 	scoredPronostics: number;
 	eventsUpdated?: number;
+	videosUpdated?: number;
 	bracketUpdated?: number;
 	slugsUpdated?: number;
 	oddsUpdated?: number;
@@ -195,29 +196,74 @@ export async function syncLiveScores(
 	);
 	if (timelineCandidates.length > 0) {
 		try {
-			const espn = await fetchEspnEvents();
+			const { events: espn, gameIds } = await fetchEspnEvents();
 			if (espn.size > 0) {
 				// Current rows (live_events not in the main select — fetch lazily)
 				const { data: currentRows } = await supabase
 					.from('matches')
-					.select('id, home_team, away_team, live_events')
+					.select('id, home_team, away_team, live_events, espn_game_id')
 					.in('id', timelineCandidates.map((m) => m.id));
 
 				for (const row of currentRows ?? []) {
-					const events = espn.get(`${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`);
-					if (!events || events.length === 0) continue;
-					const next = JSON.stringify(events);
-					if (JSON.stringify(row.live_events ?? []) === next) continue;
-					const { error } = await supabase
-						.from('matches')
-						.update({ live_events: events })
-						.eq('id', row.id);
-					if (!error) eventsUpdated++;
+					const k = `${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`;
+					const patch: Record<string, unknown> = {};
+
+					const events = espn.get(k);
+					if (events && events.length > 0 && JSON.stringify(row.live_events ?? []) !== JSON.stringify(events)) {
+						patch.live_events = events;
+					}
+					// Capture the ESPN gameId while the match is on today's
+					// scoreboard — it powers the post-match video sync later.
+					const gid = gameIds.get(k);
+					if (gid && row.espn_game_id !== gid) patch.espn_game_id = gid;
+
+					if (Object.keys(patch).length === 0) continue;
+					const { error } = await supabase.from('matches').update(patch).eq('id', row.id);
+					if (!error && patch.live_events) eventsUpdated++;
 				}
 			}
 		} catch {
 			// non-fatal — timeline simply doesn't update this tick
 		}
+	}
+
+	// ── Post-match video highlights from ESPN ──────────────────────────────
+	// For matches finished within the last 48h, fetch the summary `videos`
+	// array and store a slim link-out payload. Throttled to ~20 min per match
+	// (videos publish over hours after FT), so the per-minute cron stays cheap.
+	let videosUpdated = 0;
+	try {
+		const since = new Date(nowMs - 48 * 3600_000).toISOString();
+		const staleBeforeMs = nowMs - 20 * 60_000;
+		const { data: recentFinished } = await supabase
+			.from('matches')
+			.select('id, home_team, away_team, match_datetime, espn_game_id, espn_videos_synced_at')
+			.eq('status', 'finished')
+			.gte('match_datetime', since);
+
+		// Staleness filtered in JS: a PostgREST .or() with an inline ISO
+		// timestamp breaks (the dots collide with its field.op.value grammar —
+		// see the score-sync select above). Cap at 8 fetches per tick.
+		const finishedRows = (recentFinished ?? [])
+			.filter((r) => !r.espn_videos_synced_at || new Date(r.espn_videos_synced_at).getTime() < staleBeforeMs)
+			.slice(0, 8);
+
+		for (const row of finishedRows) {
+			let gameId = row.espn_game_id as string | null;
+			if (!gameId) {
+				gameId = await resolveEspnGameId(row.home_team, row.away_team, row.match_datetime);
+			}
+			const patch: Record<string, unknown> = { espn_videos_synced_at: nowIso };
+			if (gameId) {
+				patch.espn_game_id = gameId;
+				const videos = await fetchEspnVideos(gameId);
+				if (videos) patch.espn_videos = videos;
+			}
+			const { error } = await supabase.from('matches').update(patch).eq('id', row.id);
+			if (!error && patch.espn_videos) videosUpdated++;
+		}
+	} catch {
+		// non-fatal — highlights simply don't update this tick
 	}
 
 	// ── Cascade after any FT transition ────────────────────────────────────
@@ -257,6 +303,7 @@ export async function syncLiveScores(
 		ended,
 		scoredPronostics,
 		eventsUpdated,
+		videosUpdated,
 		bracketUpdated,
 		slugsUpdated,
 		oddsUpdated

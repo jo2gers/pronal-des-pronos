@@ -112,6 +112,13 @@
 		liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en', data.match.last_score_sync_at)
 	);
 
+	// "64" → "1:04", "8" → "0:08"
+	function fmtDuration(secs: number): string {
+		const m = Math.floor(secs / 60);
+		const s = Math.floor(secs % 60);
+		return `${m}:${String(s).padStart(2, '0')}`;
+	}
+
 	// Whether the user's own pick is already in the list
 	const myPronoInList = $derived(
 		data.allPronostics?.some((p: any) => p.user_id === data.user?.id) ?? false
@@ -311,6 +318,60 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- Highlights: ESPN video clips (link-out only — playback opens on ESPN) -->
+	{#if data.match.status === 'finished' && (data.match.espn_videos?.items?.length ?? 0) > 0}
+		{@const vids = data.match.espn_videos}
+		<section class="pt-2">
+			<div class="flex items-baseline justify-between mb-3">
+				<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('match_highlights')}</h2>
+				<span class="text-[11px] text-faint">{t('match_highlights_via')}</span>
+			</div>
+
+			<!-- Horizontal scroll of clip cards -->
+			<div class="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+				<div class="flex gap-3 w-max">
+					{#each vids.items as v (v.url)}
+						<a href={v.url} target="_blank" rel="noopener noreferrer"
+							class="group/clip block w-56 shrink-0">
+							<div class="relative rounded-lg overflow-hidden bg-raised border border-wire aspect-video">
+								{#if v.thumbnail}
+									<img src={v.thumbnail} alt="" loading="lazy"
+										class="absolute inset-0 w-full h-full object-cover group-hover/clip:scale-105 transition-transform duration-300" />
+								{/if}
+								<!-- dark gradient + play glyph -->
+								<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+								<span class="absolute inset-0 flex items-center justify-center">
+									<span class="w-10 h-10 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center
+										group-hover/clip:bg-accent group-hover/clip:scale-110 transition-all">
+										<svg class="w-4 h-4 text-fg group-hover/clip:text-canvas ml-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+											<path d="M8 5v14l11-7z" />
+										</svg>
+									</span>
+								</span>
+								{#if v.duration}
+									<span class="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white tabular-nums">
+										{fmtDuration(v.duration)}
+									</span>
+								{/if}
+							</div>
+							<p class="mt-2 text-xs text-muted group-hover/clip:text-fg transition-colors line-clamp-2 leading-snug">
+								{v.headline}
+							</p>
+						</a>
+					{/each}
+				</div>
+			</div>
+
+			{#if vids.pageUrl}
+				<a href={vids.pageUrl} target="_blank" rel="noopener noreferrer"
+					class="inline-flex items-center gap-1 mt-3 text-xs text-muted hover:text-accent transition-colors">
+					{t('match_highlights_all')}
+					<span aria-hidden="true">→</span>
+				</a>
+			{/if}
+		</section>
+	{/if}
 
 	<!-- My pronostic -->
 	{#if data.user}
