@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		// non-fatal — render with last-known scores
 	}
 
-	const matchFields = 'id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, venue, status, home_score, away_score, odds_home, odds_draw, odds_away, live_elapsed, live_period, last_score_sync_at';
+	const matchFields = 'id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, venue, status, home_score, away_score, odds_home, odds_draw, odds_away, live_elapsed, live_period, last_score_sync_at, youtube_video_id';
 
 	// Phantom-live: status still 'upcoming' but kickoff has passed (admin
 	// hasn't flipped to 'live' yet). Pull those separately and merge into the

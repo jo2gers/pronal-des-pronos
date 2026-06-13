@@ -115,6 +115,17 @@
 	// Highlights player: lite facade — the YouTube iframe only mounts on click.
 	let highlightPlaying = $state(false);
 
+	// Deep-link from the matches list ("▶ Résumé" → /matches/{id}#highlights):
+	// arrive straight on the video — scroll it into view and start playback.
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		if (window.location.hash !== '#highlights' || !data.match.youtube_video_id) return;
+		highlightPlaying = true;
+		requestAnimationFrame(() =>
+			document.getElementById('highlights')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+		);
+	});
+
 	// Whether the user's own pick is already in the list
 	const myPronoInList = $derived(
 		data.allPronostics?.some((p: any) => p.user_id === data.user?.id) ?? false
@@ -327,7 +338,7 @@
 	<!-- Official highlights — embedded YouTube player (lite facade: the iframe
 	     only loads on click, so the heavy YT player never costs a page load). -->
 	{#if data.match.youtube_video_id}
-		<section class="pt-2">
+		<section id="highlights" class="pt-2 scroll-mt-20">
 			<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs mb-3">{t('match_highlights')}</h2>
 			<div class="relative rounded-xl overflow-hidden bg-black border border-wire aspect-video">
 				{#if highlightPlaying}

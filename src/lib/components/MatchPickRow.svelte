@@ -366,7 +366,7 @@
 		<div class="sm:hidden space-y-3">
 			{@render teamPairGridMobile()}
 
-			<div class="flex justify-center">
+			<div class="flex flex-col items-center">
 				{#if match.status === 'finished' && match.home_score != null}
 					<a href="/matches/{match.id}" class="text-center block">
 						<span class="font-bold text-fg tabular-nums hover:text-accent transition-colors text-2xl block"
@@ -385,13 +385,14 @@
 								{/if}
 							</span>
 						{/if}
-						{#if match.youtube_video_id}
-							<span class="inline-flex items-center justify-center gap-1 mt-1.5 text-[10px] font-semibold text-accent">
-								<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-								{t('match_highlights_badge')}
-							</span>
-						{/if}
 					</a>
+					{#if match.youtube_video_id}
+						<a href="/matches/{match.id}#highlights"
+							class="inline-flex items-center justify-center gap-1 mt-1.5 text-[10px] font-semibold text-accent hover:text-accent-hi transition-colors">
+							<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+							{t('match_highlights_badge')}
+						</a>
+					{/if}
 				{:else if match.status === 'live'}
 					<a href="/matches/{match.id}" class="text-center block">
 						<span class="font-bold text-live tabular-nums leading-none block text-2xl"
@@ -465,10 +466,11 @@
 						</span>
 					{/if}
 					{#if match.youtube_video_id}
-						<span class="inline-flex items-center justify-center gap-1 mt-1.5 text-[10px] font-semibold text-accent">
+						<a href="/matches/{match.id}#highlights"
+							class="inline-flex items-center justify-center gap-1 mt-1.5 text-[10px] font-semibold text-accent hover:text-accent-hi transition-colors">
 							<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
 							{t('match_highlights_badge')}
-						</span>
+						</a>
 					{/if}
 				{:else if match.status === 'live'}
 					<a href="/matches/{match.id}" class="block">
