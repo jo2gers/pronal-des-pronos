@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { supabase } from '$lib/supabase';
 	import { getLang, setLang, t } from '$lib/i18n.svelte';
+	import { getShowOdds, toggleOdds, loadPrefs } from '$lib/prefs.svelte';
 
 	let { children, data } = $props();
 	let menuOpen  = $state(false);
@@ -46,6 +47,7 @@
 		theme = storedTheme as 'dark' | 'light';
 		setLang(storedLang as 'fr' | 'en');
 		document.documentElement.classList.toggle('light', storedTheme === 'light');
+		loadPrefs();
 	});
 
 	// ── Live notifications via Supabase Realtime ───────────────────────────────
@@ -191,6 +193,24 @@
 						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-width="2" stroke-linecap="round"
 								d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+						</svg>
+					{/if}
+				</button>
+
+				<!-- Odds visibility toggle -->
+				<button onclick={toggleOdds} title={t('odds_toggle_title')} aria-pressed={getShowOdds()}
+					class="w-7 h-7 flex items-center justify-center rounded-md border transition-colors cursor-pointer
+						{getShowOdds() ? 'border-wire text-muted hover:text-fg hover:border-wire-hi' : 'border-accent/50 text-accent'}">
+					{#if getShowOdds()}
+						<!-- eye open -->
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+							<circle cx="12" cy="12" r="3"/>
+						</svg>
+					{:else}
+						<!-- eye off -->
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
 						</svg>
 					{/if}
 				</button>
@@ -346,6 +366,17 @@
 						<button onclick={toggleTheme}
 							class="w-7 h-7 flex items-center justify-center rounded border border-wire text-muted cursor-pointer">
 							{theme === 'dark' ? '☀' : '☾'}
+						</button>
+						<!-- Odds toggle -->
+						<button onclick={toggleOdds} aria-pressed={getShowOdds()} title={t('odds_toggle_title')}
+							class="inline-flex items-center gap-1.5 h-7 px-2 rounded border text-xs font-semibold transition-colors cursor-pointer
+								{getShowOdds() ? 'border-wire text-muted' : 'border-accent/50 text-accent'}">
+							{#if getShowOdds()}
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/><circle cx="12" cy="12" r="3"/></svg>
+							{:else}
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59M21 21l-2.59-2.59"/></svg>
+							{/if}
+							{t('odds_label')}
 						</button>
 					</div>
 					<!-- Auth -->

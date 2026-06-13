@@ -4,6 +4,7 @@
 	import { formatDate, isMatchLocked, liveClock } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
+	import { getShowOdds } from '$lib/prefs.svelte';
 	import Flag from '$lib/components/Flag.svelte';
 	import FilterCarousel from '$lib/components/FilterCarousel.svelte';
 
@@ -268,8 +269,9 @@
 			</div>
 		</div>
 
-		<!-- Market odds — favourite in accent, underdog muted -->
-		{#if data.match.odds_home && data.match.odds_draw && data.match.odds_away}
+		<!-- Market odds — favourite in accent, underdog muted (hidden when the
+		     user has turned odds off) -->
+		{#if getShowOdds() && data.match.odds_home && data.match.odds_draw && data.match.odds_away}
 			{@const pHome = Math.round(100 / (data.match.odds_home ?? 1))}
 			{@const pDraw = Math.round(100 / (data.match.odds_draw ?? 1))}
 			{@const pAway = Math.round(100 / (data.match.odds_away ?? 1))}
@@ -561,7 +563,7 @@
 					</div>
 
 					{#if !locked}
-						{#if data.match.odds_home && data.match.odds_draw && data.match.odds_away}
+						{#if getShowOdds() && data.match.odds_home && data.match.odds_draw && data.match.odds_away}
 							{@const outcome = Math.sign(home - away)}
 							{@const oddsUsed = outcome > 0 ? data.match.odds_home : outcome === 0 ? data.match.odds_draw : data.match.odds_away}
 							<p class="text-xs text-center text-faint mb-4">

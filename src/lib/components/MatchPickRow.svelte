@@ -4,6 +4,7 @@
 	import { formatTime, MATCH_LOCK_MS } from '$lib/utils';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import { teamLabel } from '$lib/wc2026';
+	import { getShowOdds } from '$lib/prefs.svelte';
 	import Flag from '$lib/components/Flag.svelte';
 
 	type MatchLike = {
@@ -202,7 +203,7 @@
 {/snippet}
 
 {#snippet oddsLine()}
-	{#if match.odds_home && match.odds_draw && match.odds_away}
+	{#if getShowOdds() && match.odds_home && match.odds_draw && match.odds_away}
 		<a href="/matches/{match.id}" class="flex items-center justify-center gap-1.5 text-sm tabular-nums mt-2 hover:opacity-80 transition-opacity">
 			<span class="inline-flex items-baseline gap-1 {outcome != null && outcome > 0 ? 'text-accent font-bold' : 'text-faint'}" title={teamLabel(match.home_team)}>
 				<span class="text-faint font-normal text-[10px] uppercase tracking-wider">1</span>
