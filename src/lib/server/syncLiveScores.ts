@@ -14,7 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
-import { fetchEspnEvents } from './espnEvents';
+import { fetchEspnEvents, fetchEspnLineups, resolveEspnGameId } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
 
 type LiveMatchRow = {
@@ -97,6 +97,7 @@ export async function syncLiveScores(
 	ended: number;
 	scoredPronostics: number;
 	eventsUpdated?: number;
+	lineupsUpdated?: number;
 	videosUpdated?: number;
 	bracketUpdated?: number;
 	slugsUpdated?: number;
@@ -192,33 +193,62 @@ export async function syncLiveScores(
 	// match is in play (or just ended this tick, to capture stoppage-time
 	// events in the final write). Non-fatal.
 	let eventsUpdated = 0;
+	let lineupsUpdated = 0;
 	const timelineCandidates = matches.filter(
 		(m) => m.status !== 'upcoming' || new Date(m.match_datetime).getTime() <= nowMs
 	);
 	if (timelineCandidates.length > 0) {
 		try {
-			const espn = await fetchEspnEvents();
-			if (espn.size > 0) {
-				// Current rows (live_events not in the main select — fetch lazily)
+			const { events: espn, gameIds } = await fetchEspnEvents();
+			if (espn.size > 0 || gameIds.size > 0) {
 				const { data: currentRows } = await supabase
 					.from('matches')
-					.select('id, home_team, away_team, live_events')
+					.select('id, home_team, away_team, status, live_events, lineups, espn_game_id')
 					.in('id', timelineCandidates.map((m) => m.id));
 
+				// Throttle lineup refresh to every 3rd minute (subs are rare), but
+				// always fetch when we don't have lineups yet so they appear ASAP.
+				const minuteTick = new Date(nowMs).getUTCMinutes() % 3 === 0;
+
 				for (const row of currentRows ?? []) {
-					const events = espn.get(`${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`);
-					if (!events || events.length === 0) continue;
-					const next = JSON.stringify(events);
-					if (JSON.stringify(row.live_events ?? []) === next) continue;
-					const { error } = await supabase
-						.from('matches')
-						.update({ live_events: events })
-						.eq('id', row.id);
-					if (!error) eventsUpdated++;
+					const k = `${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`;
+					const patch: Record<string, unknown> = {};
+
+					const events = espn.get(k);
+					if (events && events.length > 0 && JSON.stringify(row.live_events ?? []) !== JSON.stringify(events)) {
+						patch.live_events = events;
+					}
+
+					const gid = gameIds.get(k) ?? row.espn_game_id;
+					if (gid && row.espn_game_id !== gid) patch.espn_game_id = gid;
+
+					// Formations & lineups (from ESPN summary rosters). Fetch when
+					// live (refresh for subs, gated) or when still missing.
+					const needLineups = !row.lineups || (row.status === 'live' && minuteTick);
+					if (gid && needLineups) {
+						const lu = await fetchEspnLineups(gid);
+						if (lu) {
+							// Align ESPN home/away to OUR home/away by team name.
+							const aligned =
+								lu.homeTeam.toLowerCase() === row.home_team.toLowerCase()
+									? { home: lu.home, away: lu.away }
+									: { home: lu.away, away: lu.home };
+							if (JSON.stringify(row.lineups ?? {}) !== JSON.stringify(aligned)) {
+								patch.lineups = aligned;
+							}
+						}
+					}
+
+					if (Object.keys(patch).length === 0) continue;
+					const { error } = await supabase.from('matches').update(patch).eq('id', row.id);
+					if (!error) {
+						if (patch.live_events) eventsUpdated++;
+						if (patch.lineups) lineupsUpdated++;
+					}
 				}
 			}
 		} catch {
-			// non-fatal — timeline simply doesn't update this tick
+			// non-fatal — timeline/lineups simply don't update this tick
 		}
 	}
 
@@ -252,6 +282,37 @@ export async function syncLiveScores(
 		}
 	} catch {
 		// non-fatal — highlights simply don't match this tick
+	}
+
+	// ── Lineups backfill for finished matches ──────────────────────────────
+	// Live matches get lineups during play (timeline pass above). Matches that
+	// finished without lineups (e.g. before this feature) are backfilled here:
+	// resolve the gameId from the dated scoreboard, fetch the summary rosters.
+	// Capped to a couple per tick so the per-minute cron stays light.
+	try {
+		const since = new Date(nowMs - 7 * 86400_000).toISOString();
+		const { data: needLineups } = await supabase
+			.from('matches')
+			.select('id, home_team, away_team, match_datetime, espn_game_id')
+			.eq('status', 'finished')
+			.is('lineups', null)
+			.gte('match_datetime', since)
+			.limit(2);
+
+		for (const row of needLineups ?? []) {
+			const gid = row.espn_game_id ?? await resolveEspnGameId(row.home_team, row.away_team, row.match_datetime);
+			if (!gid) continue;
+			const lu = await fetchEspnLineups(gid);
+			if (!lu) continue;
+			const aligned =
+				lu.homeTeam.toLowerCase() === row.home_team.toLowerCase()
+					? { home: lu.home, away: lu.away }
+					: { home: lu.away, away: lu.home };
+			await supabase.from('matches').update({ lineups: aligned, espn_game_id: gid }).eq('id', row.id);
+			lineupsUpdated++;
+		}
+	} catch {
+		// non-fatal — lineups backfill simply doesn't run this tick
 	}
 
 	// ── Cascade after any FT transition ────────────────────────────────────
@@ -291,6 +352,7 @@ export async function syncLiveScores(
 		ended,
 		scoredPronostics,
 		eventsUpdated,
+		lineupsUpdated,
 		videosUpdated,
 		bracketUpdated,
 		slugsUpdated,

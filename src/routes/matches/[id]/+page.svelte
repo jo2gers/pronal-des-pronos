@@ -115,6 +115,17 @@
 	// Highlights player: lite facade — the YouTube iframe only mounts on click.
 	let highlightPlaying = $state(false);
 
+	// Lineups: which team's formation is shown (toggle).
+	let lineupSide = $state<'home' | 'away'>('home');
+	const sideLineup = $derived((data.match.lineups as any)?.[lineupSide] ?? null);
+
+	// "Christian Pulisic" → "C. Pulisic"; single token stays as-is.
+	function shortName(full: string): string {
+		const parts = (full ?? '').trim().split(/\s+/);
+		if (parts.length < 2) return full;
+		return `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
+	}
+
 	// Deep-link from the matches list ("▶ Résumé" → /matches/{id}#highlights):
 	// arrive straight on the player and scroll it into view. We deliberately
 	// do NOT autoplay — the video starts only when the user taps play, so it
@@ -335,6 +346,84 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- Formations & lineups (ESPN). Toggle between the two teams; pitch rows
+	     by line (GK / DEF / MID / FWD), then subs that came on, then the bench. -->
+	{#if data.match.lineups && (sideLineup?.starters?.length ?? 0) > 0}
+		<section class="pt-2">
+			<div class="flex items-center justify-between mb-3">
+				<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('match_lineups')}</h2>
+				<div class="flex gap-0.5 rounded-lg bg-raised border border-wire p-0.5 text-xs">
+					{#each [['home', data.match.home_team, data.match.home_flag], ['away', data.match.away_team, data.match.away_flag]] as [sd, tm, fl]}
+						<button onclick={() => lineupSide = sd as 'home' | 'away'}
+							class="inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-semibold transition-colors cursor-pointer
+								{lineupSide === sd ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
+							<Flag code={fl} size={14} />
+							<span class="truncate max-w-[5.5rem]">{teamLabel(tm as string)}</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			{#if sideLineup}
+				{#if sideLineup.formation}
+					<p class="text-[11px] text-faint text-center mb-2 tabular-nums">{sideLineup.formation}</p>
+				{/if}
+
+				<div class="rounded-xl overflow-hidden p-4 space-y-5"
+					style="background: linear-gradient(to bottom, oklch(0.42 0.09 150), oklch(0.38 0.09 150))">
+					{#each ['G','D','M','F'] as line}
+						{@const row = sideLineup.starters.filter((p) => p.group === line)}
+						{#if row.length > 0}
+							<div class="flex justify-center gap-2 sm:gap-3 flex-wrap">
+								{#each row as p (p.num ?? p.name)}
+									<div class="flex flex-col items-center gap-1 w-14 sm:w-16">
+										<div class="relative w-8 h-8 rounded-full bg-fg/95 flex items-center justify-center text-canvas text-xs font-bold tabular-nums shadow {p.subbedOut ? 'opacity-60' : ''}">
+											{p.num ?? ''}
+											{#if p.subbedOut}
+												<span class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-err flex items-center justify-center text-[7px] text-white">↓</span>
+											{/if}
+										</div>
+										<span class="text-[9.5px] leading-tight text-center text-white/90 truncate max-w-full">{shortName(p.name)}</span>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					{/each}
+				</div>
+
+				<div class="grid gap-4 mt-3 {sideLineup.subs.length > 0 && sideLineup.bench.length > 0 ? 'sm:grid-cols-2' : ''}">
+					{#if sideLineup.subs.length > 0}
+						<div>
+							<p class="text-[11px] text-faint uppercase tracking-widest mb-1.5">{t('match_subs')}</p>
+							<ul class="divide-y divide-wire/40 border-y border-wire/40">
+								{#each sideLineup.subs as p (p.num ?? p.name)}
+									<li class="flex items-center gap-2 py-1.5 text-sm">
+										<span class="text-[10px] w-6 text-right tabular-nums text-faint shrink-0">{p.num ?? ''}</span>
+										<span class="text-accent shrink-0">↑</span>
+										<span class="text-fg truncate">{p.name}</span>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+					{#if sideLineup.bench.length > 0}
+						<div>
+							<p class="text-[11px] text-faint uppercase tracking-widest mb-1.5">{t('match_bench')}</p>
+							<ul class="divide-y divide-wire/40 border-y border-wire/40">
+								{#each sideLineup.bench as p (p.num ?? p.name)}
+									<li class="flex items-center gap-2 py-1.5 text-sm text-muted">
+										<span class="text-[10px] w-6 text-right tabular-nums text-faint shrink-0">{p.num ?? ''}</span>
+										<span class="truncate">{p.name}</span>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</section>
+	{/if}
 
 	<!-- Official highlights — embedded YouTube player (lite facade: the iframe
 	     only loads on click, so the heavy YT player never costs a page load). -->

@@ -7,13 +7,34 @@
 //
 // Non-fatal by design: any failure here just means "no timeline this tick".
 
-const SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
+const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
+const SCOREBOARD_URL = `${BASE}/scoreboard`;
+const SUMMARY_URL = `${BASE}/summary`;
 
 export type MatchEvent = {
 	minute: string;             // "9'", "45'+2'"
 	type: 'goal' | 'og' | 'pen' | 'yellow' | 'red';
 	side: 'home' | 'away';      // relative to OUR match row
 	player: string | null;
+};
+
+export type LineupPlayer = {
+	num: number | null;
+	name: string;
+	group: 'G' | 'D' | 'M' | 'F';
+	subbedOut?: boolean;
+};
+export type TeamLineup = {
+	formation: string | null;
+	starters: LineupPlayer[];
+	subs: { num: number | null; name: string }[];   // came on
+	bench: { num: number | null; name: string }[];   // unused
+};
+export type MatchLineups = {
+	home: TeamLineup;
+	away: TeamLineup;
+	homeTeam: string;  // ESPN's home team, normalized to our EN name
+	awayTeam: string;
 };
 
 // ESPN display name → our DB English name (only where they differ).
@@ -39,13 +60,18 @@ const key = (a: string, b: string) => `${a.toLowerCase()}|${b.toLowerCase()}`;
  * One scoreboard fetch → map keyed by "homeTeam|awayTeam" (our EN names,
  * lowercased) → ordered list of goal/card events.
  */
-export async function fetchEspnEvents(): Promise<Map<string, MatchEvent[]>> {
+export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
+	events: Map<string, MatchEvent[]>;
+	gameIds: Map<string, string>;
+}> {
 	const out = new Map<string, MatchEvent[]>();
+	const gameIds = new Map<string, string>();
 	try {
-		const res = await fetch(`${SCOREBOARD_URL}?_=${Date.now()}`, {
+		const qs = dateYYYYMMDD ? `?dates=${dateYYYYMMDD}&_=${Date.now()}` : `?_=${Date.now()}`;
+		const res = await fetch(`${SCOREBOARD_URL}${qs}`, {
 			headers: { Accept: 'application/json' }
 		});
-		if (!res.ok) return out;
+		if (!res.ok) return { events: out, gameIds };
 		const data = await res.json();
 
 		for (const event of data?.events ?? []) {
@@ -60,6 +86,7 @@ export async function fetchEspnEvents(): Promise<Map<string, MatchEvent[]>> {
 			const espnHome = norm(homeComp.team?.displayName ?? '');
 			const espnAway = norm(awayComp.team?.displayName ?? '');
 			const homeId = String(homeComp.team?.id ?? homeComp.id ?? '');
+			const gameId = String(event.id ?? comp.id ?? '');
 
 			const events: MatchEvent[] = [];
 			for (const det of comp.details ?? []) {
@@ -92,9 +119,95 @@ export async function fetchEspnEvents(): Promise<Map<string, MatchEvent[]>> {
 				key(espnAway, espnHome),
 				events.map((e) => ({ ...e, side: e.side === 'home' ? 'away' : 'home' }))
 			);
+			if (gameId) {
+				gameIds.set(key(espnHome, espnAway), gameId);
+				gameIds.set(key(espnAway, espnHome), gameId);
+			}
 		}
 	} catch {
 		// non-fatal — timeline simply doesn't update this tick
 	}
-	return out;
+	return { events: out, gameIds };
+}
+
+/** Resolve an ESPN gameId for one match via the dated scoreboard (±1 day for
+ *  ESPN's US-date grouping), matching by team names. For finished-match backfill. */
+export async function resolveEspnGameId(
+	homeTeamEn: string,
+	awayTeamEn: string,
+	matchDatetimeIso: string
+): Promise<string | null> {
+	const d = new Date(matchDatetimeIso);
+	const dates = [-1, 0, 1].map((off) => {
+		const x = new Date(d.getTime() + off * 86400000);
+		return `${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`;
+	});
+	const want = key(homeTeamEn, awayTeamEn);
+	for (const date of dates) {
+		const { gameIds } = await fetchEspnEvents(date);
+		const hit = gameIds.get(want);
+		if (hit) return hit;
+	}
+	return null;
+}
+
+// ESPN position abbreviation → coarse pitch line. Robust across formations:
+// G=keeper; anything with B/CD or starting D = defender; with M = midfielder;
+// F/ST/CF/W(ing) = forward.
+function positionGroup(pos: string): 'G' | 'D' | 'M' | 'F' {
+	const p = (pos || '').toUpperCase();
+	if (p === 'G' || p === 'GK') return 'G';
+	if (/^F|ST|CF|^W|RW|LW/.test(p)) return 'F';
+	if (p.includes('M')) return 'M';
+	if (p.includes('B') || p.includes('CD') || p.startsWith('D') || p.includes('SW')) return 'D';
+	return 'M';
+}
+
+function buildTeamLineup(r: any): TeamLineup {
+	const roster: any[] = r?.roster ?? [];
+	const starters = roster
+		.filter((p) => p.starter)
+		.sort((a, b) => (a.formationPlace ?? 99) - (b.formationPlace ?? 99))
+		.map((p) => ({
+			num: p.jersey != null ? Number(p.jersey) : null,
+			name: p.athlete?.displayName ?? '',
+			group: positionGroup((p.position || {}).abbreviation || ''),
+			subbedOut: p.subbedOut === true
+		}));
+	const subs = roster
+		.filter((p) => !p.starter && p.subbedIn)
+		.map((p) => ({ num: p.jersey != null ? Number(p.jersey) : null, name: p.athlete?.displayName ?? '' }));
+	const bench = roster
+		.filter((p) => !p.starter && !p.subbedIn)
+		.map((p) => ({ num: p.jersey != null ? Number(p.jersey) : null, name: p.athlete?.displayName ?? '' }));
+	return { formation: r?.formation ?? null, starters, subs, bench };
+}
+
+/**
+ * Per-match formations + lineups from the summary endpoint's `rosters`.
+ * Returned keyed to OUR home/away (caller passes which ESPN side is home).
+ */
+export async function fetchEspnLineups(gameId: string): Promise<MatchLineups | null> {
+	try {
+		const res = await fetch(`${SUMMARY_URL}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
+			headers: { Accept: 'application/json' }
+		});
+		if (!res.ok) return null;
+		const data = await res.json();
+		const rosters: any[] = data?.rosters ?? [];
+		if (rosters.length < 2) return null;
+		const homeR = rosters.find((r) => r.homeAway === 'home') ?? rosters[0];
+		const awayR = rosters.find((r) => r.homeAway === 'away') ?? rosters[1];
+		const home = buildTeamLineup(homeR);
+		const away = buildTeamLineup(awayR);
+		if (home.starters.length === 0 && away.starters.length === 0) return null;
+		return {
+			home,
+			away,
+			homeTeam: norm(homeR?.team?.displayName ?? ''),
+			awayTeam: norm(awayR?.team?.displayName ?? '')
+		};
+	} catch {
+		return null;
+	}
 }
