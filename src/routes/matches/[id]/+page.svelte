@@ -270,10 +270,19 @@
 			</div>
 		{/if}
 
-		<!-- Timeline: goals + cards (ESPN), home events left / away events right -->
+		<!-- Timeline: goals + cards (ESPN), home events left / away events right.
+		     Updates live: the cron writes live_events every minute during the
+		     match and the page auto-refreshes every 30s while status is live. -->
 		{#if (data.match.live_events ?? []).length > 0}
 			<div class="mt-6 pt-4 border-t border-wire">
-				<p class="text-xs text-faint text-center mb-3">{t('match_timeline')}</p>
+				<div class="flex items-center justify-center gap-1.5 mb-3">
+					{#if data.match.status === 'live'}
+						<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
+						<span class="text-xs font-bold text-live uppercase tracking-widest">{t('match_timeline_live')}</span>
+					{:else}
+						<span class="text-xs text-faint">{t('match_timeline')}</span>
+					{/if}
+				</div>
 				<div class="space-y-1.5">
 					{#each data.match.live_events as ev}
 						{@const isHome = ev.side === 'home'}
