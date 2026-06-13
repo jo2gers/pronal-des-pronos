@@ -14,7 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
-import { fetchEspnEvents, fetchEspnLineups, resolveEspnGameId } from './espnEvents';
+import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
 
 type LiveMatchRow = {
@@ -98,6 +98,7 @@ export async function syncLiveScores(
 	scoredPronostics: number;
 	eventsUpdated?: number;
 	lineupsUpdated?: number;
+	venuesUpdated?: number;
 	videosUpdated?: number;
 	bracketUpdated?: number;
 	slugsUpdated?: number;
@@ -315,6 +316,35 @@ export async function syncLiveScores(
 		// non-fatal — lineups backfill simply doesn't run this tick
 	}
 
+	// ── Venue / host location backfill ─────────────────────────────────────
+	// Stadium + host city/country are static, so we fill them once per match
+	// (any status, real teams) then never refetch. Capped at 3 per tick — over
+	// ~40 min the whole calendar fills in.
+	let venuesUpdated = 0;
+	try {
+		const { data: needVenue } = await supabase
+			.from('matches')
+			.select('id, home_team, away_team, match_datetime, espn_game_id')
+			.is('venue_country', null)
+			.neq('home_team', 'TBD')
+			.order('match_datetime', { ascending: true })
+			.limit(3);
+
+		for (const row of needVenue ?? []) {
+			const gid = row.espn_game_id ?? await resolveEspnGameId(row.home_team, row.away_team, row.match_datetime);
+			if (!gid) continue;
+			const v = await fetchEspnVenue(gid);
+			if (!v) continue;
+			await supabase
+				.from('matches')
+				.update({ venue: v.stadium, venue_city: v.city, venue_country: v.country, espn_game_id: gid })
+				.eq('id', row.id);
+			venuesUpdated++;
+		}
+	} catch {
+		// non-fatal — venue backfill simply doesn't run this tick
+	}
+
 	// ── Cascade after any FT transition ────────────────────────────────────
 	// When a match ends, the bracket may now be ready to fill one or more
 	// knockout slots (e.g. last group match → R32 pairings, last R32 → R16).
@@ -353,6 +383,7 @@ export async function syncLiveScores(
 		scoredPronostics,
 		eventsUpdated,
 		lineupsUpdated,
+		venuesUpdated,
 		videosUpdated,
 		bracketUpdated,
 		slugsUpdated,

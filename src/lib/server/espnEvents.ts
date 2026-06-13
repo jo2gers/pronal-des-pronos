@@ -211,3 +211,26 @@ export async function fetchEspnLineups(gameId: string): Promise<MatchLineups | n
 		return null;
 	}
 }
+
+export type MatchVenue = { stadium: string | null; city: string | null; country: string | null };
+
+/** Stadium + host city/country from the summary endpoint's gameInfo.venue.
+ *  Static per match, so the caller fetches it once then stops. */
+export async function fetchEspnVenue(gameId: string): Promise<MatchVenue | null> {
+	try {
+		const res = await fetch(`${SUMMARY_URL}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
+			headers: { Accept: 'application/json' }
+		});
+		if (!res.ok) return null;
+		const data = await res.json();
+		const v = data?.gameInfo?.venue;
+		if (!v) return null;
+		const stadium = v.fullName ?? v.shortName ?? null;
+		const city = v.address?.city ?? null;
+		const country = v.address?.country ?? null;
+		if (!stadium && !country) return null;
+		return { stadium, city, country };
+	} catch {
+		return null;
+	}
+}

@@ -169,13 +169,21 @@
 
 	<!-- Match header -->
 	<div class="rounded-xl bg-panel border border-wire p-6">
-		<div class="flex items-center justify-between mb-5 text-xs text-faint">
-			<span>
+		<div class="text-center mb-5 space-y-1">
+			<p class="text-xs text-faint">
 				{(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN)[data.match.stage] ?? data.match.stage}
 				{data.match.group_label ? ` · ${t('group_short')} ${data.match.group_label}` : ''}
-			</span>
-			{#if data.match.venue}
-				<span class="hidden sm:block truncate ml-4 max-w-[200px]">{data.match.venue}</span>
+			</p>
+			{#if data.match.venue || data.match.venue_country}
+				<p class="inline-flex items-center gap-1 text-[11px] text-muted max-w-full">
+					<svg class="w-3 h-3 shrink-0 text-faint" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+					</svg>
+					<span class="truncate">
+						{#if data.match.venue}{data.match.venue}{/if}{#if data.match.venue && (data.match.venue_city || data.match.venue_country)} · {/if}{data.match.venue_city ?? ''}{#if data.match.venue_city && data.match.venue_country}, {/if}{data.match.venue_country ?? ''}
+					</span>
+				</p>
 			{/if}
 		</div>
 
