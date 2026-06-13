@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			.select(`
 				id, home_team, away_team, home_flag, away_flag,
 				stage, group_label, match_datetime, venue, status,
-				home_score, away_score, odds_home, odds_draw, odds_away
+				home_score, away_score, odds_home, odds_draw, odds_away, youtube_video_id
 			`)
 			.order('match_datetime', { ascending: true }),
 		user

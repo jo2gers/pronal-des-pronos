@@ -112,6 +112,9 @@
 		liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en', data.match.last_score_sync_at)
 	);
 
+	// Highlights player: lite facade — the YouTube iframe only mounts on click.
+	let highlightPlaying = $state(false);
+
 	// Whether the user's own pick is already in the list
 	const myPronoInList = $derived(
 		data.allPronostics?.some((p: any) => p.user_id === data.user?.id) ?? false
@@ -320,6 +323,42 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- Official highlights — embedded YouTube player (lite facade: the iframe
+	     only loads on click, so the heavy YT player never costs a page load). -->
+	{#if data.match.youtube_video_id}
+		<section class="pt-2">
+			<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs mb-3">{t('match_highlights')}</h2>
+			<div class="relative rounded-xl overflow-hidden bg-black border border-wire aspect-video">
+				{#if highlightPlaying}
+					<iframe
+						class="absolute inset-0 w-full h-full"
+						src="https://www.youtube-nocookie.com/embed/{data.match.youtube_video_id}?autoplay=1&rel=0"
+						title={t('match_highlights')}
+						frameborder="0"
+						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+						allowfullscreen></iframe>
+				{:else}
+					<button type="button" onclick={() => (highlightPlaying = true)}
+						class="absolute inset-0 w-full h-full group/play cursor-pointer"
+						aria-label={t('match_highlights_play')}>
+						<img src="https://i.ytimg.com/vi/{data.match.youtube_video_id}/hqdefault.jpg" alt=""
+							class="absolute inset-0 w-full h-full object-cover group-hover/play:scale-105 transition-transform duration-300" />
+						<span class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></span>
+						<span class="absolute inset-0 flex items-center justify-center">
+							<span class="w-16 h-16 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center
+								group-hover/play:bg-accent group-hover/play:scale-110 transition-all">
+								<svg class="w-7 h-7 text-fg group-hover/play:text-canvas ml-1" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+									<path d="M8 5v14l11-7z" />
+								</svg>
+							</span>
+						</span>
+					</button>
+				{/if}
+			</div>
+			<p class="text-[11px] text-faint mt-2">{t('match_highlights_via')}</p>
+		</section>
+	{/if}
 
 	<!-- My pronostic -->
 	{#if data.user}

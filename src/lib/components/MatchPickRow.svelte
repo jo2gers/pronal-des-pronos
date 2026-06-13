@@ -20,6 +20,7 @@
 		odds_home?: number | null;
 		odds_draw?: number | null;
 		odds_away?: number | null;
+		youtube_video_id?: string | null;
 		// Stage-level lock — true while the previous round still has
 		// unfinished matches. Computed in server loads via computeStageUnlocks.
 		stage_locked?: boolean;
@@ -384,6 +385,12 @@
 								{/if}
 							</span>
 						{/if}
+						{#if match.youtube_video_id}
+							<span class="inline-flex items-center justify-center gap-1 mt-1.5 text-[10px] font-semibold text-accent">
+								<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+								{t('match_highlights_badge')}
+							</span>
+						{/if}
 					</a>
 				{:else if match.status === 'live'}
 					<a href="/matches/{match.id}" class="text-center block">
@@ -455,6 +462,12 @@
 									? (existingProno.points_earned > 0 ? '+' : '') + Number(existingProno.points_earned).toFixed(2)
 									: '–'}
 							{/if}
+						</span>
+					{/if}
+					{#if match.youtube_video_id}
+						<span class="inline-flex items-center justify-center gap-1 mt-1.5 text-[10px] font-semibold text-accent">
+							<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+							{t('match_highlights_badge')}
 						</span>
 					{/if}
 				{:else if match.status === 'live'}

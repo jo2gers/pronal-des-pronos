@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
 import { fetchEspnEvents } from './espnEvents';
+import { fetchHighlightVideos } from './youtubeHighlights';
 
 type LiveMatchRow = {
 	id: string;
@@ -96,6 +97,7 @@ export async function syncLiveScores(
 	ended: number;
 	scoredPronostics: number;
 	eventsUpdated?: number;
+	videosUpdated?: number;
 	bracketUpdated?: number;
 	slugsUpdated?: number;
 	oddsUpdated?: number;
@@ -220,6 +222,38 @@ export async function syncLiveScores(
 		}
 	}
 
+	// ── Official highlights from the FIFA YouTube playlist ─────────────────
+	// For finished matches (last 7 days) without a highlight yet, match against
+	// the playlist's RSS feed by team names and store the videoId. The feed is
+	// one cheap keyless call, fetched only when there's an unmatched match.
+	let videosUpdated = 0;
+	try {
+		const since = new Date(nowMs - 7 * 86400_000).toISOString();
+		const { data: needHighlight } = await supabase
+			.from('matches')
+			.select('id, home_team, away_team')
+			.eq('status', 'finished')
+			.is('youtube_video_id', null)
+			.gte('match_datetime', since);
+
+		if ((needHighlight ?? []).length > 0) {
+			const videos = await fetchHighlightVideos();
+			if (videos.size > 0) {
+				for (const row of needHighlight ?? []) {
+					const vid = videos.get(`${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`);
+					if (!vid) continue;
+					const { error } = await supabase
+						.from('matches')
+						.update({ youtube_video_id: vid })
+						.eq('id', row.id);
+					if (!error) videosUpdated++;
+				}
+			}
+		}
+	} catch {
+		// non-fatal — highlights simply don't match this tick
+	}
+
 	// ── Cascade after any FT transition ────────────────────────────────────
 	// When a match ends, the bracket may now be ready to fill one or more
 	// knockout slots (e.g. last group match → R32 pairings, last R32 → R16).
@@ -257,6 +291,7 @@ export async function syncLiveScores(
 		ended,
 		scoredPronostics,
 		eventsUpdated,
+		videosUpdated,
 		bracketUpdated,
 		slugsUpdated,
 		oddsUpdated
