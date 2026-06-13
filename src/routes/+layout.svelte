@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/state';
+	import { page, updated } from '$app/state';
 	import { supabase } from '$lib/supabase';
 	import { getLang, setLang, t } from '$lib/i18n.svelte';
 
@@ -11,6 +11,17 @@
 	let theme = $state<'dark' | 'light'>('dark');
 
 	const totalNotif = $derived((data.friendNotifCount ?? 0) + (data.groupNotifCount ?? 0) + (data.inviteCount ?? 0));
+
+	// Self-heal stale PWA: when a newer deploy is detected (polled every 60s),
+	// hard-reload to fetch the fresh shell + assets. Safe — picks auto-save, so
+	// there's nothing to lose. Guarded so it fires once.
+	let reloading = false;
+	$effect(() => {
+		if (updated.current && !reloading) {
+			reloading = true;
+			location.reload();
+		}
+	});
 
 	// Keep an invite/deep link alive across the auth pages: when the current URL
 	// carries ?next= (e.g. /auth/login?next=/leagues/join/abc), the nav's own
