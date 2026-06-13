@@ -36,6 +36,14 @@
 	// (anti-flicker optimisation) — leaving the wrong country on a row whose
 	// other content was fixed. Re-assert the src imperatively after mount.
 	let imgEl = $state<HTMLImageElement | null>(null);
+	// If the flag CDN ever fails to load (network blip, blocked CDN), fall back
+	// to the neutral placeholder instead of a broken-image icon. Reset whenever
+	// the src changes so a new flag gets a fresh attempt.
+	let failed = $state(false);
+	$effect(() => {
+		src; // track
+		failed = false;
+	});
 	$effect(() => {
 		if (imgEl && src && imgEl.src !== src) imgEl.src = src;
 	});
@@ -51,10 +59,11 @@
      auto-sizing and pushes whole cards past the viewport edge on phones.
      With width:auto-ish sizing the wrapper contributes ~0 to intrinsic
      widths, fills its column, and the max-width cap sets the actual size. -->
-<span class="relative block shrink-0 overflow-hidden {src ? '' : 'bg-raised'} {ringClass} {extra}"
+<span class="relative block shrink-0 overflow-hidden {src && !failed ? '' : 'bg-raised'} {ringClass} {extra}"
 	style="width: 100%; max-width: {width}px; border-radius: {radius}px;">
 	<span class="block" style="padding-bottom: 66.667%" aria-hidden="true"></span>
-	{#if src}
-		<img bind:this={imgEl} {src} {alt} class="absolute inset-0 w-full h-full object-cover" />
+	{#if src && !failed}
+		<img bind:this={imgEl} {src} {alt} onerror={() => (failed = true)}
+			class="absolute inset-0 w-full h-full object-cover" />
 	{/if}
 </span>

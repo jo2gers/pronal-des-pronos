@@ -115,7 +115,8 @@
 	// Highlights player: lite facade — the YouTube iframe only mounts on click.
 	let highlightPlaying = $state(false);
 
-	// Lineups: which team's formation is shown (toggle).
+	// Lineups: collapsible band (closed by default) + which team is shown.
+	let lineupsOpen = $state(false);
 	let lineupSide = $state<'home' | 'away'>('home');
 	const sideLineup = $derived((data.match.lineups as any)?.[lineupSide] ?? null);
 
@@ -351,9 +352,29 @@
 	     by line (GK / DEF / MID / FWD), then subs that came on, then the bench. -->
 	{#if data.match.lineups && (sideLineup?.starters?.length ?? 0) > 0}
 		<section class="pt-2">
-			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs">{t('match_lineups')}</h2>
-				<div class="flex gap-0.5 rounded-lg bg-raised border border-wire p-0.5 text-xs">
+			<!-- Collapsible band: shows both formations; tap to open the pitch.
+			     Compact entry point that's useful during the match (when there's
+			     no highlights video yet). -->
+			<button type="button" onclick={() => (lineupsOpen = !lineupsOpen)}
+				aria-expanded={lineupsOpen}
+				class="w-full flex items-center justify-between gap-3 rounded-xl bg-panel border border-wire px-4 py-3 hover:border-wire-hi transition-colors cursor-pointer">
+				<span class="text-xs font-bold text-fg uppercase tracking-widest">{t('match_lineups')}</span>
+				<span class="flex items-center gap-1.5 text-[11px] text-muted tabular-nums">
+					<Flag code={data.match.home_flag} size={14} />
+					<span>{(data.match.lineups as any).home?.formation ?? ''}</span>
+					<span class="text-faint">·</span>
+					<span>{(data.match.lineups as any).away?.formation ?? ''}</span>
+					<Flag code={data.match.away_flag} size={14} />
+					<svg class="w-4 h-4 text-faint shrink-0 transition-transform duration-200 {lineupsOpen ? 'rotate-180' : ''}"
+						fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+					</svg>
+				</span>
+			</button>
+
+			{#if lineupsOpen && sideLineup}
+				<!-- Team toggle -->
+				<div class="flex gap-0.5 rounded-lg bg-raised border border-wire p-0.5 text-xs w-max mx-auto mt-3">
 					{#each [['home', data.match.home_team, data.match.home_flag], ['away', data.match.away_team, data.match.away_flag]] as [sd, tm, fl]}
 						<button onclick={() => lineupSide = sd as 'home' | 'away'}
 							class="inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-semibold transition-colors cursor-pointer
@@ -363,11 +384,9 @@
 						</button>
 					{/each}
 				</div>
-			</div>
 
-			{#if sideLineup}
 				{#if sideLineup.formation}
-					<p class="text-[11px] text-faint text-center mb-2 tabular-nums">{sideLineup.formation}</p>
+					<p class="text-[11px] text-faint text-center mt-2 mb-2 tabular-nums">{sideLineup.formation}</p>
 				{/if}
 
 				<div class="rounded-xl overflow-hidden p-4 space-y-5"
