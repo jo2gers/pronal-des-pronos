@@ -153,6 +153,49 @@
 		</dl>
 	{/if}
 
+	<!-- ── Scorers + cards (from match timelines) ───────────────────────── -->
+	{#if data.scorers.length > 0 || data.cards.length > 0}
+		<div class="grid gap-4 {data.scorers.length > 0 && data.cards.length > 0 ? 'sm:grid-cols-2' : ''}">
+			{#if data.scorers.length > 0}
+				<section>
+					<h2 class="text-[11px] text-faint uppercase tracking-widest mb-2">{t('team_scorers')}</h2>
+					<ul class="divide-y divide-wire/40 border-y border-wire/40">
+						{#each data.scorers as s (s.player)}
+							<li class="flex items-center gap-2 py-2 text-sm">
+								<span class="shrink-0">⚽</span>
+								<span class="flex-1 text-fg truncate">{s.player}</span>
+								{#if s.goals > 1}
+									<span class="text-xs font-bold text-accent tabular-nums shrink-0">×{s.goals}</span>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
+
+			{#if data.cards.length > 0}
+				<section>
+					<h2 class="text-[11px] text-faint uppercase tracking-widest mb-2">{t('team_cards')}</h2>
+					<ul class="divide-y divide-wire/40 border-y border-wire/40">
+						{#each data.cards as c (c.player)}
+							<li class="flex items-center gap-2 py-2 text-sm">
+								<span class="flex gap-0.5 shrink-0">
+									{#each Array(c.red) as _}
+										<span class="w-2.5 h-3.5 rounded-[2px] bg-err"></span>
+									{/each}
+									{#each Array(c.yellow) as _}
+										<span class="w-2.5 h-3.5 rounded-[2px]" style="background: var(--color-warn, #eab308)"></span>
+									{/each}
+								</span>
+								<span class="flex-1 text-fg truncate">{c.player}</span>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- ── Live now ─────────────────────────────────────────────────────── -->
 	{#if data.live}
 		{@const opp = opponent(data.live)}

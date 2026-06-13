@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase } }) => 
 	// ("South Korea", "Bosnia and Herzegovina"…).
 	const { data: matches } = await supabase
 		.from('matches')
-		.select('id, home_team, away_team, home_flag, away_flag, home_score, away_score, match_datetime, status, stage, group_label, venue')
+		.select('id, home_team, away_team, home_flag, away_flag, home_score, away_score, match_datetime, status, stage, group_label, venue, live_events')
 		.or(`home_team.eq."${team}",away_team.eq."${team}"`)
 		.order('match_datetime', { ascending: true });
 
@@ -40,6 +40,36 @@ export const load: PageServerLoad = async ({ params, locals: { supabase } }) => 
 		else losses++;
 	}
 
+	// Scorers + cards for THIS team, aggregated from the match timelines
+	// (matches.live_events, written by the ESPN sync). Events carry a `side`
+	// relative to each match's home/away; we keep only this team's side. Own
+	// goals are excluded from the scorers list (they aren't goals BY the team).
+	const scorerMap = new Map<string, number>();
+	const cardMap = new Map<string, { yellow: number; red: number }>();
+	for (const m of matches) {
+		const events = (m.live_events as any[]) ?? [];
+		if (events.length === 0) continue;
+		const teamSide = m.home_team === team ? 'home' : 'away';
+		for (const ev of events) {
+			if (ev.side !== teamSide) continue;
+			const player = (ev.player ?? '').trim();
+			if (!player) continue;
+			if (ev.type === 'goal' || ev.type === 'pen') {
+				scorerMap.set(player, (scorerMap.get(player) ?? 0) + 1);
+			} else if (ev.type === 'yellow' || ev.type === 'red') {
+				const c = cardMap.get(player) ?? { yellow: 0, red: 0 };
+				if (ev.type === 'yellow') c.yellow++; else c.red++;
+				cardMap.set(player, c);
+			}
+		}
+	}
+	const scorers = [...scorerMap.entries()]
+		.map(([player, goals]) => ({ player, goals }))
+		.sort((a, b) => b.goals - a.goals || a.player.localeCompare(b.player));
+	const cards = [...cardMap.entries()]
+		.map(([player, c]) => ({ player, ...c }))
+		.sort((a, b) => b.red - a.red || b.yellow - a.yellow || a.player.localeCompare(b.player));
+
 	// Flavour stats: WC-winner odds (frozen at tournament start) + how many
 	// Tifo users picked this team as their favorite.
 	const [{ data: oddsRow }, { count: supporters }] = await Promise.all([
@@ -61,6 +91,8 @@ export const load: PageServerLoad = async ({ params, locals: { supabase } }) => 
 		live,
 		upcoming,
 		finished,
+		scorers,
+		cards,
 		winnerOdds: oddsRow ? parseFloat(String(oddsRow.odds)) : null,
 		multiplier: oddsRow ? parseFloat(String(oddsRow.multiplier)) : null,
 		supporters: supporters ?? 0,
