@@ -359,17 +359,10 @@
 				aria-expanded={lineupsOpen}
 				class="w-full flex items-center justify-between gap-3 rounded-xl bg-panel border border-wire px-4 py-3 hover:border-wire-hi transition-colors cursor-pointer">
 				<span class="text-xs font-bold text-fg uppercase tracking-widest">{t('match_lineups')}</span>
-				<span class="flex items-center gap-1.5 text-[11px] text-muted tabular-nums">
-					<Flag code={data.match.home_flag} size={14} />
-					<span>{(data.match.lineups as any).home?.formation ?? ''}</span>
-					<span class="text-faint">·</span>
-					<span>{(data.match.lineups as any).away?.formation ?? ''}</span>
-					<Flag code={data.match.away_flag} size={14} />
-					<svg class="w-4 h-4 text-faint shrink-0 transition-transform duration-200 {lineupsOpen ? 'rotate-180' : ''}"
-						fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-					</svg>
-				</span>
+				<svg class="w-4 h-4 text-faint shrink-0 transition-transform duration-200 {lineupsOpen ? 'rotate-180' : ''}"
+					fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+				</svg>
 			</button>
 
 			{#if lineupsOpen && sideLineup}
