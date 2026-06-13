@@ -116,11 +116,12 @@
 	let highlightPlaying = $state(false);
 
 	// Deep-link from the matches list ("▶ Résumé" → /matches/{id}#highlights):
-	// arrive straight on the video — scroll it into view and start playback.
+	// arrive straight on the player and scroll it into view. We deliberately
+	// do NOT autoplay — the video starts only when the user taps play, so it
+	// never blasts sound unexpectedly (and dodges mobile autoplay blocking).
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		if (window.location.hash !== '#highlights' || !data.match.youtube_video_id) return;
-		highlightPlaying = true;
 		requestAnimationFrame(() =>
 			document.getElementById('highlights')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 		);
