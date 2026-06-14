@@ -76,20 +76,59 @@
 		// not when the data object reference changes from invalidate.
 		const uid = userId;
 
-		const channel = supabase
-			.channel(`notif-${uid}`)
-			.on('postgres_changes', { event: '*', schema: 'public', table: 'friendships'         }, scheduleInvalidate)
-			.on('postgres_changes', { event: '*', schema: 'public', table: 'group_invites'       }, scheduleInvalidate)
-			.on('postgres_changes', { event: '*', schema: 'public', table: 'group_join_requests' }, scheduleInvalidate)
-			.subscribe((status) => {
-				// Helpful in dev; silent otherwise. Status: SUBSCRIBED | CHANNEL_ERROR | TIMED_OUT | CLOSED
-				if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-					console.warn('[realtime] channel status:', status);
-				}
-			});
+		let channel: ReturnType<typeof supabase.channel> | null = null;
+
+		function connect() {
+			if (channel) return;
+			channel = supabase
+				.channel(`notif-${uid}`)
+				.on('postgres_changes', { event: '*', schema: 'public', table: 'friendships'         }, scheduleInvalidate)
+				.on('postgres_changes', { event: '*', schema: 'public', table: 'group_invites'       }, scheduleInvalidate)
+				.on('postgres_changes', { event: '*', schema: 'public', table: 'group_join_requests' }, scheduleInvalidate)
+				.subscribe((status) => {
+					if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+						console.warn('[realtime] channel status:', status);
+					}
+				});
+		}
+
+		function disconnect() {
+			if (channel) {
+				supabase.removeChannel(channel);
+				channel = null;
+			}
+			// Close the socket so it stops auto-retrying — the "WebSocket failed"
+			// console storm + battery drain — while we're offline or backgrounded.
+			supabase.realtime.disconnect();
+		}
+
+		// Hold the realtime socket open ONLY while the tab is visible and the
+		// device reports online. On a flaky mobile connection it would otherwise
+		// reconnect-loop in the background. Re-evaluate on every signal; when we
+		// come back online/foreground, refresh counts once to catch what was missed
+		// while the socket was down (realtime delivers live events only, no replay).
+		function sync(catchUp: boolean) {
+			const active = navigator.onLine && document.visibilityState === 'visible';
+			if (active) {
+				const wasDown = channel === null;
+				connect();
+				if (catchUp && wasDown) scheduleInvalidate();
+			} else {
+				disconnect();
+			}
+		}
+
+		const onChange = () => sync(true);
+		sync(false);
+		window.addEventListener('online', onChange);
+		window.addEventListener('offline', onChange);
+		document.addEventListener('visibilitychange', onChange);
 
 		return () => {
-			supabase.removeChannel(channel);
+			window.removeEventListener('online', onChange);
+			window.removeEventListener('offline', onChange);
+			document.removeEventListener('visibilitychange', onChange);
+			disconnect();
 		};
 	});
 
