@@ -158,7 +158,8 @@
 						<th class="px-4 py-3 text-left w-12 text-[11px] text-faint font-semibold">#</th>
 						<th class="px-4 py-3 text-left text-[11px] text-faint font-semibold">{t('lb_player')}</th>
 						<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold hidden sm:table-cell">{t('lb_picks')}</th>
-						<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold hidden md:table-cell">{t('lb_bonus')}</th>
+						<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold hidden sm:table-cell">{t('lb_winners')}</th>
+						<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold hidden sm:table-cell">{t('lb_exact')}</th>
 						<th class="px-4 py-3 text-right text-[11px] text-faint font-semibold">{t('lb_total')}</th>
 					</tr>
 				</thead>
@@ -208,15 +209,14 @@
 								{row.count}
 							</td>
 
-							<!-- Team bonus -->
-							<td class="px-4 py-3 text-right hidden md:table-cell tabular-nums">
-								{#if row.teamBonus > 0}
-									<span class="text-sm font-semibold" style="color: var(--color-bonus)">
-										+{row.teamBonus.toFixed(2)}
-									</span>
-								{:else}
-									<span class="text-faint text-sm">—</span>
-								{/if}
+							<!-- Winners: correct outcome, not exact (1× tier) -->
+							<td class="px-4 py-3 text-right hidden sm:table-cell tabular-nums text-sm {row.winners > 0 ? 'text-muted' : 'text-faint'}">
+								{row.winners}
+							</td>
+
+							<!-- Exact scores (3× tier) -->
+							<td class="px-4 py-3 text-right hidden sm:table-cell tabular-nums text-sm {row.exact > 0 ? 'text-accent font-semibold' : 'text-faint'}">
+								{row.exact}
 							</td>
 
 							<!-- Total — (prono+bonus) breakdown on the left, final total

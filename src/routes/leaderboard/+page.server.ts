@@ -6,13 +6,37 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	// Fetch scored pronostics (no join — avoids FK ambiguity)
 	const { data: pronostics } = await supabase
 		.from('pronostics')
-		.select('user_id, points_earned')
+		.select('user_id, points_earned, predicted_home, predicted_away, match_id')
 		.eq('is_scored', true);
 
 	// Aggregate prono points per user
 	const pronoMap = new Map<string, number>();
 	for (const p of pronostics ?? []) {
 		pronoMap.set(p.user_id, (pronoMap.get(p.user_id) ?? 0) + (p.points_earned ?? 0));
+	}
+
+	// Per-user "winner" (correct outcome, not exact) and "exact" counts. Mirrors
+	// the match page's scoring tiers: exact (3×) and winner (1×) are mutually
+	// exclusive. Needs each pick's predicted score vs the match's final score.
+	const matchIds = [...new Set((pronostics ?? []).map((p) => p.match_id).filter(Boolean))];
+	const scoreMap = new Map<string, { home_score: number | null; away_score: number | null }>();
+	if (matchIds.length > 0) {
+		const { data: matchRows } = await supabase
+			.from('matches')
+			.select('id, home_score, away_score')
+			.in('id', matchIds);
+		for (const m of matchRows ?? []) scoreMap.set(m.id, m);
+	}
+	const winnerMap = new Map<string, number>();
+	const exactMap = new Map<string, number>();
+	for (const p of pronostics ?? []) {
+		const m = scoreMap.get(p.match_id);
+		if (!m || m.home_score == null || m.away_score == null) continue;
+		if (p.predicted_home === m.home_score && p.predicted_away === m.away_score) {
+			exactMap.set(p.user_id, (exactMap.get(p.user_id) ?? 0) + 1);
+		} else if (Math.sign(p.predicted_home - p.predicted_away) === Math.sign(m.home_score - m.away_score)) {
+			winnerMap.set(p.user_id, (winnerMap.get(p.user_id) ?? 0) + 1);
+		}
 	}
 
 	// Fetch all profiles that appear in pronostics OR have a team bonus
@@ -34,7 +58,9 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			const teamBonus   = profile.team_bonus_points ?? 0;
 			const total       = pronoPoints + teamBonus;
 			const count       = pronostics?.filter((p) => p.user_id === profile.id).length ?? 0;
-			return { userId: profile.id, user: profile, pronoPoints, teamBonus, total, count };
+			const winners     = winnerMap.get(profile.id) ?? 0;
+			const exact       = exactMap.get(profile.id) ?? 0;
+			return { userId: profile.id, user: profile, pronoPoints, teamBonus, total, count, winners, exact };
 		})
 		.sort((a, b) => b.total - a.total)
 		.map((entry, i) => ({ ...entry, rank: i + 1 }));
