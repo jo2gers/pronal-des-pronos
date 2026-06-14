@@ -54,7 +54,12 @@
 				<h1 class="text-2xl font-bold text-fg truncate leading-tight" style="font-family: var(--font-display); letter-spacing: 0.02em">
 					{data.profile.display_name ?? data.profile.username}
 				</h1>
-				<p class="text-sm text-muted mt-0.5">@{data.profile.username}</p>
+				<!-- @handle is the account-creation name: show it only on your own
+				     profile (so you still see your login handle), hide it from other
+				     viewers. The display name (or username fallback) remains the title. -->
+				{#if data.isOwnProfile}
+					<p class="text-sm text-muted mt-0.5">@{data.profile.username}</p>
+				{/if}
 				{#if data.profile.country}
 					<p class="text-sm text-faint mt-1">{data.profile.country}</p>
 				{/if}
