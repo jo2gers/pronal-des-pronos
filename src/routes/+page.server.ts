@@ -95,7 +95,9 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		liveMatches: allLive.map(attachStage),
 		nextMatch: nextMatch ? attachStage(nextMatch) : null,
 		upcomingMatches: (upcomingMatches ?? []).map(attachStage),
-		finishedMatches: (finishedMatches ?? []).reverse().map(attachStage),
+		// Already fetched most-recent-first (match_datetime DESC) — keep that so
+		// the latest match sits on top. (No .reverse(), which flipped it.)
+		finishedMatches: (finishedMatches ?? []).map(attachStage),
 		stats,
 		pronosticsMap,
 		user
