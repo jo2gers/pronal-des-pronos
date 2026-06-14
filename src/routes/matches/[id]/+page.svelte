@@ -121,6 +121,9 @@
 	let lineupSide = $state<'home' | 'away'>('home');
 	const sideLineup = $derived((data.match.lineups as any)?.[lineupSide] ?? null);
 
+	// Timeline is retractable (open by default — it's the core match content).
+	let timelineOpen = $state(true);
+
 	// Match timeline = goals + cards (live_events) merged with substitutions
 	// (lineups.subs), sorted by minute. "45'+2'" → 45.02 for stable ordering.
 	function minuteKey(m: string): number {
@@ -325,15 +328,26 @@
 		     match and the page auto-refreshes every 30s while status is live. -->
 		{#if matchTimeline.length > 0}
 			<div class="mt-6 pt-4 border-t border-wire">
-				<div class="flex items-center justify-center gap-1.5 mb-3">
-					{#if data.match.status === 'live'}
-						<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
-						<span class="text-xs font-bold text-live uppercase tracking-widest">{t('match_timeline_live')}</span>
-					{:else}
-						<span class="text-xs text-faint">{t('match_timeline')}</span>
-					{/if}
-				</div>
-				<div class="space-y-1.5">
+				<!-- Retractable header -->
+				<button type="button" onclick={() => (timelineOpen = !timelineOpen)}
+					aria-expanded={timelineOpen}
+					class="w-full flex items-center justify-between gap-2 cursor-pointer group/tl">
+					<span class="w-4 shrink-0"></span>
+					<span class="inline-flex items-center gap-1.5">
+						{#if data.match.status === 'live'}
+							<span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
+							<span class="text-xs font-bold text-live uppercase tracking-widest">{t('match_timeline_live')}</span>
+						{:else}
+							<span class="text-xs text-faint group-hover/tl:text-fg transition-colors">{t('match_timeline')}</span>
+						{/if}
+					</span>
+					<svg class="w-4 h-4 shrink-0 text-faint transition-transform duration-200 {timelineOpen ? 'rotate-180' : ''}"
+						fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+					</svg>
+				</button>
+				{#if timelineOpen}
+				<div class="space-y-1.5 mt-3">
 					{#each matchTimeline as ev}
 						{@const isHome = ev.side === 'home'}
 						<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
@@ -381,6 +395,7 @@
 						</div>
 					{/each}
 				</div>
+				{/if}
 			</div>
 		{/if}
 	</div>
