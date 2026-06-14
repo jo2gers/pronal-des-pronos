@@ -30,9 +30,16 @@ export type TeamLineup = {
 	subs: { num: number | null; name: string }[];   // came on
 	bench: { num: number | null; name: string }[];   // unused
 };
+export type SubEvent = {
+	minute: string;             // "45'", "67'"
+	side: 'home' | 'away';      // relative to ESPN home/away (caller aligns)
+	playerIn: string | null;
+	playerOut: string | null;
+};
 export type MatchLineups = {
 	home: TeamLineup;
 	away: TeamLineup;
+	subs: SubEvent[];           // substitution timeline (from summary keyEvents)
 	homeTeam: string;  // ESPN's home team, normalized to our EN name
 	awayTeam: string;
 };
@@ -201,9 +208,28 @@ export async function fetchEspnLineups(gameId: string): Promise<MatchLineups | n
 		const home = buildTeamLineup(homeR);
 		const away = buildTeamLineup(awayR);
 		if (home.starters.length === 0 && away.starters.length === 0) return null;
+
+		// Substitution timeline from keyEvents. Text format is reliable:
+		// "Substitution, {Team}. {In} replaces {Out}." team.id → home/away.
+		const homeId = String(
+			(data?.header?.competitions?.[0]?.competitors ?? []).find((c: any) => c.homeAway === 'home')?.team?.id ?? ''
+		);
+		const subs: SubEvent[] = [];
+		for (const ev of data?.keyEvents ?? []) {
+			if (ev?.type?.text !== 'Substitution') continue;
+			const m = (ev.text ?? '').match(/\.\s*(.+?)\s+replaces\s+(.+?)\.?\s*$/i);
+			subs.push({
+				minute: ev.clock?.displayValue ?? '',
+				side: String(ev.team?.id ?? '') === homeId ? 'home' : 'away',
+				playerIn: m ? m[1].trim() : (ev.participants?.[0]?.athlete?.displayName ?? null),
+				playerOut: m ? m[2].trim() : (ev.participants?.[1]?.athlete?.displayName ?? null)
+			});
+		}
+
 		return {
 			home,
 			away,
+			subs,
 			homeTeam: norm(homeR?.team?.displayName ?? ''),
 			awayTeam: norm(awayR?.team?.displayName ?? '')
 		};

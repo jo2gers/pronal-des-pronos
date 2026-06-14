@@ -121,6 +121,19 @@
 	let lineupSide = $state<'home' | 'away'>('home');
 	const sideLineup = $derived((data.match.lineups as any)?.[lineupSide] ?? null);
 
+	// Match timeline = goals + cards (live_events) merged with substitutions
+	// (lineups.subs), sorted by minute. "45'+2'" → 45.02 for stable ordering.
+	function minuteKey(m: string): number {
+		const mm = (m ?? '').match(/(\d+)(?:'?\s*\+\s*(\d+))?/);
+		if (!mm) return 9999;
+		return parseInt(mm[1], 10) + (mm[2] ? parseInt(mm[2], 10) / 100 : 0);
+	}
+	const matchTimeline = $derived.by(() => {
+		const events = (data.match.live_events ?? []).map((e: any) => ({ kind: 'event', ...e }));
+		const subs = ((data.match.lineups as any)?.subs ?? []).map((s: any) => ({ kind: 'sub', ...s }));
+		return [...events, ...subs].sort((a, b) => minuteKey(a.minute) - minuteKey(b.minute));
+	});
+
 	// "Christian Pulisic" → "C. Pulisic"; single token stays as-is.
 	function shortName(full: string): string {
 		const parts = (full ?? '').trim().split(/\s+/);
@@ -307,10 +320,10 @@
 			</div>
 		{/if}
 
-		<!-- Timeline: goals + cards (ESPN), home events left / away events right.
-		     Updates live: the cron writes live_events every minute during the
+		<!-- Timeline: goals + cards + substitutions (ESPN), home left / away
+		     right. Updates live: the cron writes events every minute during the
 		     match and the page auto-refreshes every 30s while status is live. -->
-		{#if (data.match.live_events ?? []).length > 0}
+		{#if matchTimeline.length > 0}
 			<div class="mt-6 pt-4 border-t border-wire">
 				<div class="flex items-center justify-center gap-1.5 mb-3">
 					{#if data.match.status === 'live'}
@@ -321,35 +334,49 @@
 					{/if}
 				</div>
 				<div class="space-y-1.5">
-					{#each data.match.live_events as ev}
+					{#each matchTimeline as ev}
 						{@const isHome = ev.side === 'home'}
 						<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
 							<div class="text-right min-w-0 {isHome ? '' : 'invisible'}">
-								<span class="inline-flex items-center gap-1.5 max-w-full">
-									<span class="text-fg truncate">{ev.player ?? '—'}</span>
-									{#if ev.type === 'goal' || ev.type === 'og' || ev.type === 'pen'}
-										<span class="shrink-0">⚽</span>
-										{#if ev.type === 'og'}<span class="text-[10px] text-faint shrink-0">{t('match_og')}</span>{/if}
-										{#if ev.type === 'pen'}<span class="text-[10px] text-faint shrink-0">{t('match_pen')}</span>{/if}
-									{:else}
-										<span class="w-2.5 h-3.5 rounded-[2px] shrink-0 {ev.type === 'red' ? 'bg-err' : ''}"
-											style={ev.type === 'yellow' ? 'background: var(--color-warn, #eab308)' : ''}></span>
-									{/if}
-								</span>
+								{#if ev.kind === 'sub'}
+									<span class="inline-flex items-center gap-1 max-w-full">
+										<span class="text-[10px] text-faint truncate">{ev.playerOut ?? ''}</span>
+										<span class="text-fg truncate">{ev.playerIn ?? '—'}</span>
+										<span class="shrink-0 inline-flex flex-col leading-[6px]"><span class="text-accent text-[8px]">▲</span><span class="text-err text-[8px]">▼</span></span>
+									</span>
+								{:else}
+									<span class="inline-flex items-center gap-1.5 max-w-full">
+										<span class="text-fg truncate">{ev.player ?? '—'}</span>
+										{#if ev.type === 'goal' || ev.type === 'og' || ev.type === 'pen'}
+											<span class="shrink-0">⚽</span>
+											{#if ev.type === 'og'}<span class="text-[10px] text-faint shrink-0">{t('match_og')}</span>{/if}
+											{#if ev.type === 'pen'}<span class="text-[10px] text-faint shrink-0">{t('match_pen')}</span>{/if}
+										{:else}
+											<span class="w-2.5 h-3.5 rounded-[2px] shrink-0 {ev.type === 'red' ? 'bg-err' : ''}" style={ev.type === 'yellow' ? 'background: var(--color-warn, #eab308)' : ''}></span>
+										{/if}
+									</span>
+								{/if}
 							</div>
 							<span class="text-[11px] text-faint tabular-nums w-12 text-center shrink-0">{ev.minute}</span>
 							<div class="text-left min-w-0 {isHome ? 'invisible' : ''}">
-								<span class="inline-flex items-center gap-1.5 max-w-full">
-									{#if ev.type === 'goal' || ev.type === 'og' || ev.type === 'pen'}
-										<span class="shrink-0">⚽</span>
-										{#if ev.type === 'og'}<span class="text-[10px] text-faint shrink-0">{t('match_og')}</span>{/if}
-										{#if ev.type === 'pen'}<span class="text-[10px] text-faint shrink-0">{t('match_pen')}</span>{/if}
-									{:else}
-										<span class="w-2.5 h-3.5 rounded-[2px] shrink-0 {ev.type === 'red' ? 'bg-err' : ''}"
-											style={ev.type === 'yellow' ? 'background: var(--color-warn, #eab308)' : ''}></span>
-									{/if}
-									<span class="text-fg truncate">{ev.player ?? '—'}</span>
-								</span>
+								{#if ev.kind === 'sub'}
+									<span class="inline-flex items-center gap-1 max-w-full">
+										<span class="shrink-0 inline-flex flex-col leading-[6px]"><span class="text-accent text-[8px]">▲</span><span class="text-err text-[8px]">▼</span></span>
+										<span class="text-fg truncate">{ev.playerIn ?? '—'}</span>
+										<span class="text-[10px] text-faint truncate">{ev.playerOut ?? ''}</span>
+									</span>
+								{:else}
+									<span class="inline-flex items-center gap-1.5 max-w-full">
+										{#if ev.type === 'goal' || ev.type === 'og' || ev.type === 'pen'}
+											<span class="shrink-0">⚽</span>
+											{#if ev.type === 'og'}<span class="text-[10px] text-faint shrink-0">{t('match_og')}</span>{/if}
+											{#if ev.type === 'pen'}<span class="text-[10px] text-faint shrink-0">{t('match_pen')}</span>{/if}
+										{:else}
+											<span class="w-2.5 h-3.5 rounded-[2px] shrink-0 {ev.type === 'red' ? 'bg-err' : ''}" style={ev.type === 'yellow' ? 'background: var(--color-warn, #eab308)' : ''}></span>
+										{/if}
+										<span class="text-fg truncate">{ev.player ?? '—'}</span>
+									</span>
+								{/if}
 							</div>
 						</div>
 					{/each}

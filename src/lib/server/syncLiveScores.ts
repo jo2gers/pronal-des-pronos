@@ -86,6 +86,18 @@ async function fetchPolymarketEvent(slug: string): Promise<PolymarketEvent | nul
 	}
 }
 
+// Map ESPN's home/away (lineups + substitution timeline) onto OUR home/away
+// by team name, flipping the subs' side when the orientation is swapped.
+function alignLineups(lu: any, ourHomeTeam: string) {
+	const swap = String(lu.homeTeam).toLowerCase() !== ourHomeTeam.toLowerCase();
+	const subs = (lu.subs ?? []).map((x: any) =>
+		swap ? { ...x, side: x.side === 'home' ? 'away' : 'home' } : x
+	);
+	return swap
+		? { home: lu.away, away: lu.home, subs }
+		: { home: lu.home, away: lu.away, subs };
+}
+
 export async function syncLiveScores(
 	supabase: SupabaseClient,
 	opts: { force?: boolean } = {}
@@ -230,10 +242,7 @@ export async function syncLiveScores(
 						const lu = await fetchEspnLineups(gid);
 						if (lu) {
 							// Align ESPN home/away to OUR home/away by team name.
-							const aligned =
-								lu.homeTeam.toLowerCase() === row.home_team.toLowerCase()
-									? { home: lu.home, away: lu.away }
-									: { home: lu.away, away: lu.home };
+							const aligned = alignLineups(lu, row.home_team);
 							if (JSON.stringify(row.lineups ?? {}) !== JSON.stringify(aligned)) {
 								patch.lineups = aligned;
 							}
@@ -305,10 +314,7 @@ export async function syncLiveScores(
 			if (!gid) continue;
 			const lu = await fetchEspnLineups(gid);
 			if (!lu) continue;
-			const aligned =
-				lu.homeTeam.toLowerCase() === row.home_team.toLowerCase()
-					? { home: lu.home, away: lu.away }
-					: { home: lu.away, away: lu.home };
+			const aligned = alignLineups(lu, row.home_team);
 			await supabase.from('matches').update({ lineups: aligned, espn_game_id: gid }).eq('id', row.id);
 			lineupsUpdated++;
 		}
