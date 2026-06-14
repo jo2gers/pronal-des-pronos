@@ -219,16 +219,17 @@
 								{/if}
 							</td>
 
-							<!-- Total -->
+							<!-- Total — (prono+bonus) breakdown on the left, final total
+							     aligned to the right edge of the column. -->
 							<td class="px-4 py-3 text-right tabular-nums">
-								<span class="font-bold text-accent" style="font-family: var(--font-display)">
-									{row.total.toFixed(2)}
-								</span>
 								{#if row.teamBonus > 0}
-									<span class="text-[11px] text-faint font-normal hidden sm:inline ml-1">
+									<span class="text-[11px] text-faint font-normal hidden sm:inline mr-1">
 										({row.pronoPoints.toFixed(2)}+{row.teamBonus.toFixed(2)})
 									</span>
 								{/if}
+								<span class="font-bold text-accent" style="font-family: var(--font-display)">
+									{row.total.toFixed(2)}
+								</span>
 							</td>
 						</tr>
 					{/each}
