@@ -376,15 +376,18 @@
 			</button>
 
 			{#if lineupsOpen && sideLineup}
-				<!-- Team toggle: just the two flags (active highlighted) — nothing
-				     to wrap or truncate. Name + formation shown below. -->
+				<!-- Team toggle: two flag buttons with FIXED sizes (64×44 tap
+				     targets) so the flag renders at a real 3:2 size instead of
+				     collapsing inside a shrink-to-fit button — and it's easy to
+				     tap. Active highlighted, inactive dimmed. -->
 				<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-max mx-auto mt-3">
 					{#each [['home', data.match.home_flag], ['away', data.match.away_flag]] as [sd, fl]}
 						<button onclick={() => lineupSide = sd as 'home' | 'away'}
 							aria-pressed={lineupSide === sd}
-							class="rounded px-3 py-1.5 transition-all cursor-pointer
+							aria-label={teamLabel(sd === 'home' ? data.match.home_team : data.match.away_team)}
+							class="flex items-center justify-center w-16 h-11 rounded transition-all cursor-pointer
 								{lineupSide === sd ? 'bg-panel shadow-sm' : 'opacity-45 hover:opacity-90'}">
-							<Flag code={fl as string} size={20} />
+							<Flag code={fl as string} size={24} />
 						</button>
 					{/each}
 				</div>
