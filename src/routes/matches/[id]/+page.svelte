@@ -376,19 +376,22 @@
 			</button>
 
 			{#if lineupsOpen && sideLineup}
-				<!-- Team toggle: flag + formation (like ESPN) — always short, no
-				     truncation. The flag identifies the team. -->
-				<div class="flex gap-0.5 rounded-lg bg-raised border border-wire p-0.5 text-xs w-max mx-auto mt-3">
-					{#each [['home', data.match.home_flag, (data.match.lineups as any).home?.formation], ['away', data.match.away_flag, (data.match.lineups as any).away?.formation]] as [sd, fl, fm]}
+				<!-- Team toggle: just the two flags (active highlighted) — nothing
+				     to wrap or truncate. Name + formation shown below. -->
+				<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-max mx-auto mt-3">
+					{#each [['home', data.match.home_flag], ['away', data.match.away_flag]] as [sd, fl]}
 						<button onclick={() => lineupSide = sd as 'home' | 'away'}
-							class="inline-flex items-center gap-2 rounded px-3 py-1 font-semibold tabular-nums transition-colors cursor-pointer
-								{lineupSide === sd ? 'bg-panel text-fg shadow-sm' : 'text-faint hover:text-muted'}">
-							<Flag code={fl as string} size={14} />
-							<span>{fm ?? '—'}</span>
+							aria-pressed={lineupSide === sd}
+							class="rounded px-3 py-1.5 transition-all cursor-pointer
+								{lineupSide === sd ? 'bg-panel shadow-sm' : 'opacity-45 hover:opacity-90'}">
+							<Flag code={fl as string} size={20} />
 						</button>
 					{/each}
 				</div>
-				<p class="text-[11px] text-faint text-center mt-2 mb-2">{teamLabel(lineupSide === 'home' ? data.match.home_team : data.match.away_team)}</p>
+				<p class="text-center mt-2 mb-2 text-[11px] text-faint tabular-nums">
+					{teamLabel(lineupSide === 'home' ? data.match.home_team : data.match.away_team)}
+					{#if sideLineup.formation} · <span class="whitespace-nowrap">{sideLineup.formation}</span>{/if}
+				</p>
 
 				<div class="rounded-xl overflow-hidden p-4 space-y-5"
 					style="background: linear-gradient(to bottom, oklch(0.42 0.09 150), oklch(0.38 0.09 150))">
