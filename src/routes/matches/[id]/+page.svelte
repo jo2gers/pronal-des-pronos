@@ -121,8 +121,8 @@
 	let lineupSide = $state<'home' | 'away'>('home');
 	const sideLineup = $derived((data.match.lineups as any)?.[lineupSide] ?? null);
 
-	// Timeline is retractable (open by default — it's the core match content).
-	let timelineOpen = $state(true);
+	// Timeline is retractable, collapsed by default (like the Compositions band).
+	let timelineOpen = $state(false);
 
 	// Match timeline = goals + cards (live_events) merged with substitutions
 	// (lineups.subs), sorted by minute. "45'+2'" → 45.02 for stable ordering.
@@ -285,13 +285,19 @@
 			</div>
 		</div>
 
-		<!-- Market odds — favourite in accent, underdog muted (hidden when the
-		     user has turned odds off) -->
+		<!-- Market odds. Upcoming/live: highlight the favourite. Finished: highlight
+		     the actual WINNER (or the draw), not the pre-match favourite. Hidden
+		     when the user has turned odds off. -->
 		{#if getShowOdds() && data.match.odds_home && data.match.odds_draw && data.match.odds_away}
 			{@const pHome = Math.round(100 / (data.match.odds_home ?? 1))}
 			{@const pDraw = Math.round(100 / (data.match.odds_draw ?? 1))}
 			{@const pAway = Math.round(100 / (data.match.odds_away ?? 1))}
 			{@const homeFav = (data.match.odds_home ?? 99) <= (data.match.odds_away ?? 99)}
+			{@const finished = data.match.status === 'finished' && data.match.home_score != null && data.match.away_score != null}
+			{@const winner = finished ? (data.match.home_score > data.match.away_score ? 'home' : data.match.away_score > data.match.home_score ? 'away' : 'draw') : null}
+			{@const hlHome = winner ? winner === 'home' : homeFav}
+			{@const hlDraw = winner === 'draw'}
+			{@const hlAway = winner ? winner === 'away' : !homeFav}
 			<div class="mt-6 pt-4 border-t border-wire">
 				<p class="text-xs text-faint text-center mb-3">{t('match_polymarket')}</p>
 				<div class="flex items-end gap-2">
@@ -299,25 +305,25 @@
 					<div class="flex-1 text-center">
 						<p class="text-xs text-muted mb-1 truncate">{teamLabel(data.match.home_team)}</p>
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
-							<div class="h-full rounded-full transition-all {homeFav ? 'bg-accent' : 'bg-wire-hi'}" style="width: {pHome}%"></div>
+							<div class="h-full rounded-full transition-all {hlHome ? 'bg-accent' : 'bg-wire-hi'}" style="width: {pHome}%"></div>
 						</div>
-						<p class="text-lg font-bold tabular-nums leading-none {homeFav ? 'text-accent' : 'text-muted'}" style="font-family: var(--font-display)">{data.match.odds_home.toFixed(2)}</p>
+						<p class="text-lg font-bold tabular-nums leading-none {hlHome ? 'text-accent' : 'text-muted'}" style="font-family: var(--font-display)">{data.match.odds_home.toFixed(2)}</p>
 					</div>
 					<!-- Draw bar -->
 					<div class="w-14 text-center shrink-0">
 						<p class="text-xs text-faint mb-1">{t('match_draw')}</p>
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
-							<div class="h-full rounded-full bg-wire transition-all" style="width: {pDraw}%"></div>
+							<div class="h-full rounded-full transition-all {hlDraw ? 'bg-accent' : 'bg-wire'}" style="width: {pDraw}%"></div>
 						</div>
-						<p class="text-sm font-semibold text-faint tabular-nums leading-none mt-1" style="font-family: var(--font-display)">{data.match.odds_draw.toFixed(2)}</p>
+						<p class="text-sm font-semibold tabular-nums leading-none mt-1 {hlDraw ? 'text-accent' : 'text-faint'}" style="font-family: var(--font-display)">{data.match.odds_draw.toFixed(2)}</p>
 					</div>
 					<!-- Away bar -->
 					<div class="flex-1 text-center">
 						<p class="text-xs text-muted mb-1 truncate">{teamLabel(data.match.away_team)}</p>
 						<div class="h-1.5 rounded-full bg-raised overflow-hidden mb-1.5">
-							<div class="h-full rounded-full transition-all {homeFav ? 'bg-wire-hi' : 'bg-accent'}" style="width: {pAway}%"></div>
+							<div class="h-full rounded-full transition-all {hlAway ? 'bg-accent' : 'bg-wire-hi'}" style="width: {pAway}%"></div>
 						</div>
-						<p class="text-lg font-bold tabular-nums leading-none {homeFav ? 'text-muted' : 'text-accent'}" style="font-family: var(--font-display)">{data.match.odds_away.toFixed(2)}</p>
+						<p class="text-lg font-bold tabular-nums leading-none {hlAway ? 'text-accent' : 'text-muted'}" style="font-family: var(--font-display)">{data.match.odds_away.toFixed(2)}</p>
 					</div>
 				</div>
 			</div>
