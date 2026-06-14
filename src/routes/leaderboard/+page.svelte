@@ -33,7 +33,29 @@
 		return data.leaderboard;
 	});
 
-	const ranked = $derived(visible.map((r, i) => ({ ...r, displayRank: i + 1 })));
+	// Per-row rank delta vs the latest pre-result snapshot, computed WITHIN the
+	// visible subset (so it's proper to each leaderboard: global / league / friends).
+	// previous rank = position among subset members that existed at snapshot time,
+	// ranked by their snapshot points (same tiebreak as the live sort). A member
+	// absent from the snapshot is new → delta null → "–". delta = prev − now:
+	// >0 climbed (+N green), <0 dropped (−N red), 0 unchanged ("–").
+	const ranked = $derived.by(() => {
+		const prev = data.prevTotals;
+		const prevRank = new Map<string, number>();
+		if (prev) {
+			visible
+				.filter((r) => prev[r.userId] != null)
+				.map((r) => ({ id: r.userId, pts: prev[r.userId] as number }))
+				.sort((a, b) => b.pts - a.pts || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+				.forEach((x, i) => prevRank.set(x.id, i + 1));
+		}
+		return visible.map((r, i) => {
+			const displayRank = i + 1;
+			const pr = prevRank.get(r.userId);
+			const delta = pr != null ? pr - displayRank : null;
+			return { ...r, displayRank, delta };
+		});
+	});
 
 	// Podium only kicks in with a real field (>= 3 players); otherwise everyone is in the table.
 	const hasPodium = $derived(ranked.length >= 3);
@@ -130,6 +152,11 @@
 									style="font-family: var(--font-display)">
 									{p.total.toFixed(2)}
 								</p>
+								{#if p.delta != null && p.delta !== 0}
+									<span class="text-[10px] font-bold tabular-nums {p.delta > 0 ? 'text-accent' : 'text-err'}">
+										{p.delta > 0 ? '+' : ''}{p.delta}
+									</span>
+								{/if}
 								{#if (p.user as any)?.favorite_team}
 									{@const url = flagUrl((p.user as any).favorite_team)}
 									{#if url}
@@ -168,11 +195,18 @@
 						{@const isMe = row.userId === data.currentUser?.id}
 						<tr class="border-b border-wire/40 last:border-0 transition-colors {isMe ? 'bg-accent-lo/60' : 'hover:bg-raised/40'}">
 
-							<!-- Rank -->
+							<!-- Rank + movement since the last match (per this leaderboard) -->
 							<td class="px-4 py-3 text-center w-12">
 								<span class="text-sm text-faint tabular-nums font-semibold">
 									{row.displayRank}
 								</span>
+								{#if row.delta != null && row.delta !== 0}
+									<span class="block text-[10px] font-bold tabular-nums leading-tight {row.delta > 0 ? 'text-accent' : 'text-err'}">
+										{row.delta > 0 ? '+' : ''}{row.delta}
+									</span>
+								{:else}
+									<span class="block text-[10px] text-faint leading-tight">–</span>
+								{/if}
 							</td>
 
 							<!-- Player -->

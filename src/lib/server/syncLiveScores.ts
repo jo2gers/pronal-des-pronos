@@ -143,6 +143,31 @@ export async function syncLiveScores(
 	let ended = 0;
 	let scoredPronostics = 0;
 
+	// Capture every player's total points the FIRST time a match is about to be
+	// scored this run — i.e. the standings BEFORE this run's result(s). The
+	// leaderboard compares live standings to the latest snapshot to show per-player
+	// rank deltas (+N / -N) for the most recent match. Non-fatal.
+	let rankSnapshotTaken = false;
+	async function ensureRankSnapshot() {
+		if (rankSnapshotTaken) return;
+		rankSnapshotTaken = true;
+		try {
+			const [{ data: pr }, { data: pf }] = await Promise.all([
+				supabase.from('pronostics').select('user_id, points_earned').eq('is_scored', true),
+				supabase.from('profiles').select('id, team_bonus_points')
+			]);
+			const totals: Record<string, number> = {};
+			for (const row of pf ?? []) totals[(row as any).id] = (row as any).team_bonus_points ?? 0;
+			for (const row of pr ?? []) {
+				const uid = (row as any).user_id;
+				totals[uid] = (totals[uid] ?? 0) + ((row as any).points_earned ?? 0);
+			}
+			await supabase.from('rank_snapshots').insert({ totals });
+		} catch {
+			// non-fatal — rank deltas just won't update for this match
+		}
+	}
+
 	for (const m of due) {
 		const ev = await fetchPolymarketEvent(m.polymarket_event_slug);
 		// Stamp the timestamp even if the fetch returned nothing — otherwise
@@ -183,6 +208,8 @@ export async function syncLiveScores(
 		updated++;
 
 		if (willTransitionToFinished) {
+			// Snapshot pre-result standings before the first scoring of this run.
+			await ensureRankSnapshot();
 			ended++;
 			try {
 				const { scored } = await scoreMatch(supabase, {

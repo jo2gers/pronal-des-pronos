@@ -62,7 +62,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			const exact       = exactMap.get(profile.id) ?? 0;
 			return { userId: profile.id, user: profile, pronoPoints, teamBonus, total, count, winners, exact };
 		})
-		.sort((a, b) => b.total - a.total)
+		.sort((a, b) => b.total - a.total || (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0))
 		.map((entry, i) => ({ ...entry, rank: i + 1 }));
 
 	const userRank = user
@@ -106,5 +106,16 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		}
 	}
 
-	return { leaderboard, userRank, currentUser: user, friendIds, myLeagues };
+	// Latest pre-result snapshot of total points → the client derives per-player
+	// rank deltas (+N / -N) for the most recent scored match, ranked within each
+	// subset (global / league / friends).
+	const { data: snapRow } = await supabase
+		.from('rank_snapshots')
+		.select('totals')
+		.order('created_at', { ascending: false })
+		.limit(1)
+		.maybeSingle();
+	const prevTotals = (snapRow?.totals ?? null) as Record<string, number> | null;
+
+	return { leaderboard, userRank, currentUser: user, friendIds, myLeagues, prevTotals };
 };
