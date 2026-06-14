@@ -121,8 +121,9 @@
 	let lineupSide = $state<'home' | 'away'>('home');
 	const sideLineup = $derived((data.match.lineups as any)?.[lineupSide] ?? null);
 
-	// Timeline is retractable, collapsed by default (like the Compositions band).
-	let timelineOpen = $state(false);
+	// Timeline is retractable. Collapsed by default (like the Compositions band),
+	// but auto-expanded during a live match so the play-by-play shows while you watch.
+	let timelineOpen = $state(data.match.status === 'live');
 
 	// Match timeline = goals + cards (live_events) merged with substitutions
 	// (lineups.subs), sorted by minute. "45'+2'" → 45.02 for stable ordering.
@@ -332,7 +333,7 @@
 		<!-- Timeline: goals + cards + substitutions (ESPN), home left / away
 		     right. Updates live: the cron writes events every minute during the
 		     match and the page auto-refreshes every 30s while status is live. -->
-		{#if matchTimeline.length > 0}
+		{#if matchTimeline.length > 0 || data.match.status === 'live'}
 			<div class="mt-6 pt-4 border-t border-wire">
 				<!-- Retractable header -->
 				<button type="button" onclick={() => (timelineOpen = !timelineOpen)}
@@ -353,6 +354,7 @@
 					</svg>
 				</button>
 				{#if timelineOpen}
+				{#if matchTimeline.length > 0}
 				<div class="space-y-1.5 mt-3">
 					{#each matchTimeline as ev}
 						{@const isHome = ev.side === 'home'}
@@ -401,6 +403,9 @@
 						</div>
 					{/each}
 				</div>
+				{:else}
+				<p class="mt-3 text-center text-xs text-faint py-3">{t('match_timeline_empty')}</p>
+				{/if}
 				{/if}
 			</div>
 		{/if}
