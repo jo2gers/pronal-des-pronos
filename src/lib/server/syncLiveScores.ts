@@ -219,10 +219,6 @@ export async function syncLiveScores(
 					.select('id, home_team, away_team, status, live_events, lineups, espn_game_id')
 					.in('id', timelineCandidates.map((m) => m.id));
 
-				// Throttle lineup refresh to every 3rd minute (subs are rare), but
-				// always fetch when we don't have lineups yet so they appear ASAP.
-				const minuteTick = new Date(nowMs).getUTCMinutes() % 3 === 0;
-
 				for (const row of currentRows ?? []) {
 					const k = `${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`;
 					const patch: Record<string, unknown> = {};
@@ -235,10 +231,15 @@ export async function syncLiveScores(
 					const gid = gameIds.get(k) ?? row.espn_game_id;
 					if (gid && row.espn_game_id !== gid) patch.espn_game_id = gid;
 
-					// Formations & lineups (from ESPN summary rosters). Fetch when
-					// live (refresh for subs, gated) or when still missing.
-					const needLineups = !row.lineups || (row.status === 'live' && minuteTick);
-					if (gid && needLineups) {
+					// Formations, lineups + substitution timeline (ESPN summary).
+					// Substitutions live ONLY in the summary's keyEvents — the per-minute
+					// scoreboard carries goals/cards but never subs — so we refresh the
+					// summary on every tick while a match is in play. That lands new subs
+					// in the live timeline within ~1 min (same freshness as goals/cards)
+					// and also catches stoppage-time subs on the FT tick. currentRows is
+					// already limited to in-play / just-ended matches; the JSON diff below
+					// skips no-op writes.
+					if (gid) {
 						const lu = await fetchEspnLineups(gid);
 						if (lu) {
 							// Align ESPN home/away to OUR home/away by team name.
