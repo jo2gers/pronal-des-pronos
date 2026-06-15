@@ -153,10 +153,20 @@
 									style="font-family: var(--font-display)">
 									{p.total.toFixed(2)}
 								</p>
+								<!-- 24h rank movement pill: ▲/▼ + places, tinted; quiet dash if unchanged; nothing if new -->
 								{#if p.delta != null && p.delta !== 0}
-									<span class="text-[10px] font-bold tabular-nums {p.delta > 0 ? 'text-accent' : 'text-err'}">
-										{p.delta > 0 ? '+' : ''}{p.delta}
-									</span>
+									{@const up = p.delta > 0}
+									<div class="podium-delta inline-flex items-center gap-1 rounded-full mt-1 font-bold tabular-nums leading-none
+											{isFirst ? 'px-2.5 py-1 text-xs' : 'px-2 py-0.5 text-[10px]'} {up ? 'text-accent' : 'text-err'}"
+										style="background: {up ? 'var(--color-accent-lo)' : 'rgba(255,91,108,0.10)'}"
+										aria-label={up ? `Monté de ${p.delta} places en 24h` : `Descendu de ${Math.abs(p.delta)} places en 24h`}>
+										<span class={isFirst ? 'text-sm' : 'text-xs'} aria-hidden="true">{up ? '▲' : '▼'}</span>
+										<span>{Math.abs(p.delta)}</span>
+									</div>
+								{:else if p.delta === 0}
+									<div class="inline-flex items-center justify-center rounded-full mt-1 text-faint leading-none
+											{isFirst ? 'px-2.5 py-1 text-xs' : 'px-2 py-0.5 text-[10px]'}"
+										style="background: rgba(255,255,255,0.04)" aria-label="Pas de changement en 24h">–</div>
 								{/if}
 								{#if (p.user as any)?.favorite_team}
 									{@const url = flagUrl((p.user as any).favorite_team)}
@@ -274,3 +284,14 @@
 		{/if}
 	{/if}
 </div>
+
+<style>
+	/* Subtle entrance for the podium movement pill — motion only when allowed. */
+	@media (prefers-reduced-motion: no-preference) {
+		.podium-delta { animation: podium-delta-in 0.45s cubic-bezier(0.23, 1, 0.32, 1) both; }
+	}
+	@keyframes podium-delta-in {
+		from { opacity: 0; transform: translateY(4px); }
+		to   { opacity: 1; transform: none; }
+	}
+</style>
