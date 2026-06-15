@@ -33,8 +33,9 @@
 		return data.leaderboard;
 	});
 
-	// Per-row rank delta vs the latest pre-result snapshot, computed WITHIN the
-	// visible subset (so it's proper to each leaderboard: global / league / friends).
+	// Per-row rank delta over the LAST 24H (baseline = the ~24h-ago snapshot from
+	// the loader), computed WITHIN the visible subset (so it's proper to each
+	// leaderboard: global / league / friends).
 	// previous rank = position among subset members that existed at snapshot time,
 	// ranked by their snapshot points (same tiebreak as the live sort). A member
 	// absent from the snapshot is new → delta null → "–". delta = prev − now:
@@ -195,7 +196,7 @@
 						{@const isMe = row.userId === data.currentUser?.id}
 						<tr class="border-b border-wire/40 last:border-0 transition-colors {isMe ? 'bg-accent-lo/60' : 'hover:bg-raised/40'}">
 
-							<!-- Rank + movement since the last match (per this leaderboard) -->
+							<!-- Rank + movement over the last 24h (per this leaderboard) -->
 							<td class="px-4 py-3 text-center w-12">
 								<span class="text-sm text-faint tabular-nums font-semibold">
 									{row.displayRank}

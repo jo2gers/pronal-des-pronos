@@ -106,13 +106,18 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		}
 	}
 
-	// Latest pre-result snapshot of total points → the client derives per-player
-	// rank deltas (+N / -N) for the most recent scored match, ranked within each
-	// subset (global / league / friends).
+	// Baseline = standings as of ~24h ago, so the per-player rank deltas (+N / -N)
+	// reflect movement over the LAST 24 HOURS (≈ the last couple of matches), not
+	// just the most recent one. Snapshots are pre-result and timestamped; between
+	// matches the standings don't change, so the OLDEST snapshot inside the 24h
+	// window equals the standings at the start of that window. No snapshot in the
+	// window → no matches in 24h → prevTotals null → every row shows "–".
+	const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 	const { data: snapRow } = await supabase
 		.from('rank_snapshots')
 		.select('totals')
-		.order('created_at', { ascending: false })
+		.gte('created_at', since24h)
+		.order('created_at', { ascending: true })
 		.limit(1)
 		.maybeSingle();
 	const prevTotals = (snapRow?.totals ?? null) as Record<string, number> | null;
