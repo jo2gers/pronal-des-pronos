@@ -386,7 +386,7 @@
 		<section class="border-t border-wire/40 pt-6">
 			<div class="flex items-baseline justify-between mb-4 px-1">
 				<span class="text-[11px] uppercase tracking-[0.1em] text-faint" style="font-family: var(--font-mono)">
-					{t('your_rank')}
+					{t('home_recap')}
 				</span>
 				<a href="/leaderboard" class="text-[11px] uppercase tracking-[0.08em] text-muted hover:text-fg transition-colors"
 					style="font-family: var(--font-mono)">

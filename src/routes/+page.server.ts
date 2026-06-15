@@ -85,10 +85,24 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		const teamBonus   = profileData?.team_bonus_points ?? 0;
 		const totalPoints = pronoPoints + teamBonus;
 
-		const { count } = await supabase
-			.from('pronostics').select('user_id', { count: 'exact', head: true }).gt('points_earned', pronoPoints);
+		// Global ("Tous") leaderboard rank — computed exactly like /leaderboard so
+		// the two always agree: members are users with a scored pick OR a team bonus;
+		// rank by total (scored prono points + team bonus), total DESC then user_id ASC.
+		const [{ data: allScored }, { data: allProfiles }] = await Promise.all([
+			supabase.from('pronostics').select('user_id, points_earned').eq('is_scored', true),
+			supabase.from('profiles').select('id, team_bonus_points')
+		]);
+		const pickUsers = new Set((allScored ?? []).map((p) => p.user_id));
+		const pronoByUser = new Map<string, number>();
+		for (const p of allScored ?? []) pronoByUser.set(p.user_id, (pronoByUser.get(p.user_id) ?? 0) + (p.points_earned ?? 0));
+		const board = (allProfiles ?? [])
+			.filter((p) => pickUsers.has(p.id) || (p.team_bonus_points ?? 0) > 0)
+			.map((p) => ({ id: p.id, total: (pronoByUser.get(p.id) ?? 0) + (p.team_bonus_points ?? 0) }))
+			.sort((a, b) => b.total - a.total || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+		const idx = board.findIndex((r) => r.id === user.id);
+		const rank = idx >= 0 ? idx + 1 : null;
 
-		stats = { totalPoints, pronoPoints, teamBonus, pronosticsCount: pronostics.length, rank: (count ?? 0) + 1 };
+		stats = { totalPoints, pronoPoints, teamBonus, pronosticsCount: pronostics.length, rank };
 	}
 
 	return {
