@@ -28,7 +28,7 @@
 
 	// flagcdn ships sizes w20, w40, w80, w160 — pick the next-larger for crisp DPR
 	const cdnWidth = $derived(width <= 40 ? 80 : width <= 80 ? 160 : 320);
-	const src = $derived(code ? `https://flagcdn.com/w${cdnWidth}/${code.toLowerCase()}.png` : '');
+	const src = $derived(code ? `/flags/${code.toLowerCase()}?w=${cdnWidth}` : '');
 
 	// Hydration repair. Day buckets are computed in LOCAL time, so the server
 	// (UTC) can order rows differently than the client; Svelte repairs text

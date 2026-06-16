@@ -65,7 +65,7 @@
 
 	function teamFlag(name: string): string {
 		const t = _T.find((x) => x.name === name);
-		return t ? `https://flagcdn.com/w40/${t.flag.toLowerCase()}.png` : '';
+		return t ? `/flags/${t.flag.toLowerCase()}?w=40` : '';
 	}
 
 	function onPickerKey(e: KeyboardEvent) {

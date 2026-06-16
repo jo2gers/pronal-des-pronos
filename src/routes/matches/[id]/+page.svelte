@@ -9,7 +9,7 @@
 	import FilterCarousel from '$lib/components/FilterCarousel.svelte';
 
 	function flagSrc(iso: string | null | undefined) {
-		return iso ? `https://flagcdn.com/w80/${iso.toLowerCase()}.png` : '';
+		return iso ? `/flags/${iso.toLowerCase()}?w=80` : '';
 	}
 
 	let { data, form } = $props();

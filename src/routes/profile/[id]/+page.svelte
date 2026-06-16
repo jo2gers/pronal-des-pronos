@@ -10,7 +10,7 @@
 	function flagUrl(teamName: string | undefined, size = 40): string {
 		if (!teamName) return '';
 		const team = WC2026_TEAMS.find((t) => t.name === teamName);
-		return team ? `https://flagcdn.com/w${size}/${team.flag.toLowerCase()}.png` : '';
+		return team ? `/flags/${team.flag.toLowerCase()}?w=${size}` : '';
 	}
 
 	function formatDate(dt: string) {
