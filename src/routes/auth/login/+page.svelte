@@ -46,7 +46,10 @@
 				/>
 			</div>
 			<div>
-				<label for="password" class="block text-sm text-muted mb-1">{t('auth_password_label')}</label>
+				<div class="flex items-baseline justify-between mb-1">
+					<label for="password" class="block text-sm text-muted">{t('auth_password_label')}</label>
+					<a href="/auth/forgot" class="text-xs text-muted hover:text-accent transition-colors">{t('auth_forgot_link')}</a>
+				</div>
 				<input
 					id="password" name="password" type="password" required
 					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-fg placeholder:text-faint focus:border-accent focus:outline-none"
