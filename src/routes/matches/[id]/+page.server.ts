@@ -21,10 +21,22 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	}
 
 	// Stage gate: knockout matches stay locked until the previous round is
-	// fully finished. One small query covers it.
-	const { data: stageRows } = await supabase.from('matches').select('stage, status');
+	// fully finished. One small query covers it — and we reuse it to compute the
+	// previous/next match for the on-page arrow + swipe navigation.
+	const { data: stageRows } = await supabase.from('matches').select('id, stage, status, match_datetime');
 	const stageUnlocks = computeStageUnlocks((stageRows ?? []) as any[]);
 	(match as any).stage_locked = !(stageUnlocks[(match as any).stage] ?? true);
+
+	// Prev/next match in chronological order (id tiebreak so same-kickoff matches
+	// are deterministic). Null at the ends → the arrow is disabled.
+	const ordered = (stageRows ?? []).slice().sort((a: any, b: any) => {
+		const ta = new Date(a.match_datetime).getTime();
+		const tb = new Date(b.match_datetime).getTime();
+		return ta - tb || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+	});
+	const curIdx = ordered.findIndex((m: any) => m.id === params.id);
+	const prevMatchId = curIdx > 0 ? ordered[curIdx - 1].id : null;
+	const nextMatchId = curIdx >= 0 && curIdx < ordered.length - 1 ? ordered[curIdx + 1].id : null;
 
 	// Load friend IDs for the current user
 	let friendIds: string[] = [];
@@ -121,6 +133,8 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	return {
 		match,
+		prevMatchId,
+		nextMatchId,
 		userPronostic: pronosticResult.data,
 		allPronostics,
 		matchBonus,

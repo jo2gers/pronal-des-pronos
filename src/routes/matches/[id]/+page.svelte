@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto, onNavigate } from '$app/navigation';
 	import { formatDate, isMatchLocked, liveClock } from '$lib/utils';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN, teamLabel } from '$lib/wc2026';
 	import { t, getLang } from '$lib/i18n.svelte';
@@ -20,6 +20,61 @@
 		const interval = setInterval(() => invalidateAll(), 30_000);
 		return () => clearInterval(interval);
 	});
+
+	// ── Prev/next match navigation with a directional whole-page slide ─────────
+	// Arrows (each side) + horizontal swipe move to the chronological neighbour.
+	// The slide uses the View Transitions API; browsers without it just navigate
+	// instantly, and we skip it for users who prefer reduced motion.
+	let navDir: 'next' | 'prev' | null = null;
+
+	function goToMatch(id: string | null | undefined, dir: 'next' | 'prev') {
+		if (!id) return; // disabled at the ends
+		navDir = dir;
+		goto(`/matches/${id}`);
+	}
+
+	onNavigate((nav) => {
+		const dir = navDir;
+		navDir = null;
+		if (!dir) return; // only animate prev/next moves we initiated
+		if (typeof document === 'undefined' || !(document as any).startViewTransition) return;
+		if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+		if (nav.to?.route?.id !== '/matches/[id]' || nav.from?.route?.id !== '/matches/[id]') return;
+		document.documentElement.dataset.nav = dir;
+		return new Promise<void>((resolve) => {
+			const vt = (document as any).startViewTransition(async () => {
+				resolve();
+				await nav.complete;
+			});
+			vt.finished.finally(() => { delete document.documentElement.dataset.nav; });
+		});
+	});
+
+	// Touch swipe → prev/next on phones. A horizontal swipe over ~60px navigates;
+	// swipes that start inside a horizontally-scrollable element (the league tabs)
+	// are left alone so they scroll instead of changing match.
+	let touchX = 0, touchY = 0, swipeBlocked = false;
+	function horizScrollable(el: Element | null): boolean {
+		while (el && el !== document.body) {
+			const s = getComputedStyle(el);
+			if (/(auto|scroll)/.test(s.overflowX) && el.scrollWidth > el.clientWidth + 4) return true;
+			el = el.parentElement;
+		}
+		return false;
+	}
+	function onTouchStart(e: TouchEvent) {
+		swipeBlocked = horizScrollable(e.target as Element);
+		touchX = e.changedTouches[0].clientX;
+		touchY = e.changedTouches[0].clientY;
+	}
+	function onTouchEnd(e: TouchEvent) {
+		if (swipeBlocked) return;
+		const dx = e.changedTouches[0].clientX - touchX;
+		const dy = e.changedTouches[0].clientY - touchY;
+		if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // not a clean horizontal swipe
+		if (dx < 0) goToMatch(data.nextMatchId, 'next'); // swipe left → next
+		else goToMatch(data.prevMatchId, 'prev');        // swipe right → prev
+	}
 
 	let home      = $state(data.userPronostic?.predicted_home ?? 0);
 	let away      = $state(data.userPronostic?.predicted_away ?? 0);
@@ -174,7 +229,7 @@
 	}
 </script>
 
-<div class="max-w-2xl mx-auto space-y-5">
+<div class="max-w-2xl mx-auto space-y-5" ontouchstart={onTouchStart} ontouchend={onTouchEnd}>
 
 	<!-- Back to where the user came from (homepage, /matches, etc.) -->
 	<button type="button" onclick={() => history.back()}
@@ -184,6 +239,25 @@
 		</svg>
 		<span>{t('back')}</span>
 	</button>
+
+	<!-- Prev / next match — an arrow on each side, disabled at the ends.
+	     Swiping left/right does the same (with a sliding page transition). -->
+	<nav class="flex items-center justify-between gap-3" aria-label={t('match_prev') + ' / ' + t('match_next')}>
+		<button type="button" onclick={() => goToMatch(data.prevMatchId, 'prev')} disabled={!data.prevMatchId}
+			aria-label={t('match_prev')} title={t('match_prev')}
+			class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-wire text-muted cursor-pointer transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed">
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+			</svg>
+		</button>
+		<button type="button" onclick={() => goToMatch(data.nextMatchId, 'next')} disabled={!data.nextMatchId}
+			aria-label={t('match_next')} title={t('match_next')}
+			class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-wire text-muted cursor-pointer transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed">
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+			</svg>
+		</button>
+	</nav>
 
 	<!-- Match header -->
 	<div class="rounded-xl bg-panel border border-wire p-6">
