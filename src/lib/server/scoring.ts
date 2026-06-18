@@ -61,30 +61,35 @@ export async function scoreMatch(
 		.select('id, predicted_home, predicted_away')
 		.eq('match_id', match.id);
 
-	let scored = 0;
-	for (const p of pronostics ?? []) {
+	// Compute each pronostic's points, then write them CONCURRENTLY. This was a
+	// sequential await-per-row loop; on a big match it could be cut off by the
+	// cron function's time limit partway, leaving some picks is_scored=false with
+	// no retry. Firing the writes together keeps the whole pass short, and the
+	// finished-match re-score safety pass in syncLiveScores backstops any that
+	// still slip through (re-scoring is idempotent).
+	const mh = match.home_score;
+	const ma = match.away_score;
+	const writes = (pronostics ?? []).map((p) => {
 		const ph = p.predicted_home;
 		const pa = p.predicted_away;
-		const mh = match.home_score;
-		const ma = match.away_score;
 		const basePoints =
 			ph === mh && pa === ma ? 3 :
 			Math.sign(ph - pa) === Math.sign(mh - ma) ? 1 :
 			0;
 
 		// resolveOddsUsed picks home/draw/away odds for the predicted outcome,
-		// with a 1.0 floor when odds are missing.
+		// with a 1.0 floor when odds are missing. odds_used is overwritten with the
+		// final locked odds so every surface shows the value points came from.
 		const finalOdds = resolveOddsUsed(ph, pa, oddsSource);
 		const points = basePoints === 0 ? 0 : parseFloat((basePoints * finalOdds).toFixed(2));
 
-		// odds_used is overwritten with the final locked odds so every surface
-		// (profiles, match page) shows the value the points were computed from.
-		await supabase
+		return supabase
 			.from('pronostics')
 			.update({ points_earned: points, is_scored: true, odds_used: finalOdds })
 			.eq('id', p.id);
-		scored++;
-	}
+	});
+	const results = await Promise.all(writes);
+	const scored = results.filter((r) => !r.error).length;
 
 	// 2. Team bonus — only if not already calculated for this match
 	let bonusAwarded = 0;

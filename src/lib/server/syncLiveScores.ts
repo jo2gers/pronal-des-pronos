@@ -115,6 +115,7 @@ export async function syncLiveScores(
 	bracketUpdated?: number;
 	slugsUpdated?: number;
 	oddsUpdated?: number;
+	rescoredMatches?: number;
 	error?: string;
 }> {
 	const nowMs = Date.now();
@@ -379,6 +380,35 @@ export async function syncLiveScores(
 		// non-fatal — venue backfill simply doesn't run this tick
 	}
 
+	// ── Safety: re-score finished matches with leftover unscored predictions ───
+	// A scoreMatch run that was cut off (function time limit / transient error)
+	// leaves some picks is_scored=false on a finished match, and nothing retries
+	// them — scoring only fires on the FT transition, which is already past. Find
+	// finished matches that still have unscored picks and re-score them. Idempotent
+	// (already-scored picks recompute to the same points; the team bonus is gated
+	// by bonus_calculated, so no double-award). Capped per tick so this pass can't
+	// itself stall the cron.
+	let rescoredMatches = 0;
+	try {
+		const { data: needRescore } = await supabase
+			.from('matches')
+			.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, pronostics!inner(id)')
+			.eq('status', 'finished')
+			.eq('pronostics.is_scored', false)
+			.limit(5);
+
+		for (const m of needRescore ?? []) {
+			try {
+				await scoreMatch(supabase, m as any);
+				rescoredMatches++;
+			} catch {
+				// non-fatal — next tick retries (re-scoring is idempotent)
+			}
+		}
+	} catch {
+		// non-fatal — safety re-score simply doesn't run this tick
+	}
+
 	// ── Cascade after any FT transition ────────────────────────────────────
 	// When a match ends, the bracket may now be ready to fill one or more
 	// knockout slots (e.g. last group match → R32 pairings, last R32 → R16).
@@ -421,6 +451,7 @@ export async function syncLiveScores(
 		videosUpdated,
 		bracketUpdated,
 		slugsUpdated,
-		oddsUpdated
+		oddsUpdated,
+		rescoredMatches
 	};
 }
