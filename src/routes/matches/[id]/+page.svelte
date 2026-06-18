@@ -231,29 +231,30 @@
 
 <div class="max-w-2xl mx-auto space-y-5" ontouchstart={onTouchStart} ontouchend={onTouchEnd}>
 
-	<!-- Back to where the user came from (homepage, /matches, etc.) -->
-	<button type="button" onclick={() => history.back()}
-		class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg transition-colors cursor-pointer -mb-1 group/back">
-		<svg class="w-4 h-4 group-hover/back:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-			<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-		</svg>
-		<span>{t('back')}</span>
-	</button>
-
-	<!-- Prev / next match — an arrow on each side, disabled at the ends.
-	     Swiping left/right does the same (with a sliding page transition). -->
-	<nav class="flex items-center justify-between gap-3" aria-label={t('match_prev') + ' / ' + t('match_next')}>
+	<!-- One nav row: prev match on the left, a bigger Back in the middle, next
+	     match on the right — keeps Back clear of the side arrows (no mistaps).
+	     Swiping left/right also changes match, with a sliding page transition. -->
+	<nav class="grid grid-cols-3 items-center gap-3" aria-label={t('match_prev') + ' / ' + t('match_next')}>
 		<button type="button" onclick={() => goToMatch(data.prevMatchId, 'prev')} disabled={!data.prevMatchId}
 			aria-label={t('match_prev')} title={t('match_prev')}
-			class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-wire text-muted cursor-pointer transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed">
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+			class="justify-self-start inline-flex items-center justify-center w-10 h-10 rounded-full border border-wire text-muted cursor-pointer transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed">
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
 			</svg>
 		</button>
+
+		<button type="button" onclick={() => history.back()}
+			class="justify-self-center inline-flex items-center gap-1.5 rounded-full border border-wire px-4 py-2 text-sm font-medium text-muted hover:text-fg hover:border-wire-hi transition-colors cursor-pointer group/back">
+			<svg class="w-4 h-4 group-hover/back:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+			</svg>
+			<span>{t('back')}</span>
+		</button>
+
 		<button type="button" onclick={() => goToMatch(data.nextMatchId, 'next')} disabled={!data.nextMatchId}
 			aria-label={t('match_next')} title={t('match_next')}
-			class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-wire text-muted cursor-pointer transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed">
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+			class="justify-self-end inline-flex items-center justify-center w-10 h-10 rounded-full border border-wire text-muted cursor-pointer transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed">
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
 			</svg>
 		</button>
