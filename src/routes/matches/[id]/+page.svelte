@@ -7,6 +7,7 @@
 	import { getShowOdds } from '$lib/prefs.svelte';
 	import Flag from '$lib/components/Flag.svelte';
 	import FilterCarousel from '$lib/components/FilterCarousel.svelte';
+	import { flip } from 'svelte/animate';
 
 	function flagSrc(iso: string | null | undefined) {
 		return iso ? `/flags/${iso.toLowerCase()}?w=80` : '';
@@ -162,6 +163,46 @@
 
 	// Points/badges only mean something once the match result is in.
 	const isScoredView = $derived(data.match.status === 'finished');
+
+	// Live = a match in play with a current score, so we can rank predictions by
+	// how they'd score IF IT ENDED NOW.
+	const isLive = $derived(
+		data.match.status === 'live' && data.match.home_score != null && data.match.away_score != null
+	);
+
+	// Provisional points a prediction would earn at the current live score:
+	// exact 3× > correct outcome 1× > wrong 0, scaled by the frozen match odds for
+	// the predicted outcome (same odds everyone is actually scored against).
+	function liveProvisional(p: any): number {
+		const m = data.match;
+		const lh = m.home_score as number, la = m.away_score as number;
+		const ph = p.predicted_home, pa = p.predicted_away;
+		let base = 0;
+		if (ph === lh && pa === la) base = 3;
+		else if (Math.sign(ph - pa) === Math.sign(lh - la)) base = 1;
+		if (base === 0) return 0;
+		const o = ph > pa ? m.odds_home : ph < pa ? m.odds_away : m.odds_draw;
+		const odds = o && o >= 1 ? o : 1;
+		return parseFloat((base * odds).toFixed(2));
+	}
+	// Provisional exact/correct/wrong badge at the current live score.
+	function provBadge(ph: number, pa: number): 'exact' | 'correct' | 'wrong' | null {
+		const m = data.match;
+		if (m.home_score == null || m.away_score == null) return null;
+		if (ph === m.home_score && pa === m.away_score) return 'exact';
+		if (Math.sign(ph - pa) === Math.sign(m.home_score - m.away_score)) return 'correct';
+		return 'wrong';
+	}
+
+	// During a live match, order the list by who's closest to winning right now
+	// (most provisional points on top, name as tiebreak). Otherwise keep the
+	// server order (points for finished, alphabetical for upcoming).
+	const orderedPronostics = $derived.by(() => {
+		const list = [...visiblePronostics()];
+		if (!isLive) return list;
+		const nm = (p: any) => String((p.profiles?.display_name ?? p.profiles?.username ?? '')).toLowerCase();
+		return list.sort((a, b) => liveProvisional(b) - liveProvisional(a) || nm(a).localeCompare(nm(b)));
+	});
 
 	// Real Polymarket match clock for the LIVE badge (null until first poll).
 	const liveMatchClock = $derived(
@@ -752,8 +793,11 @@
 		<section class="border-t border-wire pt-6">
 			<div class="mb-3 space-y-2.5">
 				<h2 class="text-base font-bold text-fg uppercase tracking-widest text-xs flex items-baseline gap-2">
-					{t('match_pronostics')} <span class="text-faint font-normal tabular-nums normal-case tracking-normal">{visiblePronostics().length}</span>
+					{t('match_pronostics')} <span class="text-faint font-normal tabular-nums normal-case tracking-normal">{orderedPronostics.length}</span>
 				</h2>
+				{#if isLive}
+					<p class="text-[11px] text-faint normal-case tracking-normal font-normal">{t('match_live_ranking_hint')}</p>
+				{/if}
 				<!-- Tabs: Tous | each league | Amis — horizontally swipeable on mobile -->
 				{#if data.user && ((data.friendIds ?? []).length > 0 || (data.myLeagues ?? []).length > 0)}
 					<FilterCarousel compact items={pronoFilterItems} active={pronoFilter} onpick={(id) => (pronoFilter = id)} />
@@ -761,19 +805,19 @@
 			</div>
 
 			<div class="-mx-4 sm:mx-0 sm:rounded-xl sm:bg-panel/40 sm:border sm:border-wire overflow-hidden border-y border-wire sm:border-y-0">
-				{#if visiblePronostics().length === 0}
+				{#if orderedPronostics.length === 0}
 					<p class="px-4 py-6 text-sm text-faint text-center">{t('match_no_friend_picks')}</p>
 				{:else}
-					{#each visiblePronostics() as p, i (p.user_id)}
+					{#each orderedPronostics as p, i (p.user_id)}
 						{@const me = isMe(p.user_id)}
 						{@const friend = isFriend(p.user_id)}
-						{@const badge = isScoredView && p.is_scored ? rowBadge(p.points_earned, p.predicted_home, p.predicted_away) : null}
-						<a href="/profile/{p.user_id}"
+						{@const badge = isScoredView ? (p.is_scored ? rowBadge(p.points_earned, p.predicted_home, p.predicted_away) : null) : (isLive ? provBadge(p.predicted_home, p.predicted_away) : null)}
+						<a href="/profile/{p.user_id}" animate:flip={{ duration: 350 }}
 							class="flex items-center gap-3 px-4 py-3 border-b border-wire/40 last:border-0 transition-colors
 								{me ? 'bg-accent-lo/60 hover:bg-accent-lo' : 'hover:bg-raised'}">
 
-							<!-- Rank — only meaningful once the match is scored -->
-							{#if isScoredView}
+							<!-- Rank — meaningful once scored, or live (closest first) -->
+							{#if isScoredView || isLive}
 								<span class="text-xs text-faint w-5 tabular-nums shrink-0">{i + 1}</span>
 							{/if}
 
@@ -817,11 +861,17 @@
 								<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: var(--color-success)"></span>
 							{/if}
 
-							<!-- Points — dash until the match is scored -->
+							<!-- Points: final once scored; provisional (—) while live. -->
 							{#if isScoredView}
 								<span class="font-bold tabular-nums w-14 text-right shrink-0 {badge === 'exact' ? 'text-accent' : badge === 'correct' ? 'text-fg' : 'text-faint'}"
 									style="font-family: var(--font-display)">
 									{p.is_scored ? (p.points_earned?.toFixed(2) ?? '0.00') : '—'}
+								</span>
+							{:else if isLive}
+								{@const prov = liveProvisional(p)}
+								<span class="tabular-nums w-14 text-right shrink-0 text-xs {prov > 0 ? (badge === 'exact' ? 'text-accent font-bold' : 'text-fg') : 'text-faint'}"
+									style="font-family: var(--font-display)" title={t('match_live_ranking_hint')}>
+									{prov > 0 ? '≈' + prov.toFixed(2) : '—'}
 								</span>
 							{/if}
 						</a>
