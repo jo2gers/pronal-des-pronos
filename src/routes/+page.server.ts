@@ -4,6 +4,7 @@ import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
 import { resolveOddsUsed, computeStageUnlocks, STAGE_PROGRESSION } from '$lib/utils';
 import { syncLiveScores } from '$lib/server/syncLiveScores';
+import { fetchAllScoredPronostics } from '$lib/server/pronostics';
 import type { Actions, PageServerLoad } from './$types';
 
 function adminClient() {
@@ -88,8 +89,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		// Global ("Tous") leaderboard rank — computed exactly like /leaderboard so
 		// the two always agree: members are users with a scored pick OR a team bonus;
 		// rank by total (scored prono points + team bonus), total DESC then user_id ASC.
-		const [{ data: allScored }, { data: allProfiles }] = await Promise.all([
-			supabase.from('pronostics').select('user_id, points_earned').eq('is_scored', true),
+		const [allScored, { data: allProfiles }] = await Promise.all([
+			fetchAllScoredPronostics<{ user_id: string; points_earned: number | null }>(supabase, 'user_id, points_earned'),
 			supabase.from('profiles').select('id, team_bonus_points')
 		]);
 		const pickUsers = new Set((allScored ?? []).map((p) => p.user_id));

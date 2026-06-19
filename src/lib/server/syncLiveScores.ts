@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
+import { fetchAllScoredPronostics } from './pronostics';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
 import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
@@ -153,8 +154,8 @@ export async function syncLiveScores(
 		if (rankSnapshotTaken) return;
 		rankSnapshotTaken = true;
 		try {
-			const [{ data: pr }, { data: pf }] = await Promise.all([
-				supabase.from('pronostics').select('user_id, points_earned').eq('is_scored', true),
+			const [pr, { data: pf }] = await Promise.all([
+				fetchAllScoredPronostics<{ user_id: string; points_earned: number | null }>(supabase, 'user_id, points_earned'),
 				supabase.from('profiles').select('id, team_bonus_points')
 			]);
 			const totals: Record<string, number> = {};

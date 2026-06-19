@@ -1,13 +1,19 @@
 import type { PageServerLoad } from './$types';
+import { fetchAllScoredPronostics } from '$lib/server/pronostics';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 
-	// Fetch scored pronostics (no join — avoids FK ambiguity)
-	const { data: pronostics } = await supabase
-		.from('pronostics')
-		.select('user_id, points_earned, predicted_home, predicted_away, match_id')
-		.eq('is_scored', true);
+	// ALL scored pronostics, paginated past PostgREST's 1000-row cap — otherwise
+	// users whose picks fall past row 1000 are silently under-counted (wrong total,
+	// rank, winner/exact). No join → avoids FK ambiguity.
+	const pronostics = await fetchAllScoredPronostics<{
+		user_id: string;
+		points_earned: number | null;
+		predicted_home: number;
+		predicted_away: number;
+		match_id: string;
+	}>(supabase, 'user_id, points_earned, predicted_home, predicted_away, match_id');
 
 	// Aggregate prono points per user
 	const pronoMap = new Map<string, number>();
