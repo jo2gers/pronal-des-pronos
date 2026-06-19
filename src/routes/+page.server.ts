@@ -4,7 +4,6 @@ import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
 import { resolveOddsUsed, computeStageUnlocks, STAGE_PROGRESSION } from '$lib/utils';
 import { syncLiveScores } from '$lib/server/syncLiveScores';
-import { fetchAllScoredPronostics } from '$lib/server/pronostics';
 import type { Actions, PageServerLoad } from './$types';
 
 function adminClient() {
@@ -89,15 +88,15 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		// Global ("Tous") leaderboard rank — computed exactly like /leaderboard so
 		// the two always agree: members are users with a scored pick OR a team bonus;
 		// rank by total (scored prono points + team bonus), total DESC then user_id ASC.
-		const [allScored, { data: allProfiles }] = await Promise.all([
-			fetchAllScoredPronostics<{ user_id: string; points_earned: number | null }>(supabase, 'user_id, points_earned'),
+		const [{ data: statRows }, { data: allProfiles }] = await Promise.all([
+			supabase.from('user_pronostic_stats').select('user_id, prono_points'),
 			supabase.from('profiles').select('id, team_bonus_points')
 		]);
-		const pickUsers = new Set((allScored ?? []).map((p) => p.user_id));
-		const pronoByUser = new Map<string, number>();
-		for (const p of allScored ?? []) pronoByUser.set(p.user_id, (pronoByUser.get(p.user_id) ?? 0) + (p.points_earned ?? 0));
+		const pronoByUser = new Map<string, number>(
+			(statRows ?? []).map((s: any) => [s.user_id as string, parseFloat(String(s.prono_points ?? 0))])
+		);
 		const board = (allProfiles ?? [])
-			.filter((p) => pickUsers.has(p.id) || (p.team_bonus_points ?? 0) > 0)
+			.filter((p) => pronoByUser.has(p.id) || (p.team_bonus_points ?? 0) > 0)
 			.map((p) => ({ id: p.id, total: (pronoByUser.get(p.id) ?? 0) + (p.team_bonus_points ?? 0) }))
 			.sort((a, b) => b.total - a.total || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 		const idx = board.findIndex((r) => r.id === user.id);

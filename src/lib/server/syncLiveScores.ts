@@ -13,7 +13,6 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
-import { fetchAllScoredPronostics } from './pronostics';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
 import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
@@ -154,15 +153,15 @@ export async function syncLiveScores(
 		if (rankSnapshotTaken) return;
 		rankSnapshotTaken = true;
 		try {
-			const [pr, { data: pf }] = await Promise.all([
-				fetchAllScoredPronostics<{ user_id: string; points_earned: number | null }>(supabase, 'user_id, points_earned'),
+			const [{ data: stats }, { data: pf }] = await Promise.all([
+				supabase.from('user_pronostic_stats').select('user_id, prono_points'),
 				supabase.from('profiles').select('id, team_bonus_points')
 			]);
 			const totals: Record<string, number> = {};
 			for (const row of pf ?? []) totals[(row as any).id] = (row as any).team_bonus_points ?? 0;
-			for (const row of pr ?? []) {
+			for (const row of stats ?? []) {
 				const uid = (row as any).user_id;
-				totals[uid] = (totals[uid] ?? 0) + ((row as any).points_earned ?? 0);
+				totals[uid] = (totals[uid] ?? 0) + parseFloat(String((row as any).prono_points ?? 0));
 			}
 			await supabase.from('rank_snapshots').insert({ totals });
 		} catch {

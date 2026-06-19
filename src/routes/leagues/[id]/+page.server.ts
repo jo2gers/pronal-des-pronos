@@ -1,5 +1,4 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { fetchAllScoredPronostics } from '$lib/server/pronostics';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
@@ -14,19 +13,15 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	if (!group) error(404, 'Ligue introuvable');
 
-	const [{ data: members }, leaguePronostics, friendshipsResult] = await Promise.all([
+	const [{ data: members }, { data: statRows }, friendshipsResult] = await Promise.all([
 		supabase
 			.from('group_members')
 			.select('role, joined_at, profiles(id, username, display_name, avatar_url, team_bonus_points)')
 			.eq('group_id', params.id),
-		// Paginated past the 1000-row cap so tail-end members aren't under-counted.
-		fetchAllScoredPronostics<{
-			user_id: string;
-			predicted_home: number;
-			predicted_away: number;
-			points_earned: number | null;
-			match: { home_score: number | null; away_score: number | null } | null;
-		}>(supabase, 'user_id, predicted_home, predicted_away, points_earned, match:matches(home_score, away_score)'),
+		// Per-user scored aggregates from the DB view (no 1000-row cap, no re-summing).
+		supabase
+			.from('user_pronostic_stats')
+			.select('user_id, prono_points, picks, winners, exact'),
 		supabase
 			.from('friendships')
 			.select(`
@@ -52,46 +47,26 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	const friendsNotInGroup = friends.filter((f) => f && !memberIds.includes(f.id));
 
-	// Scoreboard: per-member breakdown.
-	// - picks   : number of scored predictions
-	// - winners : count of "correct winner" picks that weren't exact
-	// - exact   : count of exact-score picks
-	// - pronoPts: sum of points_earned from predictions
-	// teamBonus + scorerBonus come straight from the profile columns.
-	type Stats = { picks: number; winners: number; exact: number; pronoPts: number };
-	const stats = new Map<string, Stats>();
-	for (const id of memberIds) stats.set(id, { picks: 0, winners: 0, exact: 0, pronoPts: 0 });
-
-	for (const row of leaguePronostics) {
-		const s = stats.get(row.user_id);
-		if (!s) continue;
-		s.picks++;
-		s.pronoPts += row.points_earned ?? 0;
-		const m = (row as any).match;
-		if (m?.home_score != null && m?.away_score != null) {
-			if (row.predicted_home === m.home_score && row.predicted_away === m.away_score) {
-				s.exact++;
-			} else if (Math.sign(row.predicted_home - row.predicted_away) === Math.sign(m.home_score - m.away_score)) {
-				s.winners++;
-			}
-		}
-	}
+	// Scoreboard: per-member breakdown straight from the per-user stats view
+	// (picks, winners = correct-not-exact, exact, summed prono points). teamBonus
+	// comes straight from the profile column.
+	const statsMap = new Map((statRows ?? []).map((s: any) => [s.user_id as string, s]));
 
 	const scoreboard = (members ?? [])
 		.map((m) => {
 			const p = m.profiles as any;
-			const id = p?.id;
-			const s = stats.get(id) ?? { picks: 0, winners: 0, exact: 0, pronoPts: 0 };
+			const s = statsMap.get(p?.id) as any;
+			const pronoPts = parseFloat(String(s?.prono_points ?? 0));
 			const teamBonus   = parseFloat(String(p?.team_bonus_points ?? 0));
 			return {
 				profile: p,
 				role: m.role,
-				picks: s.picks,
-				winners: s.winners,
-				exact: s.exact,
-				pronoPts: parseFloat(s.pronoPts.toFixed(2)),
+				picks: s?.picks ?? 0,
+				winners: s?.winners ?? 0,
+				exact: s?.exact ?? 0,
+				pronoPts: parseFloat(pronoPts.toFixed(2)),
 				teamBonus,
-				points: parseFloat((s.pronoPts + teamBonus).toFixed(2))
+				points: parseFloat((pronoPts + teamBonus).toFixed(2))
 			};
 		})
 		.sort((a, b) => b.points - a.points);

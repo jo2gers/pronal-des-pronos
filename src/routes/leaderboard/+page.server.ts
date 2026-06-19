@@ -1,52 +1,17 @@
 import type { PageServerLoad } from './$types';
-import { fetchAllScoredPronostics } from '$lib/server/pronostics';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 
-	// ALL scored pronostics, paginated past PostgREST's 1000-row cap — otherwise
-	// users whose picks fall past row 1000 are silently under-counted (wrong total,
-	// rank, winner/exact). No join → avoids FK ambiguity.
-	const pronostics = await fetchAllScoredPronostics<{
-		user_id: string;
-		points_earned: number | null;
-		predicted_home: number;
-		predicted_away: number;
-		match_id: string;
-	}>(supabase, 'user_id, points_earned, predicted_home, predicted_away, match_id');
-
-	// Aggregate prono points per user
-	const pronoMap = new Map<string, number>();
-	for (const p of pronostics ?? []) {
-		pronoMap.set(p.user_id, (pronoMap.get(p.user_id) ?? 0) + (p.points_earned ?? 0));
-	}
-
-	// Per-user "winner" (correct outcome, not exact) and "exact" counts. Mirrors
-	// the match page's scoring tiers: exact (3×) and winner (1×) are mutually
-	// exclusive. Needs each pick's predicted score vs the match's final score.
-	const matchIds = [...new Set((pronostics ?? []).map((p) => p.match_id).filter(Boolean))];
-	const scoreMap = new Map<string, { home_score: number | null; away_score: number | null }>();
-	if (matchIds.length > 0) {
-		const { data: matchRows } = await supabase
-			.from('matches')
-			.select('id, home_score, away_score')
-			.in('id', matchIds);
-		for (const m of matchRows ?? []) scoreMap.set(m.id, m);
-	}
-	const winnerMap = new Map<string, number>();
-	const exactMap = new Map<string, number>();
-	for (const p of pronostics ?? []) {
-		const m = scoreMap.get(p.match_id);
-		if (!m || m.home_score == null || m.away_score == null) continue;
-		if (p.predicted_home === m.home_score && p.predicted_away === m.away_score) {
-			exactMap.set(p.user_id, (exactMap.get(p.user_id) ?? 0) + 1);
-		} else if (Math.sign(p.predicted_home - p.predicted_away) === Math.sign(m.home_score - m.away_score)) {
-			winnerMap.set(p.user_id, (winnerMap.get(p.user_id) ?? 0) + 1);
-		}
-	}
+	// Per-user scored-pronostic aggregates from the DB view (always fresh, no
+	// 1000-row cap, no JS re-summing) - one row per user who has a scored pick.
+	const { data: stats } = await supabase
+		.from('user_pronostic_stats')
+		.select('user_id, prono_points, picks, winners, exact');
+	const statsMap = new Map((stats ?? []).map((s: any) => [s.user_id as string, s]));
 
 	// Fetch all profiles that appear in pronostics OR have a team bonus
-	const profileIds = [...pronoMap.keys()];
+	const profileIds = [...statsMap.keys()];
 
 	const { data: profiles } = await supabase
 		.from('profiles')
@@ -60,12 +25,13 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	// Build leaderboard
 	const leaderboard = (profiles ?? [])
 		.map((profile) => {
-			const pronoPoints = pronoMap.get(profile.id) ?? 0;
+			const s = statsMap.get(profile.id) as any;
+			const pronoPoints = parseFloat(String(s?.prono_points ?? 0));
 			const teamBonus   = profile.team_bonus_points ?? 0;
 			const total       = pronoPoints + teamBonus;
-			const count       = pronostics?.filter((p) => p.user_id === profile.id).length ?? 0;
-			const winners     = winnerMap.get(profile.id) ?? 0;
-			const exact       = exactMap.get(profile.id) ?? 0;
+			const count       = s?.picks ?? 0;
+			const winners     = s?.winners ?? 0;
+			const exact       = s?.exact ?? 0;
 			return { userId: profile.id, user: profile, pronoPoints, teamBonus, total, count, winners, exact };
 		})
 		.sort((a, b) => b.total - a.total || (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0))
