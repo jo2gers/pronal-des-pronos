@@ -37,10 +37,10 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			supabase.from('matches').select(matchFields).eq('status', 'live').neq('home_team', 'TBD'),
 			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
 				.lte('match_datetime', nowIso),
-			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
+			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD').neq('away_team', 'TBD')
 				.gt('match_datetime', nowIso).order('match_datetime', { ascending: true }).limit(1).maybeSingle(),
-			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
-				.gt('match_datetime', nowIso).order('match_datetime', { ascending: true }).limit(5),
+			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD').neq('away_team', 'TBD')
+				.gt('match_datetime', nowIso).order('match_datetime', { ascending: true }).limit(30),
 			supabase.from('matches').select(matchFields).eq('status', 'finished').neq('home_team', 'TBD')
 				.order('match_datetime', { ascending: false }).limit(3),
 			user
@@ -52,6 +52,15 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		...(liveMatches ?? []),
 		...((phantomLive ?? []).map((m) => ({ ...m, status: 'live' as const })))
 	];
+
+	// Upcoming list on the home page: the next 5 matches, PLUS any others that
+	// kick off within the next 24h (so a busy evening of 6+ matches all show).
+	// TBD matches are excluded at the query level — no empty-flag placeholders
+	// (e.g. the final won't appear until the semi-finalists are known).
+	const cutoff24 = new Date(nowIso).getTime() + 24 * 60 * 60 * 1000;
+	const upcomingList = (upcomingMatches ?? []).filter(
+		(m, i) => i < 5 || new Date(m.match_datetime).getTime() <= cutoff24
+	);
 
 	// Stage-level unlock gate: knockout rounds stay locked until ALL matches
 	// of the previous round are finished, regardless of how many TBD slots
@@ -108,7 +117,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	return {
 		liveMatches: allLive.map(attachStage),
 		nextMatch: nextMatch ? attachStage(nextMatch) : null,
-		upcomingMatches: (upcomingMatches ?? []).map(attachStage),
+		upcomingMatches: upcomingList.map(attachStage),
 		// Already fetched most-recent-first (match_datetime DESC) — keep that so
 		// the latest match sits on top. (No .reverse(), which flipped it.)
 		finishedMatches: (finishedMatches ?? []).map(attachStage),
