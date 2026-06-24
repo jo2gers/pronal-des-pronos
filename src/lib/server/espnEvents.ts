@@ -70,15 +70,17 @@ const key = (a: string, b: string) => `${a.toLowerCase()}|${b.toLowerCase()}`;
 export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 	events: Map<string, MatchEvent[]>;
 	gameIds: Map<string, string>;
+	scores: Map<string, { home: number; away: number }>;
 }> {
 	const out = new Map<string, MatchEvent[]>();
 	const gameIds = new Map<string, string>();
+	const scores = new Map<string, { home: number; away: number }>();
 	try {
 		const qs = dateYYYYMMDD ? `?dates=${dateYYYYMMDD}&_=${Date.now()}` : `?_=${Date.now()}`;
 		const res = await fetch(`${SCOREBOARD_URL}${qs}`, {
 			headers: { Accept: 'application/json' }
 		});
-		if (!res.ok) return { events: out, gameIds };
+		if (!res.ok) return { events: out, gameIds, scores };
 		const data = await res.json();
 
 		for (const event of data?.events ?? []) {
@@ -94,6 +96,11 @@ export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 			const espnAway = norm(awayComp.team?.displayName ?? '');
 			const homeId = String(homeComp.team?.id ?? homeComp.id ?? '');
 			const gameId = String(event.id ?? comp.id ?? '');
+
+			// Live score straight from the scoreboard (same source as the events
+			// below) so the displayed score and the timeline stay in lockstep.
+			const homeScore = parseInt(String(homeComp.score ?? ''), 10);
+			const awayScore = parseInt(String(awayComp.score ?? ''), 10);
 
 			const events: MatchEvent[] = [];
 			for (const det of comp.details ?? []) {
@@ -130,11 +137,15 @@ export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 				gameIds.set(key(espnHome, espnAway), gameId);
 				gameIds.set(key(espnAway, espnHome), gameId);
 			}
+			if (Number.isFinite(homeScore) && Number.isFinite(awayScore)) {
+				scores.set(key(espnHome, espnAway), { home: homeScore, away: awayScore });
+				scores.set(key(espnAway, espnHome), { home: awayScore, away: homeScore });
+			}
 		}
 	} catch {
 		// non-fatal — timeline simply doesn't update this tick
 	}
-	return { events: out, gameIds };
+	return { events: out, gameIds, scores };
 }
 
 /** Resolve an ESPN gameId for one match via the dated scoreboard (±1 day for

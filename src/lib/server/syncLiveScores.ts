@@ -110,6 +110,7 @@ export async function syncLiveScores(
 	scoredPronostics: number;
 	eventsUpdated?: number;
 	lineupsUpdated?: number;
+	scoresUpdated?: number;
 	venuesUpdated?: number;
 	videosUpdated?: number;
 	bracketUpdated?: number;
@@ -235,16 +236,17 @@ export async function syncLiveScores(
 	// events in the final write). Non-fatal.
 	let eventsUpdated = 0;
 	let lineupsUpdated = 0;
+	let scoresUpdated = 0;
 	const timelineCandidates = matches.filter(
 		(m) => m.status !== 'upcoming' || new Date(m.match_datetime).getTime() <= nowMs
 	);
 	if (timelineCandidates.length > 0) {
 		try {
-			const { events: espn, gameIds } = await fetchEspnEvents();
+			const { events: espn, gameIds, scores } = await fetchEspnEvents();
 			if (espn.size > 0 || gameIds.size > 0) {
 				const { data: currentRows } = await supabase
 					.from('matches')
-					.select('id, home_team, away_team, status, live_events, lineups, espn_game_id')
+					.select('id, home_team, away_team, status, home_score, away_score, live_events, lineups, espn_game_id')
 					.in('id', timelineCandidates.map((m) => m.id));
 
 				for (const row of currentRows ?? []) {
@@ -254,6 +256,17 @@ export async function syncLiveScores(
 					const events = espn.get(k);
 					if (events && events.length > 0 && JSON.stringify(row.live_events ?? []) !== JSON.stringify(events)) {
 						patch.live_events = events;
+					}
+
+					// Sync the live score from ESPN every tick (same source as the
+					// events above) so the score at the top moves the moment a goal
+					// shows in the timeline — instead of lagging Polymarket's slow poll.
+					// Only while 'live': at FT we keep the Polymarket score scoreMatch
+					// already scored against.
+					const sc = scores.get(k);
+					if (sc && row.status === 'live' && (sc.home !== row.home_score || sc.away !== row.away_score)) {
+						patch.home_score = sc.home;
+						patch.away_score = sc.away;
 					}
 
 					const gid = gameIds.get(k) ?? row.espn_game_id;
@@ -283,6 +296,7 @@ export async function syncLiveScores(
 					if (!error) {
 						if (patch.live_events) eventsUpdated++;
 						if (patch.lineups) lineupsUpdated++;
+						if (patch.home_score !== undefined) scoresUpdated++;
 					}
 				}
 			}
@@ -447,6 +461,7 @@ export async function syncLiveScores(
 		scoredPronostics,
 		eventsUpdated,
 		lineupsUpdated,
+		scoresUpdated,
 		venuesUpdated,
 		videosUpdated,
 		bracketUpdated,
