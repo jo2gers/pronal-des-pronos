@@ -35,7 +35,7 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession }, cookies
 
 	const [
 		{ data: matches }, { data: groups },
-		oddsTs, wcTs
+		oddsTs, wcTs, { data: settings }
 	] = await Promise.all([
 		supabase
 			.from('matches')
@@ -50,7 +50,9 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession }, cookies
 			.select('odds_updated_at').not('odds_updated_at','is',null)
 			.order('odds_updated_at', { ascending: false }).limit(1).maybeSingle(),
 		supabase.from('wc_winner_odds')
-			.select('updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle()
+			.select('updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+		supabase.from('site_settings')
+			.select('banner_message, banner_tone, banner_updated_at').eq('id', 1).maybeSingle()
 	]);
 
 	const groupsWithCount = (groups ?? []).map((g: any) => ({
@@ -70,6 +72,11 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession }, cookies
 		oddsFreshness: {
 			matchOdds: (oddsTs.data as any)?.odds_updated_at ?? null,
 			wcWinnerOdds: (wcTs.data as any)?.updated_at ?? null
+		},
+		banner: {
+			message: ((settings as any)?.banner_message as string) ?? '',
+			tone: (((settings as any)?.banner_tone as string) === 'warn' ? 'warn' : 'info') as 'info' | 'warn',
+			updatedAt: ((settings as any)?.banner_updated_at as string | null) ?? null
 		}
 	};
 };
@@ -306,6 +313,32 @@ export const actions: Actions = {
 		if (e3) return fail(500, { error: `Profils: ${e3.message}` });
 
 		return { reset: true };
+	},
+
+	// Site-wide announcement banner. Publishes a message shown at the top of
+	// every page to all visitors; clearBanner removes it.
+	setBanner: async ({ request }) => {
+		const supabase = adminClient();
+		const form = await request.formData();
+		const message = ((form.get('banner_message') as string) ?? '').trim();
+		const tone = (form.get('banner_tone') as string) === 'warn' ? 'warn' : 'info';
+		if (!message) return fail(400, { error: 'Message vide' });
+		const { error } = await supabase
+			.from('site_settings')
+			.update({ banner_message: message, banner_tone: tone, banner_updated_at: new Date().toISOString() })
+			.eq('id', 1);
+		if (error) return fail(500, { error: error.message });
+		return { bannerSaved: true };
+	},
+
+	clearBanner: async () => {
+		const supabase = adminClient();
+		const { error } = await supabase
+			.from('site_settings')
+			.update({ banner_message: null, banner_updated_at: new Date().toISOString() })
+			.eq('id', 1);
+		if (error) return fail(500, { error: error.message });
+		return { bannerCleared: true };
 	},
 
 	deleteGroup: async ({ request }) => {

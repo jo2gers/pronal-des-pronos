@@ -62,6 +62,12 @@
 	}
 	let deleteGroupLoadingId = $state<string | null>(null);
 	let groupFeedback = $state<{ ok: boolean; msg: string } | null>(null);
+
+	// Site-wide announcement banner editor.
+	let bannerMessage = $state(data.banner?.message ?? '');
+	let bannerTone = $state<'info' | 'warn'>(data.banner?.tone ?? 'info');
+	let bannerLoading = $state(false);
+	let bannerFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 </script>
 
 <div class="space-y-6">
@@ -129,7 +135,74 @@
 		</div>
 	</dl>
 
-	<!-- ── ZONE 1 · Synchronisation Polymarket ──────────────────────── -->
+	<!-- Annonce / Bandeau global -->
+	<section class="space-y-3 pt-2">
+		<h2 class="text-[11px] text-faint uppercase tracking-[0.2em] font-semibold">Annonce</h2>
+
+		<div class="rounded-xl bg-panel border border-wire p-4 space-y-3">
+			<div>
+				<p class="text-sm font-semibold text-fg">Bandeau global</p>
+				<p class="text-xs text-faint mt-0.5">Affiche un message en haut de toutes les pages, pour tous les visiteurs (connectés ou non). Idéal pour signaler une erreur ou préciser une règle. « Effacer » le retire pour tout le monde.</p>
+			</div>
+
+			<form method="POST" action="?/setBanner" use:enhance={() => {
+				bannerLoading = true; bannerFeedback = null;
+				return async ({ result, update }) => {
+					bannerLoading = false;
+					if (result.type === 'success') {
+						bannerFeedback = { ok: true, msg: 'Bandeau publié ✓' };
+						setTimeout(() => bannerFeedback = null, 5000);
+					} else if (result.type === 'failure') {
+						bannerFeedback = { ok: false, msg: (result.data as any)?.error ?? 'Erreur' };
+					}
+					await update({ reset: false });
+				};
+			}} class="space-y-3">
+				<textarea name="banner_message" bind:value={bannerMessage} rows="2" maxlength="280"
+					placeholder="Ex. Les matchs à élimination directe sont comptés sur le score à 90 minutes (temps réglementaire)."
+					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none resize-y"></textarea>
+
+				<div class="flex items-center gap-3 flex-wrap">
+					<div class="flex items-center rounded-md border border-wire overflow-hidden text-xs font-semibold">
+						<label class="px-3 py-1.5 cursor-pointer transition-colors {bannerTone === 'info' ? 'bg-accent text-canvas' : 'text-muted hover:text-fg'}">
+							<input type="radio" name="banner_tone" value="info" bind:group={bannerTone} class="sr-only" /> Info
+						</label>
+						<label class="px-3 py-1.5 cursor-pointer transition-colors {bannerTone === 'warn' ? 'bg-err text-canvas' : 'text-muted hover:text-fg'}">
+							<input type="radio" name="banner_tone" value="warn" bind:group={bannerTone} class="sr-only" /> Alerte
+						</label>
+					</div>
+					<button type="submit" disabled={bannerLoading || !bannerMessage.trim()}
+						class="rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-40 px-4 py-2 text-sm font-bold text-canvas transition-colors cursor-pointer">
+						{bannerLoading ? '...' : 'Publier'}
+					</button>
+				</div>
+			</form>
+
+			<div class="flex items-center gap-3 flex-wrap pt-1 border-t border-wire/60">
+				{#if data.banner?.message}
+					<form method="POST" action="?/clearBanner" use:enhance={() => {
+						return async ({ update }) => { bannerMessage = ''; await update({ reset: false }); };
+					}}>
+						<button type="submit"
+							class="rounded-lg bg-raised border border-wire hover:border-err/50 hover:text-err px-4 py-2 text-sm text-muted transition-colors cursor-pointer">
+							Effacer le bandeau
+						</button>
+					</form>
+					<span class="text-[11px] text-faint">Bandeau actif · maj {ago(data.banner.updatedAt)}</span>
+				{:else}
+					<span class="text-[11px] text-faint">Aucun bandeau actif</span>
+				{/if}
+			</div>
+
+			{#if bannerFeedback}
+				<div class="rounded px-4 py-3 text-sm {bannerFeedback.ok ? 'bg-accent-lo border border-accent/30 text-accent' : 'bg-err/10 border border-err/30 text-err'}">
+					{bannerFeedback.msg}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<!-- ZONE 1 · Synchronisation Polymarket -->
 	<section class="space-y-3 pt-2">
 		<div class="flex items-baseline justify-between gap-3">
 			<h2 class="text-[11px] text-faint uppercase tracking-[0.2em] font-semibold">Synchronisation</h2>

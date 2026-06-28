@@ -11,6 +11,22 @@
 	let notifOpen = $state(false);
 	let theme = $state<'dark' | 'light'>('dark');
 
+	// Site-wide announcement banner — dismissible per message version. Keyed on
+	// banner.updatedAt so an edited/new message re-appears even for users who
+	// dismissed a previous one.
+	let bannerDismissed = $state(false);
+	$effect(() => {
+		const b = data.banner;
+		if (!b) { bannerDismissed = false; return; }
+		bannerDismissed = localStorage.getItem('tifo_banner_dismissed') === (b.updatedAt ?? b.message);
+	});
+	function dismissBanner() {
+		const b = data.banner;
+		if (!b) return;
+		localStorage.setItem('tifo_banner_dismissed', b.updatedAt ?? b.message);
+		bannerDismissed = true;
+	}
+
 	const totalNotif = $derived((data.friendNotifCount ?? 0) + (data.groupNotifCount ?? 0) + (data.inviteCount ?? 0));
 
 	// Keep an invite/deep link alive across the auth pages: when the current URL
@@ -442,6 +458,29 @@
 			</div>
 		{/if}
 	</nav>
+
+	<!-- Site-wide announcement banner · admin-managed via /admin -->
+	{#if data.banner && !bannerDismissed}
+		<div class="border-b {data.banner.tone === 'warn' ? 'border-err/30 bg-err/10' : 'border-accent/30 bg-accent-lo'}">
+			<div class="mx-auto max-w-6xl px-4 py-2.5 flex items-start gap-2.5">
+				<svg class="w-4 h-4 mt-0.5 shrink-0 {data.banner.tone === 'warn' ? 'text-err' : 'text-accent'}"
+					fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+					{#if data.banner.tone === 'warn'}
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+					{:else}
+						<path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+					{/if}
+				</svg>
+				<p class="flex-1 text-sm leading-snug whitespace-pre-line {data.banner.tone === 'warn' ? 'text-err' : 'text-fg'}">{data.banner.message}</p>
+				<button onclick={dismissBanner} aria-label={t('banner_dismiss')} title={t('banner_dismiss')}
+					class="shrink-0 -mr-1 w-6 h-6 flex items-center justify-center rounded text-faint hover:text-fg transition-colors cursor-pointer">
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+					</svg>
+				</button>
+			</div>
+		</div>
+	{/if}
 
 	<main class="flex-1 w-full mx-auto max-w-6xl px-4 py-8 pb-24 sm:pb-8">
 		{@render children()}
