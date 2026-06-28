@@ -85,7 +85,7 @@ const FR = {
   no_upcoming: 'Aucun match à venir.',
   no_ended: 'Aucun match terminé pour l\'instant.',
   no_ended_hint: 'La grille se remplira au fil du tournoi.',
-  team_bonus_short: 'équipe',
+  team_bonus_short: 'Équipe',
   last_matches: 'Derniers matchs',
   // Leagues
   groups_title: 'Mes ligues',
@@ -191,6 +191,7 @@ const FR = {
   profile_updated: 'Profil mis à jour !',
   profile_picks_played: 'Pronos joués',
   profile_exact: 'Exacts',
+  profile_winners: 'Vainqueurs',
   profile_history: 'Pronostics',
   profile_live_picks: 'Pronos en cours',
   profile_empty: 'Aucun pronostic calculé pour l\'instant.',
@@ -467,7 +468,7 @@ const EN: typeof FR = {
   no_upcoming: 'No upcoming matches.',
   no_ended: 'No matches finished yet.',
   no_ended_hint: 'This list will fill up as the tournament progresses.',
-  team_bonus_short: 'team',
+  team_bonus_short: 'Team',
   last_matches: 'Latest matches',
   // Groups
   groups_title: 'My leagues',
@@ -573,6 +574,7 @@ const EN: typeof FR = {
   profile_updated: 'Profile updated!',
   profile_picks_played: 'Picks played',
   profile_exact: 'Exact scores',
+  profile_winners: 'Winners',
   profile_history: 'Picks',
   profile_live_picks: 'Picks in play',
   profile_empty: 'No picks scored yet.',

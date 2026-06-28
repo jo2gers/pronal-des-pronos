@@ -51,6 +51,15 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		const m = p.match as any;
 		return m && p.predicted_home === m.home_score && p.predicted_away === m.away_score;
 	}).length;
+	// "Winners" = right outcome but NOT the exact score (the 1× tier). Mirrors the
+	// user_pronostic_stats view's `winners` definition exactly (not-exact AND same
+	// sign), so the count here always agrees with the leaderboard's Winners column.
+	const winners = scored.filter((p) => {
+		const m = p.match as any;
+		if (!m || m.home_score == null || m.away_score == null) return false;
+		if (p.predicted_home === m.home_score && p.predicted_away === m.away_score) return false;
+		return Math.sign(p.predicted_home - p.predicted_away) === Math.sign(m.home_score - m.away_score);
+	}).length;
 
 	// Per-match team-bonus annotation: if the user's favourite team won a given
 	// finished match, attach the bonus amount that match contributed. Helps the
@@ -139,6 +148,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		teamBonus,
 		totalPoints,
 		exactScores,
+		winners,
 		totalPronoCount: (pronostics ?? []).length,
 		isOwnProfile: user?.id === params.id,
 		teamOdds,

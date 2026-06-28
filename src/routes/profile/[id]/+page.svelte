@@ -171,6 +171,11 @@
 			{/if}
 			<span class="text-wire-hi hidden sm:inline">·</span>
 			<div class="flex items-baseline gap-1.5">
+				<dt class="text-faint">{t('profile_winners')}</dt>
+				<dd class="font-semibold text-fg tabular-nums">{data.winners}</dd>
+			</div>
+			<span class="text-wire-hi hidden sm:inline">·</span>
+			<div class="flex items-baseline gap-1.5">
 				<dt class="text-faint">{t('profile_exact')}</dt>
 				<dd class="font-semibold text-fg tabular-nums">{data.exactScores}</dd>
 			</div>

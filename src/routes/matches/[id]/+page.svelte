@@ -698,6 +698,18 @@
 					</div>
 				</div>
 
+			{:else if locked && !data.userPronostic}
+				<!-- Locked with no pick on record — show dashes (matching the matches
+				     list), never a phantom 0-0. Covers live, finished and stage-locked
+				     matches the user skipped. -->
+				<div class="text-center py-2">
+					<p class="text-xs text-faint mb-2">{t('match_my_pick')}</p>
+					<p class="text-4xl sm:text-5xl font-bold text-wire-hi tabular-nums leading-none" style="font-family: var(--font-display)">
+						–<span class="mx-1.5">–</span>–
+					</p>
+					<p class="text-xs text-faint mt-3">{data.match.status === 'finished' ? t('match_missed_lock') : t('match_no_pick')}</p>
+				</div>
+
 			{:else if data.match.status !== 'finished'}
 				<!-- Upcoming / live: prediction form -->
 				<form bind:this={pickFormEl} method="POST" action="?/pronostic" use:enhance={() => {
@@ -769,14 +781,6 @@
 						<p class="text-center text-sm text-faint">{t('match_picks_closed')}</p>
 					{/if}
 				</form>
-			{:else if locked}
-				<!-- Locked AND no pick on record — the user missed it -->
-				<div class="text-center py-2">
-					<p class="text-sm text-fg font-semibold mb-1">{t('match_missed_lock')}</p>
-					<p class="text-xs text-faint">{t('match_missed_lock_hint')}</p>
-				</div>
-			{:else}
-				<p class="text-sm text-faint text-center">{t('match_no_pick')}</p>
 			{/if}
 		</section>
 	{:else}
