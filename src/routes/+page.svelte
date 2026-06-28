@@ -5,11 +5,19 @@
 	import { t, getLang } from '$lib/i18n.svelte';
 	import Flag from '$lib/components/Flag.svelte';
 	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
+	import KnockoutNote from '$lib/components/KnockoutNote.svelte';
 
 	let { data } = $props();
 
 	let liveMatches = $derived(data.liveMatches ?? []);
 	let nextMatch   = $derived(data.nextMatch ?? null);
+
+	// Show the "scored on 90 min" note once the knockout stage is in play.
+	const hasKnockout = $derived(
+		[nextMatch, ...liveMatches, ...(data.upcomingMatches ?? [])].some(
+			(m) => m && (m as any).stage && (m as any).stage !== 'group'
+		)
+	);
 
 	// Auto-refresh score data every 30s while a match is live, and bump the
 	// match-minute clock to the same instant. Coupling them on purpose: the
@@ -458,6 +466,10 @@
 	{/if}
 
 	<!-- ── Upcoming matches — inline-pick rows ────────────────────────────────── -->
+	{#if hasKnockout}
+		<div class="mb-6"><KnockoutNote /></div>
+	{/if}
+
 	<section>
 		<div class="flex items-end justify-between mb-4 px-1 gap-3 flex-wrap">
 			<div>

@@ -7,6 +7,7 @@
 	import { getShowOdds } from '$lib/prefs.svelte';
 	import Flag from '$lib/components/Flag.svelte';
 	import FilterCarousel from '$lib/components/FilterCarousel.svelte';
+	import KnockoutNote from '$lib/components/KnockoutNote.svelte';
 	import { flip } from 'svelte/animate';
 
 	function flagSrc(iso: string | null | undefined) {
@@ -654,6 +655,11 @@
 			</div>
 			<p class="text-[11px] text-faint mt-2">{t('match_highlights_via')}</p>
 		</section>
+	{/if}
+
+	<!-- Knockout matches are scored on the 90-minute result — shown where you predict. -->
+	{#if data.match.stage !== 'group'}
+		<div class="pt-2"><KnockoutNote /></div>
 	{/if}
 
 	<!-- My pronostic -->
