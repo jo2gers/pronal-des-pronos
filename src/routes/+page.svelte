@@ -174,7 +174,7 @@
 						<div class="text-[10px] uppercase tracking-[0.08em] text-faint"
 							style="font-family: var(--font-mono)">{t('card_kickoff')}</div>
 						<div class="text-sm mt-1 tabular-nums" style="font-family: var(--font-mono)">
-							{formatDate(nextMatch.match_datetime)}
+							{formatDate(nextMatch.match_datetime, getLang())}
 						</div>
 					</div>
 					{#if nextMatch.venue}
@@ -360,7 +360,7 @@
 					</a>
 				</div>
 				<p class="text-[11px] text-faint mt-2 text-center">
-					{formatDate(nextMatch.match_datetime)}{nextMatch.venue ? ` · ${nextMatch.venue}` : ''}
+					{formatDate(nextMatch.match_datetime, getLang())}{nextMatch.venue ? ` · ${nextMatch.venue}` : ''}
 				</p>
 
 			{:else}

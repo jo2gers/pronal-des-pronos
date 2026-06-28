@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { WC2026_TEAMS, teamLabel } from '$lib/wc2026';
-	import { t } from '$lib/i18n.svelte';
+	import { t, getLang } from '$lib/i18n.svelte';
 
 	let { data, form } = $props();
 	let pending = $state(false);
@@ -14,7 +14,7 @@
 	}
 
 	function formatDate(dt: string) {
-		return new Date(dt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+		return new Date(dt).toLocaleDateString(getLang() === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short' });
 	}
 
 	function pointsColor(pts: number | null) {

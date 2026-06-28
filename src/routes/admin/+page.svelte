@@ -5,6 +5,8 @@
 	import { formatDate } from '$lib/utils';
 	import { STAGE_LABELS_FR } from '$lib/wc2026';
 	import AdminMatchRow from '$lib/components/AdminMatchRow.svelte';
+	import { BANNER_OPTIONS, bannerById } from '$lib/banners';
+	import { t } from '$lib/i18n.svelte';
 
 	let { data, form } = $props();
 
@@ -63,9 +65,8 @@
 	let deleteGroupLoadingId = $state<string | null>(null);
 	let groupFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 
-	// Site-wide announcement banner editor.
-	let bannerMessage = $state(data.banner?.message ?? '');
-	let bannerTone = $state<'info' | 'warn'>(data.banner?.tone ?? 'info');
+	// Site-wide announcement banner editor — pick a predefined (translated) message.
+	let bannerKey = $state<string>(data.banner?.id ?? BANNER_OPTIONS[0].id);
 	let bannerLoading = $state(false);
 	let bannerFeedback = $state<{ ok: boolean; msg: string } | null>(null);
 </script>
@@ -158,37 +159,34 @@
 					await update({ reset: false });
 				};
 			}} class="space-y-3">
-				<textarea name="banner_message" bind:value={bannerMessage} rows="2" maxlength="280"
-					placeholder="Ex. Les matchs à élimination directe sont comptés sur le score à 90 minutes (temps réglementaire)."
-					class="w-full rounded-lg bg-raised border border-wire px-3 py-2 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none resize-y"></textarea>
-
-				<div class="flex items-center gap-3 flex-wrap">
-					<div class="flex items-center rounded-md border border-wire overflow-hidden text-xs font-semibold">
-						<label class="px-3 py-1.5 cursor-pointer transition-colors {bannerTone === 'info' ? 'bg-accent text-canvas' : 'text-muted hover:text-fg'}">
-							<input type="radio" name="banner_tone" value="info" bind:group={bannerTone} class="sr-only" /> Info
+								<div class="space-y-2">
+					{#each BANNER_OPTIONS as opt}
+						<label class="flex items-start gap-2.5 rounded-lg border p-3 cursor-pointer transition-colors {bannerKey === opt.id ? 'border-accent bg-accent-lo' : 'border-wire hover:border-wire-hi'}">
+							<input type="radio" name="banner_key" value={opt.id} bind:group={bannerKey} class="mt-1 accent-accent" />
+							<span class="min-w-0">
+								<span class="block text-sm font-semibold text-fg">{opt.adminLabel}{#if opt.tone === 'warn'} <span class="ml-1 align-middle text-[10px] uppercase tracking-wide text-err border border-err/40 rounded px-1 py-0.5">alerte</span>{/if}</span>
+								<span class="block text-xs text-faint mt-0.5">{t(opt.i18n)}</span>
+							</span>
 						</label>
-						<label class="px-3 py-1.5 cursor-pointer transition-colors {bannerTone === 'warn' ? 'bg-err text-canvas' : 'text-muted hover:text-fg'}">
-							<input type="radio" name="banner_tone" value="warn" bind:group={bannerTone} class="sr-only" /> Alerte
-						</label>
-					</div>
-					<button type="submit" disabled={bannerLoading || !bannerMessage.trim()}
-						class="rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-40 px-4 py-2 text-sm font-bold text-canvas transition-colors cursor-pointer">
-						{bannerLoading ? '...' : 'Publier'}
-					</button>
+					{/each}
 				</div>
+				<button type="submit" disabled={bannerLoading || !bannerKey}
+					class="rounded-lg bg-accent hover:bg-accent-hi disabled:opacity-40 px-4 py-2 text-sm font-bold text-canvas transition-colors cursor-pointer">
+					{bannerLoading ? '...' : 'Activer ce bandeau'}
+				</button>
 			</form>
 
 			<div class="flex items-center gap-3 flex-wrap pt-1 border-t border-wire/60">
-				{#if data.banner?.message}
+				{#if data.banner?.id}
 					<form method="POST" action="?/clearBanner" use:enhance={() => {
-						return async ({ update }) => { bannerMessage = ''; await update({ reset: false }); };
+						return async ({ update }) => { await update({ reset: false }); };
 					}}>
 						<button type="submit"
 							class="rounded-lg bg-raised border border-wire hover:border-err/50 hover:text-err px-4 py-2 text-sm text-muted transition-colors cursor-pointer">
 							Effacer le bandeau
 						</button>
 					</form>
-					<span class="text-[11px] text-faint">Bandeau actif · maj {ago(data.banner.updatedAt)}</span>
+					<span class="text-[11px] text-faint">Actif : {bannerById(data.banner.id)?.adminLabel ?? data.banner.id} · maj {ago(data.banner.updatedAt)}</span>
 				{:else}
 					<span class="text-[11px] text-faint">Aucun bandeau actif</span>
 				{/if}

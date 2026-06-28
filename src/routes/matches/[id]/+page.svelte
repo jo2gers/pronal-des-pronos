@@ -380,10 +380,10 @@
 									{String(countdown.mins).padStart(2, '0')}:{String(countdown.secs).padStart(2, '0')}
 								</p>
 							{/if}
-							<p class="text-xs text-faint">{formatDate(data.match.match_datetime)}</p>
+							<p class="text-xs text-faint">{formatDate(data.match.match_datetime, getLang())}</p>
 						</div>
 					{:else}
-						<p class="text-sm text-muted">{formatDate(data.match.match_datetime)}</p>
+						<p class="text-sm text-muted">{formatDate(data.match.match_datetime, getLang())}</p>
 					{/if}
 				{/if}
 			</div>

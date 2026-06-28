@@ -184,7 +184,7 @@
 											{m.home_score ?? 0} – {m.away_score ?? 0}
 										</span>
 									{:else}
-										<span class="text-faint text-[10px]">{formatDate(m.match_datetime)}</span>
+										<span class="text-faint text-[10px]">{formatDate(m.match_datetime, getLang())}</span>
 									{/if}
 								</div>
 

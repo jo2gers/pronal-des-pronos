@@ -5,6 +5,7 @@
 	import { supabase } from '$lib/supabase';
 	import { getLang, setLang, t } from '$lib/i18n.svelte';
 	import { getShowOdds, toggleOdds, loadPrefs } from '$lib/prefs.svelte';
+	import { bannerById } from '$lib/banners';
 
 	let { children, data } = $props();
 	let menuOpen  = $state(false);
@@ -18,12 +19,12 @@
 	$effect(() => {
 		const b = data.banner;
 		if (!b) { bannerDismissed = false; return; }
-		bannerDismissed = localStorage.getItem('tifo_banner_dismissed') === (b.updatedAt ?? b.message);
+		bannerDismissed = localStorage.getItem('tifo_banner_dismissed') === (b.updatedAt ?? b.id);
 	});
 	function dismissBanner() {
 		const b = data.banner;
 		if (!b) return;
-		localStorage.setItem('tifo_banner_dismissed', b.updatedAt ?? b.message);
+		localStorage.setItem('tifo_banner_dismissed', b.updatedAt ?? b.id);
 		bannerDismissed = true;
 	}
 
@@ -459,27 +460,30 @@
 		{/if}
 	</nav>
 
-	<!-- Site-wide announcement banner · admin-managed via /admin -->
+	<!-- Site-wide announcement banner · admin-managed via /admin · translated -->
 	{#if data.banner && !bannerDismissed}
-		<div class="border-b {data.banner.tone === 'warn' ? 'border-err/30 bg-err/10' : 'border-accent/30 bg-accent-lo'}">
-			<div class="mx-auto max-w-6xl px-4 py-2.5 flex items-start gap-2.5">
-				<svg class="w-4 h-4 mt-0.5 shrink-0 {data.banner.tone === 'warn' ? 'text-err' : 'text-accent'}"
-					fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-					{#if data.banner.tone === 'warn'}
-						<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-					{:else}
-						<path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-					{/if}
-				</svg>
-				<p class="flex-1 text-sm leading-snug whitespace-pre-line {data.banner.tone === 'warn' ? 'text-err' : 'text-fg'}">{data.banner.message}</p>
-				<button onclick={dismissBanner} aria-label={t('banner_dismiss')} title={t('banner_dismiss')}
-					class="shrink-0 -mr-1 w-6 h-6 flex items-center justify-center rounded text-faint hover:text-fg transition-colors cursor-pointer">
-					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+		{@const def = bannerById(data.banner.id)}
+		{#if def}
+			<div class="border-b {def.tone === 'warn' ? 'border-err/30 bg-err/10' : 'border-accent/30 bg-accent-lo'}">
+				<div class="mx-auto max-w-6xl px-4 py-2.5 flex items-start gap-2.5">
+					<svg class="w-4 h-4 mt-0.5 shrink-0 {def.tone === 'warn' ? 'text-err' : 'text-accent'}"
+						fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+						{#if def.tone === 'warn'}
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+						{:else}
+							<path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+						{/if}
 					</svg>
-				</button>
+					<p class="flex-1 text-sm leading-snug {def.tone === 'warn' ? 'text-err' : 'text-fg'}">{t(def.i18n)}</p>
+					<button onclick={dismissBanner} aria-label={t('banner_dismiss')} title={t('banner_dismiss')}
+						class="shrink-0 -mr-1 w-6 h-6 flex items-center justify-center rounded text-faint hover:text-fg transition-colors cursor-pointer">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+						</svg>
+					</button>
+				</div>
 			</div>
-		</div>
+		{/if}
 	{/if}
 
 	<main class="flex-1 w-full mx-auto max-w-6xl px-4 py-8 pb-24 sm:pb-8">

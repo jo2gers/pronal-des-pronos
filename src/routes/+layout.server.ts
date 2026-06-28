@@ -4,18 +4,16 @@ export const load: LayoutServerLoad = async ({ locals: { supabase, safeGetSessio
 	const { session, user } = await safeGetSession();
 
 	// Site-wide announcement banner — shown to everyone, logged in or not, so it
-	// is fetched before the no-user early return. Public-readable via RLS.
+	// is fetched before the no-user early return. Public-readable via RLS. We
+	// store only a key (predefined, translated message); the layout resolves it
+	// to the visitor's language.
 	const { data: settings } = await supabase
 		.from('site_settings')
-		.select('banner_message, banner_tone, banner_updated_at')
+		.select('banner_key, banner_updated_at')
 		.eq('id', 1)
 		.maybeSingle();
-	const banner = settings?.banner_message
-		? {
-			message: settings.banner_message as string,
-			tone: ((settings.banner_tone as string) === 'warn' ? 'warn' : 'info') as 'info' | 'warn',
-			updatedAt: (settings.banner_updated_at as string | null) ?? null
-		}
+	const banner = settings?.banner_key
+		? { id: settings.banner_key as string, updatedAt: (settings.banner_updated_at as string | null) ?? null }
 		: null;
 
 	if (!user) return { session, user, profile: null, friendNotifCount: 0, groupNotifCount: 0, inviteCount: 0, banner };

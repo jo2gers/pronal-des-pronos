@@ -227,7 +227,7 @@
 						{nextMatch.group_label ? ` · ${t('group_short')} ${nextMatch.group_label}` : ''}
 					</p>
 				</div>
-				<span class="text-xs text-muted tabular-nums shrink-0">{formatDate(nextMatch.match_datetime)}</span>
+				<span class="text-xs text-muted tabular-nums shrink-0">{formatDate(nextMatch.match_datetime, getLang())}</span>
 			</a>
 		</section>
 	{/if}
@@ -243,7 +243,7 @@
 						class="flex items-center gap-3 px-4 py-3 border-b border-wire/40 last:border-0 hover:bg-raised/40 transition-colors">
 						<Flag code={opp.flag} size={20} alt={teamLabel(opp.name)} />
 						<span class="flex-1 text-sm text-fg truncate">{t('team_vs')} {teamLabel(opp.name)}</span>
-						<span class="text-xs text-faint tabular-nums shrink-0">{formatDate(m.match_datetime)}</span>
+						<span class="text-xs text-faint tabular-nums shrink-0">{formatDate(m.match_datetime, getLang())}</span>
 					</a>
 				{/each}
 			</div>

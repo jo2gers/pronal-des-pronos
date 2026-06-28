@@ -7,8 +7,8 @@ export function isoToFlag(iso: string | null | undefined): string {
 		.join('');
 }
 
-export function formatDate(datetime: string): string {
-	return new Date(datetime).toLocaleDateString('fr-FR', {
+export function formatDate(datetime: string, lang: 'fr' | 'en' = 'fr'): string {
+	return new Date(datetime).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
 		weekday: 'short',
 		day: 'numeric',
 		month: 'short',
