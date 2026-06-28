@@ -55,7 +55,10 @@ function parsePrice(market: any, index = 0): number {
 const toMatchOdds = (p: number) => (!p || p <= 0 ? 1.0 : Math.min(15, parseFloat((1 / p).toFixed(2))));
 
 async function syncMatchOdds(supabase: any) {
-	const res = await fetch('https://gamma-api.polymarket.com/events?series_id=11433&limit=200', {
+	// closed=false: Polymarket returns oldest events first and caps a page at ~100,
+	// so without this filter the open knockout markets never appear and only
+	// finished group matches come back. Open = upcoming + in-play.
+	const res = await fetch('https://gamma-api.polymarket.com/events?series_id=11433&closed=false&limit=200', {
 		headers: { Accept: 'application/json' }
 	});
 	if (!res.ok) return { ok: false, error: `Polymarket: ${res.status}` };
