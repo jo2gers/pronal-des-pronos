@@ -133,8 +133,13 @@
 			</div>
 		{/if}
 
-		<a href="/schedule"
+		<a href="/bracket"
 			class="ml-auto inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors">
+			{t('nav_bracket')}
+			<span aria-hidden="true">→</span>
+		</a>
+		<a href="/schedule"
+			class="inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors">
 			{t('matches_standings_link')}
 			<span aria-hidden="true">→</span>
 		</a>

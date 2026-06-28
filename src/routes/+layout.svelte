@@ -42,6 +42,7 @@
 		{ href: '/',            label: t('nav_home') },
 		{ href: '/matches',     label: t('nav_matches') },
 		{ href: '/schedule',    label: t('nav_schedule') },
+		{ href: '/bracket',     label: t('nav_bracket') },
 		{ href: '/leaderboard', label: t('nav_leaderboard') },
 		{ href: '/leagues',      label: t('nav_groups') },
 		{ href: '/friends',     label: t('nav_friends') },
