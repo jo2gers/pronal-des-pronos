@@ -82,7 +82,7 @@ export function teamLabel(name: string | null | undefined): string {
 }
 
 export const STAGE_LABELS_FR: Record<string, string> = {
-	group: 'Groupes',
+	group: 'Phase de groupes',
 	// 32 teams / 16 matches = seizièmes; 16 teams / 8 matches = huitièmes
 	round_of_32: 'Seizièmes de finale',
 	round_of_16: 'Huitièmes de finale',
@@ -93,7 +93,7 @@ export const STAGE_LABELS_FR: Record<string, string> = {
 };
 
 export const STAGE_LABELS_EN: Record<string, string> = {
-	group: 'Groups',
+	group: 'Group stage',
 	round_of_32: 'Round of 32',
 	round_of_16: 'Round of 16',
 	quarters: 'Quarter-finals',

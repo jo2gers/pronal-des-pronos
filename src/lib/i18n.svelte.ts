@@ -24,7 +24,7 @@ const FR = {
   role_admin: 'Admin',
   multiplier_help: 'Plus la cote est haute, plus le bonus est gros si l\'équipe gagne la Coupe du Monde.',
   // Schedule / group stage
-  nav_schedule: 'Phase de groupes',
+  nav_schedule: 'Groupes',
   schedule_eyebrow: 'Coupe du Monde 2026',
   schedule_title: 'Phase de groupes',
   schedule_legend: 'Top 2 + meilleurs 3èmes se qualifient',
@@ -417,7 +417,7 @@ const EN: typeof FR = {
   role_admin: 'Admin',
   multiplier_help: 'Higher odds = bigger bonus if the team wins the World Cup.',
   // Schedule / group stage
-  nav_schedule: 'Group stage',
+  nav_schedule: 'Groups',
   schedule_eyebrow: 'World Cup 2026',
   schedule_title: 'Group stage',
   schedule_legend: 'Top 2 + best 3rd-place teams advance',
