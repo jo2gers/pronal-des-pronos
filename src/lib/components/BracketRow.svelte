@@ -6,7 +6,7 @@
 	import { teamLabel } from '$lib/wc2026';
 	import { getLang, t } from '$lib/i18n.svelte';
 	import { formatDate, formatTime, knockoutOutcome } from '$lib/utils';
-	import { sourceLabel, feedsIntoLabel } from '$lib/bracketMap';
+	import { sourceLabel, feedsIntoLabel, resolveSourceTeam, type SlotTeam } from '$lib/bracketMap';
 
 	type M = {
 		id: string;
@@ -27,14 +27,19 @@
 		match_datetime: string;
 	};
 
-	let { match }: { match: M } = $props();
+	type SlotResults = { win: Map<string, SlotTeam>; lose: Map<string, SlotTeam> };
+	let { match, slotResults }: { match: M; slotResults: SlotResults } = $props();
 
 	const isReal = $derived(match.home_team !== 'TBD' && match.away_team !== 'TBD');
 	const finished = $derived(match.status === 'finished');
 	const live = $derived(match.status === 'live');
 	const feed = $derived(feedsIntoLabel(match.slot_code));
-	const homeName = $derived(isReal ? teamLabel(match.home_team) : sourceLabel(match.home_source));
-	const awayName = $derived(isReal ? teamLabel(match.away_team) : sourceLabel(match.away_source));
+	// For an undecided slot, surface the team that already qualified into it (its
+	// feeder is finished) instead of a "Winner R32·3" label; null until then.
+	const rh = $derived(isReal ? null : resolveSourceTeam(match.home_source, slotResults));
+	const ra = $derived(isReal ? null : resolveSourceTeam(match.away_source, slotResults));
+	const homeName = $derived(isReal ? teamLabel(match.home_team) : rh ? teamLabel(rh.team) : sourceLabel(match.home_source));
+	const awayName = $derived(isReal ? teamLabel(match.away_team) : ra ? teamLabel(ra.team) : sourceLabel(match.away_source));
 	// Winner emphasis on a finished match — penalties/extra time decide it, not
 	// the 90-min score.
 	const outcome = $derived(knockoutOutcome(match));
@@ -61,12 +66,12 @@
 		<!-- teams -->
 		<div class="flex-1 min-w-0 space-y-1">
 			<div class="flex items-center gap-2 min-w-0">
-				<Flag code={match.home_flag} size={18} alt={isReal ? match.home_team : ''} />
-				<span class="truncate text-sm {isReal ? `font-semibold ${homeWon ? 'text-fg' : awayWon ? 'text-muted' : 'text-fg'}` : 'text-faint'}">{homeName}</span>
+				<Flag code={isReal ? match.home_flag : rh?.flag ?? null} size={18} alt={isReal ? match.home_team : rh?.team ?? ''} />
+				<span class="truncate text-sm {isReal ? `font-semibold ${homeWon ? 'text-fg' : awayWon ? 'text-muted' : 'text-fg'}` : rh ? 'text-muted' : 'text-faint'}">{homeName}</span>
 			</div>
 			<div class="flex items-center gap-2 min-w-0">
-				<Flag code={match.away_flag} size={18} alt={isReal ? match.away_team : ''} />
-				<span class="truncate text-sm {isReal ? `font-semibold ${awayWon ? 'text-fg' : homeWon ? 'text-muted' : 'text-fg'}` : 'text-faint'}">{awayName}</span>
+				<Flag code={isReal ? match.away_flag : ra?.flag ?? null} size={18} alt={isReal ? match.away_team : ra?.team ?? ''} />
+				<span class="truncate text-sm {isReal ? `font-semibold ${awayWon ? 'text-fg' : homeWon ? 'text-muted' : 'text-fg'}` : ra ? 'text-muted' : 'text-faint'}">{awayName}</span>
 			</div>
 		</div>
 

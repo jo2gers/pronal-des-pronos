@@ -7,7 +7,7 @@
 	import { teamLabel } from '$lib/wc2026';
 	import { getLang } from '$lib/i18n.svelte';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
-	import { roundShort, sourceLabel } from '$lib/bracketMap';
+	import { roundShort, sourceLabel, resolveSourceTeam, type SlotTeam } from '$lib/bracketMap';
 	import { knockoutOutcome } from '$lib/utils';
 
 	type M = {
@@ -21,8 +21,9 @@
 		status: string; match_datetime: string;
 	};
 	type Round = { stage: string; matches: M[] };
+	type SlotResults = { win: Map<string, SlotTeam>; lose: Map<string, SlotTeam> };
 
-	let { rounds }: { rounds: Round[] } = $props();
+	let { rounds, slotResults }: { rounds: Round[]; slotResults: SlotResults } = $props();
 
 	const CARD_H = 44;
 	const CARD_W = 150;
@@ -70,17 +71,19 @@
 	{@const o = knockoutOutcome(m)}
 	{@const homeWon = fin && (o ? o.winner === 'home' : (m.home_score ?? 0) > (m.away_score ?? 0))}
 	{@const awayWon = fin && (o ? o.winner === 'away' : (m.away_score ?? 0) > (m.home_score ?? 0))}
+	{@const rh = real ? null : resolveSourceTeam(m.home_source, slotResults)}
+	{@const ra = real ? null : resolveSourceTeam(m.away_source, slotResults)}
 	<div class="flex h-full flex-col justify-center rounded-lg border bg-panel px-2
 		{real ? 'border-wire hover:border-wire-hi transition-colors' : 'border-wire/60'}">
 		<div class="flex items-center gap-1.5 min-w-0">
-			<Flag code={m.home_flag} size={13} />
-			<span class="truncate text-[11px] {real ? (homeWon ? 'text-fg font-semibold' : awayWon ? 'text-muted' : 'text-fg font-medium') : 'text-faint'}">{real ? teamLabel(m.home_team) : sourceLabel(m.home_source)}</span>
+			<Flag code={real ? m.home_flag : rh?.flag ?? null} size={13} />
+			<span class="truncate text-[11px] {real ? (homeWon ? 'text-fg font-semibold' : awayWon ? 'text-muted' : 'text-fg font-medium') : rh ? 'text-muted' : 'text-faint'}">{real ? teamLabel(m.home_team) : rh ? teamLabel(rh.team) : sourceLabel(m.home_source)}</span>
 			{#if o && homeWon}<span class="shrink-0 text-[8px] font-mono uppercase text-faint">{o.decided === 'pens' ? 'tab' : 'ap'}</span>{/if}
 			{#if played}<span class="ml-auto text-[11px] font-bold tabular-nums {live ? 'text-live' : homeWon ? 'text-fg' : 'text-muted'}">{m.home_score ?? 0}</span>{/if}
 		</div>
 		<div class="flex items-center gap-1.5 min-w-0 mt-1">
-			<Flag code={m.away_flag} size={13} />
-			<span class="truncate text-[11px] {real ? (awayWon ? 'text-fg font-semibold' : homeWon ? 'text-muted' : 'text-fg font-medium') : 'text-faint'}">{real ? teamLabel(m.away_team) : sourceLabel(m.away_source)}</span>
+			<Flag code={real ? m.away_flag : ra?.flag ?? null} size={13} />
+			<span class="truncate text-[11px] {real ? (awayWon ? 'text-fg font-semibold' : homeWon ? 'text-muted' : 'text-fg font-medium') : ra ? 'text-muted' : 'text-faint'}">{real ? teamLabel(m.away_team) : ra ? teamLabel(ra.team) : sourceLabel(m.away_source)}</span>
 			{#if o && awayWon}<span class="shrink-0 text-[8px] font-mono uppercase text-faint">{o.decided === 'pens' ? 'tab' : 'ap'}</span>{/if}
 			{#if played}<span class="ml-auto text-[11px] font-bold tabular-nums {live ? 'text-live' : awayWon ? 'text-fg' : 'text-muted'}">{m.away_score ?? 0}</span>{/if}
 		</div>

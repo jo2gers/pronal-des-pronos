@@ -12,9 +12,12 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		)
 		.in('stage', KNOCKOUT_ROUNDS as unknown as string[]);
 
+	// Slot INDEX = digits after the hyphen ("R32-3" → 3). Matching the first digits
+	// would grab "32"/"16" out of the round prefix, collapsing every R32/R16 slot to
+	// the same key — which left them in DB order and mis-wired the bracket tree.
 	const slotNum = (s: string) => {
-		const m = (s ?? '').match(/\d+/);
-		return m ? parseInt(m[0], 10) : 0;
+		const m = (s ?? '').match(/-(\d+)/);
+		return m ? parseInt(m[1], 10) : 0;
 	};
 
 	const all = (rows ?? []).map((m) => ({ ...m, status: effectiveStatus(m as any) }));

@@ -117,6 +117,7 @@ export async function syncLiveScores(
 	slugsUpdated?: number;
 	oddsUpdated?: number;
 	rescoredMatches?: number;
+	knockoutResultsSynced?: number;
 	error?: string;
 }> {
 	const nowMs = Date.now();

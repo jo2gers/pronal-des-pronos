@@ -3,23 +3,25 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
-	import { roundShort } from '$lib/bracketMap';
+	import { roundShort, buildSlotResults } from '$lib/bracketMap';
 	import BracketRow from '$lib/components/BracketRow.svelte';
 	import BracketTree from '$lib/components/BracketTree.svelte';
 
 	let { data } = $props();
 
 	const stageLabels = $derived(getLang() === 'fr' ? STAGE_LABELS_FR : STAGE_LABELS_EN);
+	// Decided matches → qualified team per slot, so TBD downstream slots flow forward.
+	const slotResults = $derived(buildSlotResults(data.rounds));
 
-	// List = round stepper; Tree = full connector bracket. Both URL-persisted.
-	const view = $derived(page.url.searchParams.get('v') === 'tree' ? 'tree' : 'list');
+	// Tree (full connector bracket) is the default; List = round stepper. URL-persisted.
+	const view = $derived(page.url.searchParams.get('v') === 'list' ? 'list' : 'tree');
 	const active = $derived(page.url.searchParams.get('r') ?? data.defaultRound);
 	const activeRound = $derived(data.rounds.find((r) => r.stage === active) ?? data.rounds[0]);
 	const allTBD = $derived((activeRound?.matches ?? []).every((m) => m.home_team === 'TBD'));
 
 	function setView(v: 'list' | 'tree') {
 		const url = new URL(page.url);
-		if (v === 'tree') url.searchParams.set('v', 'tree');
+		if (v === 'list') url.searchParams.set('v', 'list');
 		else url.searchParams.delete('v');
 		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
 	}
@@ -64,7 +66,7 @@
 	</div>
 
 	{#if view === 'tree'}
-		<BracketTree rounds={data.rounds} />
+		<BracketTree rounds={data.rounds} {slotResults} />
 	{:else}
 		<!-- Sticky round stepper (solid bg, no blur — iOS rubber-band safe). -->
 		<div class="sticky top-14 z-20 -mx-4 px-4 py-2 bg-canvas border-b border-wire">
@@ -90,7 +92,7 @@
 
 		<div class="-mx-4 sm:mx-0 sm:rounded-xl sm:border sm:border-wire overflow-hidden border-y border-wire sm:border-y-0 divide-y divide-wire/60">
 			{#each activeRound.matches as m (m.id)}
-				<BracketRow match={m} />
+				<BracketRow match={m} {slotResults} />
 			{/each}
 		</div>
 	{/if}
