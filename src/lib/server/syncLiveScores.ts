@@ -14,7 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
-import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId } from './espnEvents';
+import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId, fetchEspnKnockoutResult } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
 
 type LiveMatchRow = {
@@ -394,6 +394,58 @@ export async function syncLiveScores(
 		// non-fatal — venue backfill simply doesn't run this tick
 	}
 
+	// ── Knockout result detail (extra time / penalties) ───────────────────────
+	// For a FINISHED knockout match, fetch the ESPN summary once and split the
+	// score via per-half linescores: 90-min (1st+2nd half) → home_score/away_score
+	// (what predictions are graded on, also correcting any running-ET score the
+	// live feed left), plus the after-extra-time score and the penalty shootout.
+	// Then re-grade against the 90-min score. Guarded by knockout_result_synced so
+	// the summary is fetched once. Capped per tick to keep the cron light.
+	let knockoutResultsSynced = 0;
+	try {
+		const { data: needKn } = await supabase
+			.from('matches')
+			.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, match_datetime, espn_game_id')
+			.neq('stage', 'group')
+			.eq('status', 'finished')
+			.eq('knockout_result_synced', false)
+			.limit(5);
+
+		for (const m of needKn ?? []) {
+			const gid = (m as any).espn_game_id ?? await resolveEspnGameId(m.home_team, m.away_team, (m as any).match_datetime);
+			if (!gid) continue; // no gameId yet — retry next tick
+			const r = await fetchEspnKnockoutResult(gid);
+			if (!r) continue; // transient — retry next tick
+
+			// Align ESPN home/away to our row by (normalised) team name.
+			let swap: boolean;
+			if (r.homeTeam === m.home_team) swap = false;
+			else if (r.homeTeam === m.away_team) swap = true;
+			else continue; // names don't line up — skip rather than corrupt
+			const pick = (h: number | null, a: number | null) =>
+				(swap ? [a, h] : [h, a]) as [number | null, number | null];
+			const [regH, regA] = pick(r.regHome, r.regAway);
+			const [ftH, ftA] = pick(r.ftHome, r.ftAway);
+			const [penH, penA] = pick(r.penHome, r.penAway);
+
+			await supabase.from('matches').update({
+				home_score: regH, away_score: regA,
+				ft_home_score: ftH, ft_away_score: ftA,
+				pen_home: penH, pen_away: penA,
+				knockout_result_synced: true, espn_game_id: gid
+			}).eq('id', m.id);
+
+			// Re-grade against the corrected 90-min score (idempotent; team bonus
+			// stays gated by bonus_calculated, so no double-award).
+			try {
+				await scoreMatch(supabase, { ...m, home_score: regH, away_score: regA } as any);
+			} catch { /* non-fatal — safety pass retries */ }
+			knockoutResultsSynced++;
+		}
+	} catch {
+		// non-fatal — knockout-detail capture simply doesn't run this tick
+	}
+
 	// ── Safety: re-score finished matches with leftover unscored predictions ───
 	// A scoreMatch run that was cut off (function time limit / transient error)
 	// leaves some picks is_scored=false on a finished match, and nothing retries
@@ -467,6 +519,7 @@ export async function syncLiveScores(
 		bracketUpdated,
 		slugsUpdated,
 		oddsUpdated,
-		rescoredMatches
+		rescoredMatches,
+		knockoutResultsSynced
 	};
 }

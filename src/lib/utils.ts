@@ -73,6 +73,24 @@ export function groupByDay<T extends { match_datetime: string }>(
 	return out;
 }
 
+// Knockout result beyond 90 minutes. Returns the deciding score (extra time or
+// penalties) and which side advanced, or null when the match was settled in
+// regulation (then the 90-min score in home_score/away_score is all there is).
+export function knockoutOutcome(m: {
+	ft_home_score?: number | null;
+	ft_away_score?: number | null;
+	pen_home?: number | null;
+	pen_away?: number | null;
+}): { decided: 'aet' | 'pens'; home: number; away: number; winner: 'home' | 'away' } | null {
+	if (m.pen_home != null && m.pen_away != null) {
+		return { decided: 'pens', home: m.pen_home, away: m.pen_away, winner: m.pen_home > m.pen_away ? 'home' : 'away' };
+	}
+	if (m.ft_home_score != null && m.ft_away_score != null) {
+		return { decided: 'aet', home: m.ft_home_score, away: m.ft_away_score, winner: m.ft_home_score > m.ft_away_score ? 'home' : 'away' };
+	}
+	return null;
+}
+
 // Match locks 5 minutes before kickoff
 export const MATCH_LOCK_MS = 5 * 60 * 1000;
 

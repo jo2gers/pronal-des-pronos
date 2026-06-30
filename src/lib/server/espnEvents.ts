@@ -249,6 +249,64 @@ export async function fetchEspnLineups(gameId: string): Promise<MatchLineups | n
 	}
 }
 
+// Final result of a knockout match, split by phase, from the summary's
+// per-period `linescores`: [1st half, 2nd half, ET1, ET2, penalties].
+//   regulation = halves 1+2  (the 90-min score predictions are graded on)
+//   ft (after extra time)     = halves 1+2 + ET1+ET2   (null if no extra time)
+//   pens                      = the shootout            (null if none)
+// 2 linescores → decided in regulation, 4 → extra time, 5 → penalties.
+export type KnockoutResult = {
+	homeTeam: string;          // ESPN home, normalised to our EN name
+	awayTeam: string;
+	regHome: number; regAway: number;
+	ftHome: number | null; ftAway: number | null;
+	penHome: number | null; penAway: number | null;
+	decided: 'reg' | 'aet' | 'pens';
+};
+
+export async function fetchEspnKnockoutResult(gameId: string): Promise<KnockoutResult | null> {
+	try {
+		const res = await fetch(`${SUMMARY_URL}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
+			headers: { Accept: 'application/json' }
+		});
+		if (!res.ok) return null;
+		const data = await res.json();
+		const comp = data?.header?.competitions?.[0];
+		const comps: any[] = comp?.competitors ?? [];
+		const h = comps.find((c) => c.homeAway === 'home');
+		const a = comps.find((c) => c.homeAway === 'away');
+		if (!h || !a) return null;
+
+		const ls = (c: any): number[] =>
+			(c.linescores ?? []).map((x: any) => {
+				const n = parseInt(String(x.displayValue ?? x.value ?? ''), 10);
+				return Number.isFinite(n) ? n : 0;
+			});
+		const lh = ls(h), la = ls(a);
+		if (lh.length < 2 || la.length < 2) return null; // need both halves to trust it
+
+		const n = Math.max(lh.length, la.length);
+		const wentToPens = n >= 5;
+		const wentToET = n >= 4;
+		const sum = (arr: number[], k: number) => arr.slice(0, k).reduce((s, x) => s + (x || 0), 0);
+
+		const regHome = sum(lh, 2), regAway = sum(la, 2);
+		const ftHome = wentToET ? sum(lh, 4) : null;
+		const ftAway = wentToET ? sum(la, 4) : null;
+		const penHome = wentToPens ? (h.shootoutScore != null ? Math.round(Number(h.shootoutScore)) : (lh[4] ?? null)) : null;
+		const penAway = wentToPens ? (a.shootoutScore != null ? Math.round(Number(a.shootoutScore)) : (la[4] ?? null)) : null;
+
+		return {
+			homeTeam: norm(h.team?.displayName ?? ''),
+			awayTeam: norm(a.team?.displayName ?? ''),
+			regHome, regAway, ftHome, ftAway, penHome, penAway,
+			decided: wentToPens ? 'pens' : wentToET ? 'aet' : 'reg'
+		};
+	} catch {
+		return null;
+	}
+}
+
 export type MatchVenue = { stadium: string | null; city: string | null; country: string | null };
 
 /** Stadium + host city/country from the summary endpoint's gameInfo.venue.

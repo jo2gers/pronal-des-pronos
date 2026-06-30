@@ -8,6 +8,7 @@
 	import Flag from '$lib/components/Flag.svelte';
 	import FilterCarousel from '$lib/components/FilterCarousel.svelte';
 	import KnockoutNote from '$lib/components/KnockoutNote.svelte';
+	import KnockoutResultLine from '$lib/components/KnockoutResultLine.svelte';
 	import { flip } from 'svelte/animate';
 
 	function flagSrc(iso: string | null | undefined) {
@@ -344,6 +345,9 @@
 						style="font-family: var(--font-display)">
 						{data.match.home_score}<span class="text-wire-hi mx-2">–</span>{data.match.away_score}
 					</p>
+					{#if data.match.stage !== 'group'}
+						<div class="mt-2 flex justify-center"><KnockoutResultLine match={data.match} /></div>
+					{/if}
 					<p class="text-xs text-faint mt-2">{t('ended')}</p>
 				{:else if data.match.status === 'live'}
 					<p class="text-5xl font-bold text-live tabular-nums leading-none"

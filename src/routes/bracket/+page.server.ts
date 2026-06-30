@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { data: rows } = await supabase
 		.from('matches')
 		.select(
-			'id, slot_code, stage, home_team, away_team, home_flag, away_flag, home_source, away_source, match_datetime, status, home_score, away_score'
+			'id, slot_code, stage, home_team, away_team, home_flag, away_flag, home_source, away_source, match_datetime, status, home_score, away_score, ft_home_score, ft_away_score, pen_home, pen_away'
 		)
 		.in('stage', KNOCKOUT_ROUNDS as unknown as string[]);
 

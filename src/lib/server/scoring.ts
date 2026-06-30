@@ -96,9 +96,19 @@ export async function scoreMatch(
 	if (!match.bonus_calculated) {
 		const stageBonus = STAGE_BONUS[match.stage] ?? 0;
 		if (stageBonus > 0) {
+			// The team bonus follows who ADVANCED — penalties > extra time > 90-min —
+			// even though predictions above are graded on the 90-min score. (Always
+			// read the deciding columns fresh; this runs at most once per match.)
+			const { data: dec } = await supabase
+				.from('matches')
+				.select('ft_home_score, ft_away_score, pen_home, pen_away')
+				.eq('id', match.id)
+				.single();
+			const effHome = (dec?.pen_home ?? dec?.ft_home_score ?? match.home_score) as number;
+			const effAway = (dec?.pen_away ?? dec?.ft_away_score ?? match.away_score) as number;
 			let winnerTeamEn: string | null = null;
-			if (match.home_score > match.away_score) winnerTeamEn = match.home_team;
-			else if (match.away_score > match.home_score) winnerTeamEn = match.away_team;
+			if (effHome > effAway) winnerTeamEn = match.home_team;
+			else if (effAway > effHome) winnerTeamEn = match.away_team;
 
 			if (winnerTeamEn) {
 				const { data: oddsRow } = await supabase

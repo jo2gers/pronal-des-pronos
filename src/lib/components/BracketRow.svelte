@@ -4,8 +4,8 @@
 	// derived from the source tokens ("Winner R16·3" etc.).
 	import Flag from '$lib/components/Flag.svelte';
 	import { teamLabel } from '$lib/wc2026';
-	import { getLang } from '$lib/i18n.svelte';
-	import { formatDate, formatTime } from '$lib/utils';
+	import { getLang, t } from '$lib/i18n.svelte';
+	import { formatDate, formatTime, knockoutOutcome } from '$lib/utils';
 	import { sourceLabel, feedsIntoLabel } from '$lib/bracketMap';
 
 	type M = {
@@ -19,6 +19,10 @@
 		away_source: string | null;
 		home_score: number | null;
 		away_score: number | null;
+		ft_home_score?: number | null;
+		ft_away_score?: number | null;
+		pen_home?: number | null;
+		pen_away?: number | null;
 		status: string;
 		match_datetime: string;
 	};
@@ -31,9 +35,11 @@
 	const feed = $derived(feedsIntoLabel(match.slot_code));
 	const homeName = $derived(isReal ? teamLabel(match.home_team) : sourceLabel(match.home_source));
 	const awayName = $derived(isReal ? teamLabel(match.away_team) : sourceLabel(match.away_source));
-	// home/away winner emphasis on a finished match
-	const homeWon = $derived(finished && (match.home_score ?? 0) > (match.away_score ?? 0));
-	const awayWon = $derived(finished && (match.away_score ?? 0) > (match.home_score ?? 0));
+	// Winner emphasis on a finished match — penalties/extra time decide it, not
+	// the 90-min score.
+	const outcome = $derived(knockoutOutcome(match));
+	const homeWon = $derived(finished && (outcome ? outcome.winner === 'home' : (match.home_score ?? 0) > (match.away_score ?? 0)));
+	const awayWon = $derived(finished && (outcome ? outcome.winner === 'away' : (match.away_score ?? 0) > (match.home_score ?? 0)));
 </script>
 
 {#snippet inner()}
@@ -46,6 +52,7 @@
 					<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>LIVE
 				</span>
 			{/if}
+			{#if outcome}<span class="text-faint normal-case">{outcome.decided === 'pens' ? t('result_pens') : t('result_aet')} {outcome.home}<span class="mx-px">–</span>{outcome.away}</span>{/if}
 			{#if feed}<span class="text-faint">→ {feed}</span>{/if}
 		</span>
 	</div>
