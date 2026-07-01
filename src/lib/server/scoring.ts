@@ -35,7 +35,13 @@ export type ScorableMatch = {
 
 export async function scoreMatch(
 	supabase: SupabaseClient,
-	match: ScorableMatch
+	match: ScorableMatch,
+	// skipBonus: grade the pronostics only, leaving the team bonus AND its
+	// bonus_calculated gate untouched. Used when grading EARLY at the end of
+	// regulation (knockout draw heading to extra time): the 90-min score the
+	// picks are graded on is final, but who advances isn't — awarding (or
+	// null-ing) the bonus now would burn the gate before the real winner exists.
+	opts: { skipBonus?: boolean } = {}
 ): Promise<{ scored: number; bonusAwarded: number }> {
 	if (match.home_score == null || match.away_score == null) return { scored: 0, bonusAwarded: 0 };
 
@@ -93,7 +99,7 @@ export async function scoreMatch(
 
 	// 2. Team bonus — only if not already calculated for this match
 	let bonusAwarded = 0;
-	if (!match.bonus_calculated) {
+	if (!opts.skipBonus && !match.bonus_calculated) {
 		const stageBonus = STAGE_BONUS[match.stage] ?? 0;
 		if (stageBonus > 0) {
 			// The team bonus follows who ADVANCED — penalties > extra time > 90-min —

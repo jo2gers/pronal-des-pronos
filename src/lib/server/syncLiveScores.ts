@@ -119,6 +119,7 @@ export async function syncLiveScores(
 	rescoredMatches?: number;
 	knockoutResultsSynced?: number;
 	espnBackstopUpdates?: number;
+	earlyGradedMatches?: number;
 	error?: string;
 }> {
 	const nowMs = Date.now();
@@ -484,6 +485,66 @@ export async function syncLiveScores(
 		// non-fatal — the ESPN backstop simply doesn't run this tick
 	}
 
+	// ── Early grading at the end of regulation (knockout in extra time) ───────
+	// Predictions are graded on the 90-minute score ONLY, so the moment a
+	// knockout match heads into extra time that score is final — no need to make
+	// players wait ~1h of ET + pens for their points. When ESPN reports the match
+	// in play with period >= 3 (3-4 = ET halves, 5 = shootout), grade every pick
+	// against the regulation score from the summary linescores (sum of the two
+	// halves). skipBonus leaves the team bonus + its bonus_calculated gate to the
+	// FT capture pass (who advances isn't known yet). Grading is idempotent and
+	// the capture pass re-grades at FT anyway, so this is display-latency sugar,
+	// not a new source of truth. The matches row is NOT touched — the live score
+	// keeps showing the running ET score.
+	let earlyGradedMatches = 0;
+	try {
+		const { data: liveKn } = await supabase
+			.from('matches')
+			.select('id, home_team, away_team, match_datetime, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, espn_game_id, pronostics!inner(id)')
+			.eq('status', 'live')
+			.neq('stage', 'group')
+			.eq('pronostics.is_scored', false)
+			.limit(3);
+
+		// Regulation (90' + stoppage) can't end before ~100 min after kickoff.
+		const ripe = (liveKn ?? []).filter(
+			(m) => nowMs - new Date(m.match_datetime).getTime() >= 100 * 60 * 1000
+		);
+
+		if (ripe.length > 0) {
+			const { statuses, gameIds } = await fetchEspnEvents();
+			for (const m of ripe) {
+				const k = `${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
+				const st = statuses.get(k);
+				if (!st || st.state !== 'in' || (st.period ?? 0) < 3) continue; // still in regulation
+
+				const gid = (m as any).espn_game_id ?? gameIds.get(k);
+				if (!gid) continue;
+				const r = await fetchEspnKnockoutResult(gid);
+				if (!r) continue;
+
+				// Align ESPN home/away to our row by team name (as in the FT capture).
+				let regH: number, regA: number;
+				if (r.homeTeam === m.home_team) { regH = r.regHome; regA = r.regAway; }
+				else if (r.homeTeam === m.away_team) { regH = r.regAway; regA = r.regHome; }
+				else continue;
+
+				await ensureRankSnapshot();
+				try {
+					const { scored } = await scoreMatch(
+						supabase,
+						{ ...m, home_score: regH, away_score: regA } as any,
+						{ skipBonus: true }
+					);
+					scoredPronostics += scored;
+					earlyGradedMatches++;
+				} catch { /* non-fatal — FT re-grades */ }
+			}
+		}
+	} catch {
+		// non-fatal — points simply arrive at FT as before
+	}
+
 	// ── Knockout result detail (extra time / penalties) ───────────────────────
 	// For a FINISHED knockout match, fetch the ESPN summary once and split the
 	// score via per-half linescores: 90-min (1st+2nd half) → home_score/away_score
@@ -611,6 +672,7 @@ export async function syncLiveScores(
 		oddsUpdated,
 		rescoredMatches,
 		knockoutResultsSynced,
-		espnBackstopUpdates
+		espnBackstopUpdates,
+		earlyGradedMatches
 	};
 }

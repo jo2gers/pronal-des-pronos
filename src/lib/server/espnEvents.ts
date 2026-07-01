@@ -67,7 +67,9 @@ const key = (a: string, b: string) => `${a.toLowerCase()}|${b.toLowerCase()}`;
  * One scoreboard fetch → map keyed by "homeTeam|awayTeam" (our EN names,
  * lowercased) → ordered list of goal/card events.
  */
-export type EspnStatus = { state: 'pre' | 'in' | 'post' | string; completed: boolean; detail: string };
+// `period`: 1-2 = halves, 3-4 = extra time, 5 = shootout. While state='in', a
+// period >= 3 means the 90 minutes are over — predictions can be graded early.
+export type EspnStatus = { state: 'pre' | 'in' | 'post' | string; completed: boolean; detail: string; period: number | null };
 
 export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 	events: Map<string, MatchEvent[]>;
@@ -103,11 +105,14 @@ export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 
 			// Match state ('pre'|'in'|'post', completed flag) — lets the live sync
 			// finish a match straight from ESPN when Polymarket isn't tracking it.
-			const stType = (comp.status ?? event?.status)?.type ?? {};
+			const stObj = comp.status ?? event?.status ?? {};
+			const stType = stObj.type ?? {};
+			const periodNum = parseInt(String(stObj.period ?? ''), 10);
 			const status: EspnStatus = {
 				state: String(stType.state ?? ''),
 				completed: stType.completed === true,
-				detail: String(stType.shortDetail ?? stType.detail ?? '')
+				detail: String(stType.shortDetail ?? stType.detail ?? ''),
+				period: Number.isFinite(periodNum) ? periodNum : null
 			};
 
 			// Live score straight from the scoreboard (same source as the events
