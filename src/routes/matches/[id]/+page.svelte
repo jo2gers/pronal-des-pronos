@@ -208,7 +208,7 @@
 
 	// Real Polymarket match clock for the LIVE badge (null until first poll).
 	const liveMatchClock = $derived(
-		liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en', data.match.last_score_sync_at)
+		liveClock(data.match.live_elapsed, data.match.live_period, getLang() as 'fr' | 'en', data.match.last_score_sync_at, data.match.match_datetime)
 	);
 
 	// Highlights player: lite facade — the YouTube iframe only mounts on click.

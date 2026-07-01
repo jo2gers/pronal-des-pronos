@@ -186,9 +186,30 @@ export function liveClock(
 	elapsed: string | null | undefined,
 	period: string | null | undefined,
 	lang: 'fr' | 'en' = 'fr',
-	syncedAt?: string | null
+	syncedAt?: string | null,
+	matchDatetime?: string | null
 ): string | null {
-	if (period === 'HT') return lang === 'fr' ? 'MT' : 'HT';
+	// Knockout overtime — live_period 'ET'/'PENS' is written from ESPN's status
+	// (period 3-4 = extra time, 5 = shootout), overriding Polymarket's labels.
+	if (period === 'PENS') return lang === 'fr' ? 'TAB' : 'Pens';
+	if (period === 'ET') {
+		if (elapsed && /^\d+$/.test(elapsed)) {
+			const driftMin = syncedAt
+				? Math.max(0, Math.floor((Date.now() - new Date(syncedAt).getTime()) / 60000))
+				: 0;
+			const minute = Math.min(120, parseInt(elapsed, 10) + driftMin);
+			return `${lang === 'fr' ? 'Prol.' : 'ET'} ${minute}′`;
+		}
+		return lang === 'fr' ? 'Prolongation' : 'Extra time';
+	}
+	if (period === 'HT') {
+		// Polymarket labels the break before extra time 'HT' too. A "halftime"
+		// 100+ min after kickoff can only be that break — call it what it is.
+		if (matchDatetime && Date.now() - new Date(matchDatetime).getTime() > 100 * 60 * 1000) {
+			return lang === 'fr' ? 'Prolongation' : 'Extra time';
+		}
+		return lang === 'fr' ? 'MT' : 'HT';
+	}
 	if (period === 'FT' || period === 'VFT') return null; // finished — no clock
 	if (!elapsed) return null;
 

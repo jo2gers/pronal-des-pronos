@@ -245,11 +245,11 @@ export async function syncLiveScores(
 	);
 	if (timelineCandidates.length > 0) {
 		try {
-			const { events: espn, gameIds, scores } = await fetchEspnEvents();
+			const { events: espn, gameIds, scores, statuses } = await fetchEspnEvents();
 			if (espn.size > 0 || gameIds.size > 0) {
 				const { data: currentRows } = await supabase
 					.from('matches')
-					.select('id, home_team, away_team, status, home_score, away_score, live_events, lineups, espn_game_id')
+					.select('id, home_team, away_team, status, home_score, away_score, live_events, lineups, espn_game_id, live_period, live_elapsed')
 					.in('id', timelineCandidates.map((m) => m.id));
 
 				for (const row of currentRows ?? []) {
@@ -274,6 +274,19 @@ export async function syncLiveScores(
 
 					const gid = gameIds.get(k) ?? row.espn_game_id;
 					if (gid && row.espn_game_id !== gid) patch.espn_game_id = gid;
+
+					// Knockout overtime clock: Polymarket labels the pre-ET break 'HT'
+					// and has no ET vocabulary, so once ESPN reports period >= 3 the
+					// clock comes from ESPN instead — 'ET' (3-4) / 'PENS' (5) plus the
+					// real minute ("102'" → "102"). The FT/backstop writes still clear
+					// these when the match ends (ESPN flips to 'post', override stops).
+					const st = statuses.get(k);
+					if (st?.state === 'in' && (st.period ?? 0) >= 3) {
+						const wantPeriod = (st.period ?? 3) >= 5 ? 'PENS' : 'ET';
+						const wantElapsed = (st.detail.match(/^(\d+)/) ?? [])[1] ?? '';
+						if (row.live_period !== wantPeriod) patch.live_period = wantPeriod;
+						if ((row.live_elapsed ?? '') !== wantElapsed) patch.live_elapsed = wantElapsed;
+					}
 
 					// Formations, lineups + substitution timeline (ESPN summary).
 					// Substitutions live ONLY in the summary's keyEvents — the per-minute
