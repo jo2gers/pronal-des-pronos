@@ -67,20 +67,24 @@ const key = (a: string, b: string) => `${a.toLowerCase()}|${b.toLowerCase()}`;
  * One scoreboard fetch → map keyed by "homeTeam|awayTeam" (our EN names,
  * lowercased) → ordered list of goal/card events.
  */
+export type EspnStatus = { state: 'pre' | 'in' | 'post' | string; completed: boolean; detail: string };
+
 export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 	events: Map<string, MatchEvent[]>;
 	gameIds: Map<string, string>;
 	scores: Map<string, { home: number; away: number }>;
+	statuses: Map<string, EspnStatus>;
 }> {
 	const out = new Map<string, MatchEvent[]>();
 	const gameIds = new Map<string, string>();
 	const scores = new Map<string, { home: number; away: number }>();
+	const statuses = new Map<string, EspnStatus>();
 	try {
 		const qs = dateYYYYMMDD ? `?dates=${dateYYYYMMDD}&_=${Date.now()}` : `?_=${Date.now()}`;
 		const res = await fetch(`${SCOREBOARD_URL}${qs}`, {
 			headers: { Accept: 'application/json' }
 		});
-		if (!res.ok) return { events: out, gameIds, scores };
+		if (!res.ok) return { events: out, gameIds, scores, statuses };
 		const data = await res.json();
 
 		for (const event of data?.events ?? []) {
@@ -96,6 +100,15 @@ export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 			const espnAway = norm(awayComp.team?.displayName ?? '');
 			const homeId = String(homeComp.team?.id ?? homeComp.id ?? '');
 			const gameId = String(event.id ?? comp.id ?? '');
+
+			// Match state ('pre'|'in'|'post', completed flag) — lets the live sync
+			// finish a match straight from ESPN when Polymarket isn't tracking it.
+			const stType = (comp.status ?? event?.status)?.type ?? {};
+			const status: EspnStatus = {
+				state: String(stType.state ?? ''),
+				completed: stType.completed === true,
+				detail: String(stType.shortDetail ?? stType.detail ?? '')
+			};
 
 			// Live score straight from the scoreboard (same source as the events
 			// below) so the displayed score and the timeline stay in lockstep.
@@ -141,11 +154,15 @@ export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 				scores.set(key(espnHome, espnAway), { home: homeScore, away: awayScore });
 				scores.set(key(espnAway, espnHome), { home: awayScore, away: homeScore });
 			}
+			if (status.state) {
+				statuses.set(key(espnHome, espnAway), status);
+				statuses.set(key(espnAway, espnHome), status);
+			}
 		}
 	} catch {
 		// non-fatal — timeline simply doesn't update this tick
 	}
-	return { events: out, gameIds, scores };
+	return { events: out, gameIds, scores, statuses };
 }
 
 /** Resolve an ESPN gameId for one match via the dated scoreboard (±1 day for

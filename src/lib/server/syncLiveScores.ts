@@ -118,6 +118,7 @@ export async function syncLiveScores(
 	oddsUpdated?: number;
 	rescoredMatches?: number;
 	knockoutResultsSynced?: number;
+	espnBackstopUpdates?: number;
 	error?: string;
 }> {
 	const nowMs = Date.now();
@@ -395,6 +396,94 @@ export async function syncLiveScores(
 		// non-fatal — venue backfill simply doesn't run this tick
 	}
 
+	// ── ESPN backstop: finish matches Polymarket isn't tracking ────────────────
+	// The Polymarket loop above only sees matches with a polymarket_event_slug. A
+	// match that never got a slug (or whose market went dead) would otherwise sit
+	// past kickoff forever — never flipping to finished, never scoring, the UI
+	// faking a live clock (exactly the Mexico–Ecuador bug). ESPN's public
+	// scoreboard is the authoritative fixture/result source, so use it to
+	// transition status + score for any past-kickoff match Polymarket isn't
+	// covering. Scoring is delegated to the capture pass (knockout: correct 90-min
+	// split) and safety pass (groups) that run right after — this only advances
+	// status + score. Removes the Polymarket slug as a single point of failure.
+	const STUCK_WINDOW_MS = 3 * 60 * 60 * 1000; // 90' + stoppage + extra time + penalties
+	let espnBackstopUpdates = 0;
+	try {
+		const { data: candidates } = await supabase
+			.from('matches')
+			.select('id, home_team, away_team, match_datetime, status, home_score, away_score, espn_game_id, polymarket_event_slug')
+			.in('status', ['upcoming', 'live'])
+			.neq('home_team', 'TBD')
+			.neq('away_team', 'TBD')
+			.lte('match_datetime', nowIso)
+			.limit(12);
+
+		// Only step in where Polymarket isn't: a match with no slug (from kickoff),
+		// or a slug'd match clearly stuck (>3h past kickoff, still not finished = a
+		// dead market). Never double-drives a match Polymarket handles normally
+		// within its play window.
+		const backstop = (candidates ?? []).filter(
+			(m) => !m.polymarket_event_slug || nowMs - new Date(m.match_datetime).getTime() > STUCK_WINDOW_MS
+		);
+
+		if (backstop.length > 0) {
+			// ESPN groups the scoreboard by US date, so fetch each relevant UTC day
+			// (±1) once and merge — bounded to a couple of requests per tick.
+			const dates = new Set<string>();
+			for (const m of backstop) {
+				const d = new Date(m.match_datetime);
+				for (const off of [-1, 0, 1]) {
+					const x = new Date(d.getTime() + off * 86400000);
+					dates.add(`${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`);
+				}
+			}
+			const scores = new Map<string, { home: number; away: number }>();
+			const statuses = new Map<string, { state: string; completed: boolean; detail: string }>();
+			const gameIds = new Map<string, string>();
+			for (const date of dates) {
+				const r = await fetchEspnEvents(date);
+				for (const [k, v] of r.scores) if (!scores.has(k)) scores.set(k, v);
+				for (const [k, v] of r.statuses) if (!statuses.has(k)) statuses.set(k, v);
+				for (const [k, v] of r.gameIds) if (!gameIds.has(k)) gameIds.set(k, v);
+			}
+
+			for (const m of backstop) {
+				const k = `${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
+				const st = statuses.get(k);
+				if (!st) continue; // ESPN doesn't carry this match yet — try next tick
+				const sc = scores.get(k);
+				const gid = gameIds.get(k);
+
+				const patch: Record<string, unknown> = {};
+				if (sc && (sc.home !== m.home_score || sc.away !== m.away_score)) {
+					patch.home_score = sc.home;
+					patch.away_score = sc.away;
+				}
+				if (gid && gid !== m.espn_game_id) patch.espn_game_id = gid;
+
+				if (st.completed && m.status !== 'finished') {
+					patch.status = 'finished';
+					patch.live_period = 'FT';
+					patch.live_elapsed = null;
+				} else if (st.state === 'in' && m.status === 'upcoming') {
+					patch.status = 'live';
+				}
+
+				if (Object.keys(patch).length === 0) continue;
+				if (patch.status === 'finished') await ensureRankSnapshot();
+
+				const { error } = await supabase.from('matches').update(patch).eq('id', m.id);
+				if (error) continue;
+				espnBackstopUpdates++;
+				// The capture pass (knockout, next) + safety pass (groups) score it;
+				// ended>0 also fires the bracket→slug→odds cascade for the next round.
+				if (patch.status === 'finished') ended++;
+			}
+		}
+	} catch {
+		// non-fatal — the ESPN backstop simply doesn't run this tick
+	}
+
 	// ── Knockout result detail (extra time / penalties) ───────────────────────
 	// For a FINISHED knockout match, fetch the ESPN summary once and split the
 	// score via per-half linescores: 90-min (1st+2nd half) → home_score/away_score
@@ -521,6 +610,7 @@ export async function syncLiveScores(
 		slugsUpdated,
 		oddsUpdated,
 		rescoredMatches,
-		knockoutResultsSynced
+		knockoutResultsSynced,
+		espnBackstopUpdates
 	};
 }
