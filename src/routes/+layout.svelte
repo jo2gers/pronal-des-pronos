@@ -341,7 +341,7 @@
 					{/if}
 					<span class="hidden lg:inline">{data.profile?.display_name ?? data.profile?.username ?? t('nav_profile')}</span>
 				</a>
-					<button onclick={logout} class="text-sm text-faint hover:text-err transition-colors cursor-pointer">
+					<button onclick={logout} class="whitespace-nowrap text-sm text-faint hover:text-err transition-colors cursor-pointer">
 						{t('nav_logout')}
 					</button>
 				{:else}
@@ -450,7 +450,7 @@
 							{/if}
 							<span>{data.profile?.display_name ?? data.profile?.username ?? t('nav_profile')}</span>
 						</a>
-							<button onclick={logout} class="text-sm text-faint hover:text-err transition-colors cursor-pointer">{t('nav_logout')}</button>
+							<button onclick={logout} class="whitespace-nowrap text-sm text-faint hover:text-err transition-colors cursor-pointer">{t('nav_logout')}</button>
 						{:else}
 							<a href="/auth/login{authQS}" onclick={closeMenu} class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
 							<a href="/auth/register{authQS}" onclick={closeMenu} class="text-sm text-accent font-semibold">{t('nav_register')}</a>
