@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { createClient } from '@supabase/supabase-js';
+import { backfillPolymarketSlugs } from '$lib/server/sync-odds';
 import type { RequestHandler } from './$types';
 
 // Vercel Hobby plan: 10s function timeout. Keep this hint explicit so future
@@ -211,17 +212,23 @@ export const GET: RequestHandler = async ({ request }) => {
 	//    in the same cron tick.
 	const { data: bracketResolved, error: bracketErr } = await supabase.rpc('resolve_bracket');
 
-	// 2. Sync odds for every known match (group + newly-resolved knockouts) and
-	//    the WC-winner market in parallel.
-	const [matchRes, wcRes] = await Promise.all([
+	// 2. Sync odds for every known match (group + newly-resolved knockouts), the
+	//    WC-winner market, AND backfill the Polymarket event slug in parallel.
+	//    The slug is what the live-score cron polls to track a match — syncing it
+	//    daily (not only in the post-FT cascade) means a match whose Polymarket
+	//    market opens days before kickoff is tracked well ahead of time, instead
+	//    of kicking off slug-less and getting stuck faking a live state.
+	const [matchRes, wcRes, slugRes] = await Promise.all([
 		syncMatchOdds(supabase),
-		syncWcWinnerOdds(supabase)
+		syncWcWinnerOdds(supabase),
+		backfillPolymarketSlugs(supabase)
 	]);
 
 	return json({
 		ts: new Date().toISOString(),
 		bracket: bracketErr ? { ok: false, error: bracketErr.message } : { ok: true, ...(bracketResolved as object) },
 		matchOdds: matchRes,
-		wcWinnerOdds: wcRes
+		wcWinnerOdds: wcRes,
+		slugs: slugRes
 	});
 };

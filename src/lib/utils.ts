@@ -156,11 +156,20 @@ export function computeStageUnlocks(
 // passed, treat a still-'upcoming' row as 'live'. Admins don't always flip the
 // DB status the second a match starts, but picks are already locked and 0-0
 // is the right default — we shouldn't keep showing it in the upcoming list.
+//
+// Bounded window: a match many hours past kickoff that's STILL 'upcoming' means
+// the live sync never ran for it (e.g. it never got a Polymarket slug), so there
+// is no real score/clock — faking a perpetual "LIVE 90+'" is worse than leaving
+// the raw status. 3h comfortably covers the longest real match (90' + stoppage +
+// extra time + penalties). A properly synced live match carries DB status='live'
+// and is unaffected by this cap.
+export const LIVE_HEURISTIC_WINDOW_MS = 3 * 60 * 60 * 1000;
 export function effectiveStatus(
 	match: { status: 'upcoming' | 'live' | 'finished'; match_datetime: string }
 ): 'upcoming' | 'live' | 'finished' {
-	if (match.status === 'upcoming' && new Date(match.match_datetime).getTime() <= Date.now()) {
-		return 'live';
+	if (match.status === 'upcoming') {
+		const sinceKickoff = Date.now() - new Date(match.match_datetime).getTime();
+		if (sinceKickoff >= 0 && sinceKickoff <= LIVE_HEURISTIC_WINDOW_MS) return 'live';
 	}
 	return match.status;
 }
