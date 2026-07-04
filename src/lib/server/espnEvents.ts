@@ -307,8 +307,11 @@ export async function fetchEspnKnockoutResult(gameId: string): Promise<KnockoutR
 		const lh = ls(h), la = ls(a);
 		if (lh.length < 2 || la.length < 2) return null; // need both halves to trust it
 
+		// Pens can be flagged by shootoutScore alone — ESPN sometimes posts it
+		// before (or without) the 5th linescore entry (bit us on Australia-Egypt:
+		// 4 linescores + shootoutScore at capture time → pens silently dropped).
 		const n = Math.max(lh.length, la.length);
-		const wentToPens = n >= 5;
+		const wentToPens = n >= 5 || h.shootoutScore != null || a.shootoutScore != null;
 		const wentToET = n >= 4;
 		const sum = (arr: number[], k: number) => arr.slice(0, k).reduce((s, x) => s + (x || 0), 0);
 

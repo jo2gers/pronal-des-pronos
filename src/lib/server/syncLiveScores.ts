@@ -592,6 +592,13 @@ export async function syncLiveScores(
 			const [ftH, ftA] = pick(r.ftHome, r.ftAway);
 			const [penH, penA] = pick(r.penHome, r.penAway);
 
+			// A knockout match can't end level. An effective draw means ESPN's data
+			// is still incomplete (e.g. the shootout not yet posted — the capture
+			// races the feed right at FT; bit us on Australia-Egypt where 1-1 got
+			// locked in sans pens and the wrong team advanced). Leave the row
+			// unsynced and retry next tick instead of freezing a half-result.
+			if ((penH ?? ftH ?? regH) === (penA ?? ftA ?? regA)) continue;
+
 			await supabase.from('matches').update({
 				home_score: regH, away_score: regA,
 				ft_home_score: ftH, ft_away_score: ftA,
