@@ -117,40 +117,10 @@ export function resolveOddsUsed(
 	return Number.isFinite(odds) && odds >= 1 ? odds : 1.0;
 }
 
-// ── Knockout stage gate ───────────────────────────────────────────────────
-// A stage unlocks only when EVERY match in the previous stage is finished.
-// Mirrors the natural tournament flow: you can't predict R32 until all
-// group matches are done (even if a few R32 slots are already populated
-// by resolve_bracket), R16 stays locked until R32 is done, etc.
-//
-// Returns a map { stage -> boolean } where true = picks allowed.
-export const STAGE_PROGRESSION: Record<string, string | null> = {
-	group:        null,            // always unlocked, no predecessor
-	round_of_32:  'group',
-	round_of_16:  'round_of_32',
-	quarters:     'round_of_16',
-	semis:        'quarters',
-	third:        'semis',
-	final:        'semis'
-};
-
-export function computeStageUnlocks(
-	matches: { stage: string; status: 'upcoming' | 'live' | 'finished' }[]
-): Record<string, boolean> {
-	// Count unfinished matches per stage (any non-finished status blocks).
-	const unfinishedByStage: Record<string, number> = {};
-	for (const m of matches) {
-		if (m.status !== 'finished') {
-			unfinishedByStage[m.stage] = (unfinishedByStage[m.stage] ?? 0) + 1;
-		}
-	}
-	const unlocks: Record<string, boolean> = {};
-	for (const stage of Object.keys(STAGE_PROGRESSION)) {
-		const prev = STAGE_PROGRESSION[stage];
-		unlocks[stage] = prev === null || (unfinishedByStage[prev] ?? 0) === 0;
-	}
-	return unlocks;
-}
+// Knockout picks are no longer gated by whole-stage progression — a match opens
+// as soon as its two teams are confirmed (home_team/away_team ≠ 'TBD', filled by
+// resolve_bracket the moment its feeder matches finish). See the pick actions +
+// MatchPickRow. (Removed computeStageUnlocks / STAGE_PROGRESSION.)
 
 // Derived match status that respects the wall clock: once kickoff time has
 // passed, treat a still-'upcoming' row as 'live'. Admins don't always flip the

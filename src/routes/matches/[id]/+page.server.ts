@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { effectiveStatus, resolveOddsUsed, computeStageUnlocks, STAGE_PROGRESSION } from '$lib/utils';
+import { effectiveStatus, resolveOddsUsed } from '$lib/utils';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
@@ -20,12 +20,8 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		(match as any).status = effectiveStatus(match as any);
 	}
 
-	// Stage gate: knockout matches stay locked until the previous round is
-	// fully finished. One small query covers it — and we reuse it to compute the
-	// previous/next match for the on-page arrow + swipe navigation.
+	// All matches (id/time) for the previous/next on-page arrow + swipe nav.
 	const { data: stageRows } = await supabase.from('matches').select('id, stage, status, match_datetime');
-	const stageUnlocks = computeStageUnlocks((stageRows ?? []) as any[]);
-	(match as any).stage_locked = !(stageUnlocks[(match as any).stage] ?? true);
 
 	// Prev/next match in chronological order (id tiebreak so same-kickoff matches
 	// are deterministic). Null at the ends → the arrow is disabled.
@@ -166,17 +162,6 @@ export const actions: Actions = {
 			return fail(400, { error: 'Les pronostics sont fermés pour ce match' });
 		if (match.home_team === 'TBD' || match.away_team === 'TBD')
 			return fail(400, { error: 'Équipes pas encore déterminées' });
-
-		// Stage gate — previous round must be fully finished.
-		const prevStage = STAGE_PROGRESSION[(match as any).stage];
-		if (prevStage) {
-			const { count: prevUnfinished } = await supabase
-				.from('matches').select('*', { count: 'exact', head: true })
-				.eq('stage', prevStage).neq('status', 'finished');
-			if ((prevUnfinished ?? 0) > 0) {
-				return fail(400, { error: 'Tour précédent pas encore terminé' });
-			}
-		}
 
 		const odds_used = resolveOddsUsed(predicted_home, predicted_away, match);
 

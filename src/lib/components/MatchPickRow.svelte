@@ -22,9 +22,6 @@
 		odds_draw?: number | null;
 		odds_away?: number | null;
 		youtube_video_id?: string | null;
-		// Stage-level lock — true while the previous round still has
-		// unfinished matches. Computed in server loads via computeStageUnlocks.
-		stage_locked?: boolean;
 	};
 
 	type PronoLike = {
@@ -87,12 +84,11 @@
 	// Knockout matches start with TBD placeholders; picks should be locked
 	// until the bracket resolves and real teams populate. Otherwise users
 	// can predict a score for "TBD vs TBD" which is meaningless.
+	// A knockout match opens for picks as soon as BOTH its teams are confirmed
+	// (resolve_bracket fills them the moment its two feeder matches finish) — no
+	// need to wait for the whole previous round. TBD placeholders stay locked.
 	const tbd = $derived(match.home_team === 'TBD' || match.away_team === 'TBD');
-	// Stage-level lock — the user explicitly wants whole rounds to open
-	// only once the previous round has fully ended (no piecemeal R32 picks
-	// while group L is still playing). Server-computed.
-	const stageLocked = $derived(match.stage_locked === true);
-	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked' && !lockedByServer && !tbd && !stageLocked);
+	const pickable = $derived(loggedIn && match.status === 'upcoming' && u !== 'locked' && !lockedByServer && !tbd);
 	// outcome is null when the user hasn't touched the stepper — odds line stays
 	// neutral until there's an actual prediction to compare against.
 	const outcome = $derived<number | null>(touched ? Math.sign(home - away) : null);

@@ -102,15 +102,13 @@
 		...((data.friendIds ?? []).length > 0 ? [{ id: 'friends', label: t('match_friends_filter') }] : [])
 	]);
 
-	// Locked when: kickoff lock fired, OR teams are still TBD, OR the whole
-	// stage hasn't opened yet (previous round still has unfinished matches —
-	// e.g. you can't predict R32 while group L is still playing). The
-	// stage gate is computed server-side via computeStageUnlocks.
+	// Locked when: kickoff lock fired, OR teams are still TBD. A knockout match
+	// opens as soon as both its teams are confirmed — no wait for the rest of
+	// the round.
 	const locked = $derived(
 		isMatchLocked(data.match.match_datetime)
 		|| data.match.home_team === 'TBD'
 		|| data.match.away_team === 'TBD'
-		|| (data.match as any).stage_locked === true
 	);
 
 	function getCountdown(dt: string) {
