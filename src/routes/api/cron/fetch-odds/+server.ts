@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { createClient } from '@supabase/supabase-js';
 import { backfillPolymarketSlugs } from '$lib/server/sync-odds';
+import { syncKickoffTimes } from '$lib/server/syncLiveScores';
 import type { RequestHandler } from './$types';
 
 // Vercel Hobby plan: 10s function timeout. Keep this hint explicit so future
@@ -213,15 +214,19 @@ export const GET: RequestHandler = async ({ request }) => {
 	const { data: bracketResolved, error: bracketErr } = await supabase.rpc('resolve_bracket');
 
 	// 2. Sync odds for every known match (group + newly-resolved knockouts), the
-	//    WC-winner market, AND backfill the Polymarket event slug in parallel.
+	//    WC-winner market, backfill the Polymarket event slug, AND reconcile
+	//    kickoff times against ESPN for the coming week — all in parallel.
 	//    The slug is what the live-score cron polls to track a match — syncing it
 	//    daily (not only in the post-FT cascade) means a match whose Polymarket
 	//    market opens days before kickoff is tracked well ahead of time, instead
-	//    of kicking off slug-less and getting stuck faking a live state.
-	const [matchRes, wcRes, slugRes] = await Promise.all([
+	//    of kicking off slug-less and getting stuck faking a live state. The
+	//    kickoff pass catches schedule changes/errors days ahead (the per-minute
+	//    cron only watches the next 6h), so picks always lock on the real time.
+	const [matchRes, wcRes, slugRes, kickoffsRescheduled] = await Promise.all([
 		syncMatchOdds(supabase),
 		syncWcWinnerOdds(supabase),
-		backfillPolymarketSlugs(supabase)
+		backfillPolymarketSlugs(supabase),
+		syncKickoffTimes(supabase, 7 * 24 * 60 * 60 * 1000).catch(() => 0)
 	]);
 
 	return json({
@@ -229,6 +234,7 @@ export const GET: RequestHandler = async ({ request }) => {
 		bracket: bracketErr ? { ok: false, error: bracketErr.message } : { ok: true, ...(bracketResolved as object) },
 		matchOdds: matchRes,
 		wcWinnerOdds: wcRes,
-		slugs: slugRes
+		slugs: slugRes,
+		kickoffsRescheduled
 	});
 };

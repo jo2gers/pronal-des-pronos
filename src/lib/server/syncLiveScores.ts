@@ -98,6 +98,63 @@ function alignLineups(lu: any, ourHomeTeam: string) {
 		: { home: lu.home, away: lu.away, subs };
 }
 
+// Proactive kickoff reconciliation — the PREVENTIVE counterpart to the
+// reactive reschedule in the ESPN backstop (which only notices once our
+// stored kickoff has already passed). For upcoming, team-known matches within
+// `horizonMs`, compare our kickoff to ESPN's event.date and adopt any ≥60s
+// difference. That catches BOTH failure modes before they hurt:
+//   - a delay announced pre-kickoff (picks would lock against the stale time),
+//   - our stored time being LATE (picks would stay open into a live match —
+//     the Canada–Morocco 21:00-vs-17:00 class of error).
+// Called every cron tick with a 6h horizon (cheap: no rows in window → no
+// fetch) and daily from fetch-odds with a 7-day horizon.
+export async function syncKickoffTimes(
+	supabase: SupabaseClient,
+	horizonMs: number
+): Promise<number> {
+	const nowMs = Date.now();
+	const { data: upcoming } = await supabase
+		.from('matches')
+		.select('id, home_team, away_team, match_datetime')
+		.eq('status', 'upcoming')
+		.neq('home_team', 'TBD')
+		.neq('away_team', 'TBD')
+		.gt('match_datetime', new Date(nowMs).toISOString())
+		.lte('match_datetime', new Date(nowMs + horizonMs).toISOString());
+
+	if (!upcoming?.length) return 0;
+
+	// One scoreboard fetch per relevant UTC day (±1 — ESPN groups by US date).
+	const dates = new Set<string>();
+	for (const m of upcoming) {
+		const d = new Date(m.match_datetime);
+		for (const off of [-1, 0, 1]) {
+			const x = new Date(d.getTime() + off * 86400000);
+			dates.add(`${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`);
+		}
+	}
+	const statuses = new Map<string, EspnStatus>();
+	for (const date of dates) {
+		const r = await fetchEspnEvents(date);
+		for (const [k, v] of r.statuses) if (!statuses.has(k)) statuses.set(k, v);
+	}
+
+	let rescheduled = 0;
+	for (const m of upcoming) {
+		const st = statuses.get(`${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`);
+		if (!st?.date) continue;
+		const espnKo = new Date(st.date).getTime();
+		if (!Number.isFinite(espnKo)) continue;
+		if (Math.abs(espnKo - new Date(m.match_datetime).getTime()) < 60_000) continue;
+		const { error } = await supabase
+			.from('matches')
+			.update({ match_datetime: new Date(espnKo).toISOString() })
+			.eq('id', m.id);
+		if (!error) rescheduled++;
+	}
+	return rescheduled;
+}
+
 export async function syncLiveScores(
 	supabase: SupabaseClient,
 	opts: { force?: boolean } = {}
@@ -120,6 +177,7 @@ export async function syncLiveScores(
 	knockoutResultsSynced?: number;
 	espnBackstopUpdates?: number;
 	earlyGradedMatches?: number;
+	kickoffsRescheduled?: number;
 	error?: string;
 }> {
 	const nowMs = Date.now();
@@ -408,6 +466,16 @@ export async function syncLiveScores(
 		}
 	} catch {
 		// non-fatal — venue backfill simply doesn't run this tick
+	}
+
+	// ── Proactive kickoff reconciliation (next 6h) ─────────────────────────────
+	// Catch a reschedule BEFORE our stored kickoff passes, so picks lock (or stay
+	// open) against the REAL kickoff. No upcoming match within 6h → no fetch.
+	let kickoffsRescheduled = 0;
+	try {
+		kickoffsRescheduled = await syncKickoffTimes(supabase, 6 * 60 * 60 * 1000);
+	} catch {
+		// non-fatal — the daily 7-day pass and the past-kickoff backstop still cover it
 	}
 
 	// ── ESPN backstop: finish matches Polymarket isn't tracking ────────────────
@@ -714,6 +782,7 @@ export async function syncLiveScores(
 		rescoredMatches,
 		knockoutResultsSynced,
 		espnBackstopUpdates,
-		earlyGradedMatches
+		earlyGradedMatches,
+		kickoffsRescheduled
 	};
 }
