@@ -14,7 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
-import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId, fetchEspnKnockoutResult } from './espnEvents';
+import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId, fetchEspnKnockoutResult, type EspnStatus } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
 
 type LiveMatchRow = {
@@ -432,19 +432,19 @@ export async function syncLiveScores(
 			.lte('match_datetime', nowIso)
 			.limit(12);
 
-		// Only step in where Polymarket isn't: a match with no slug (from kickoff),
-		// or a slug'd match clearly stuck (>3h past kickoff, still not finished = a
-		// dead market). Never double-drives a match Polymarket handles normally
-		// within its play window.
-		const backstop = (candidates ?? []).filter(
-			(m) => !m.polymarket_event_slug || nowMs - new Date(m.match_datetime).getTime() > STUCK_WINDOW_MS
-		);
+		// A slug'd match inside its normal play window is Polymarket's to drive —
+		// EXCEPT for reschedules: a delay is invisible to Polymarket, so the
+		// state='pre' check below applies to every candidate. The finish/live
+		// transitions stay restricted to matches Polymarket isn't covering (no
+		// slug, or stuck >3h = dead market).
+		const uncovered = (m: { polymarket_event_slug: string | null; match_datetime: string }) =>
+			!m.polymarket_event_slug || nowMs - new Date(m.match_datetime).getTime() > STUCK_WINDOW_MS;
 
-		if (backstop.length > 0) {
+		if ((candidates ?? []).length > 0) {
 			// ESPN groups the scoreboard by US date, so fetch each relevant UTC day
 			// (±1) once and merge — bounded to a couple of requests per tick.
 			const dates = new Set<string>();
-			for (const m of backstop) {
+			for (const m of candidates ?? []) {
 				const d = new Date(m.match_datetime);
 				for (const off of [-1, 0, 1]) {
 					const x = new Date(d.getTime() + off * 86400000);
@@ -452,7 +452,7 @@ export async function syncLiveScores(
 				}
 			}
 			const scores = new Map<string, { home: number; away: number }>();
-			const statuses = new Map<string, { state: string; completed: boolean; detail: string }>();
+			const statuses = new Map<string, EspnStatus>();
 			const gameIds = new Map<string, string>();
 			for (const date of dates) {
 				const r = await fetchEspnEvents(date);
@@ -461,12 +461,33 @@ export async function syncLiveScores(
 				for (const [k, v] of r.gameIds) if (!gameIds.has(k)) gameIds.set(k, v);
 			}
 
-			for (const m of backstop) {
+			for (const m of candidates ?? []) {
 				const k = `${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
 				const st = statuses.get(k);
 				if (!st) continue; // ESPN doesn't carry this match yet — try next tick
 				const sc = scores.get(k);
 				const gid = gameIds.get(k);
+
+				// Delayed kickoff: we're past OUR stored time but ESPN still says the
+				// match hasn't started and carries a (moved) kickoff. Adopt it —
+				// clears the phantom "LIVE 0-0" and, since picks lock 5 min before
+				// match_datetime, correctly reopens picks until the real kickoff.
+				// (Mexico–England was pushed 00:00Z → 01:00Z like this.)
+				if (st.state === 'pre') {
+					if (st.date) {
+						const newKo = new Date(st.date).getTime();
+						if (Number.isFinite(newKo) && Math.abs(newKo - new Date(m.match_datetime).getTime()) >= 60_000) {
+							const { error } = await supabase
+								.from('matches')
+								.update({ match_datetime: new Date(newKo).toISOString(), status: 'upcoming', live_period: null, live_elapsed: null })
+								.eq('id', m.id);
+							if (!error) espnBackstopUpdates++;
+						}
+					}
+					continue; // not started — nothing else to drive
+				}
+
+				if (!uncovered(m)) continue; // in play & Polymarket's to drive
 
 				const patch: Record<string, unknown> = {};
 				if (sc && (sc.home !== m.home_score || sc.away !== m.away_score)) {

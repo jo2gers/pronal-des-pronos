@@ -69,7 +69,9 @@ const key = (a: string, b: string) => `${a.toLowerCase()}|${b.toLowerCase()}`;
  */
 // `period`: 1-2 = halves, 3-4 = extra time, 5 = shootout. While state='in', a
 // period >= 3 means the 90 minutes are over — predictions can be graded early.
-export type EspnStatus = { state: 'pre' | 'in' | 'post' | string; completed: boolean; detail: string; period: number | null };
+// `date`: the event's (possibly rescheduled) kickoff — ESPN moves it on a delay,
+// so a 'pre' state past our stored kickoff means the match was pushed back.
+export type EspnStatus = { state: 'pre' | 'in' | 'post' | string; completed: boolean; detail: string; period: number | null; date: string | null };
 
 export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 	events: Map<string, MatchEvent[]>;
@@ -112,7 +114,8 @@ export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 				state: String(stType.state ?? ''),
 				completed: stType.completed === true,
 				detail: String(stType.shortDetail ?? stType.detail ?? ''),
-				period: Number.isFinite(periodNum) ? periodNum : null
+				period: Number.isFinite(periodNum) ? periodNum : null,
+				date: typeof event?.date === 'string' ? event.date : null
 			};
 
 			// Live score straight from the scoreboard (same source as the events
