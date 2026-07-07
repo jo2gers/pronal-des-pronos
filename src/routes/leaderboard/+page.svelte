@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { WC2026_TEAMS, teamLabel } from '$lib/wc2026';
 	import { t } from '$lib/i18n.svelte';
+	import { flip } from 'svelte/animate';
+	import { cubicOut } from 'svelte/easing';
+	import { reveal } from '$lib/motion';
+	import CountUp from '$lib/components/CountUp.svelte';
 	import FilterCarousel from '$lib/components/FilterCarousel.svelte';
 
 	let { data } = $props();
@@ -112,7 +116,7 @@
 						{@const isFirst = slotRank === 1}
 						{@const isMe = p?.userId === data.currentUser?.id}
 						{#if p}
-							<a href="/profile/{p.userId}"
+							<a href="/profile/{p.userId}" in:reveal={{ delay: i * 90, y: 12 }}
 								class="group flex flex-col items-center text-center transition-transform hover:-translate-y-0.5
 									{isFirst ? 'pt-1' : 'pt-4 sm:pt-6'}">
 								<!-- Avatar with rank ring -->
@@ -151,7 +155,7 @@
 								<!-- Points -->
 								<p class="tabular-nums font-bold {isFirst ? 'text-2xl sm:text-3xl text-accent' : 'text-lg text-fg/80'}"
 									style="font-family: var(--font-display)">
-									{p.total.toFixed(2)}
+									<CountUp value={p.total} />
 								</p>
 								<!-- 24h rank movement pill: ▲/▼ + places, tinted; quiet dash if unchanged; nothing if new -->
 								{#if p.delta != null && p.delta !== 0}
@@ -202,9 +206,10 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each tableRows as row (row.userId)}
+					{#each tableRows as row, i (row.userId)}
 						{@const isMe = row.userId === data.currentUser?.id}
-						<tr class="border-b border-wire/40 last:border-0 transition-colors {isMe ? 'bg-accent-lo/60' : 'hover:bg-raised/40'}">
+						<tr animate:flip={{ duration: 380, easing: cubicOut }} in:reveal={{ delay: Math.min(i * 30, 360) }}
+							class="border-b border-wire/40 last:border-0 transition-colors {isMe ? 'bg-accent-lo/60' : 'hover:bg-raised/40'}">
 
 							<!-- Rank + movement over the last 24h (per this leaderboard) -->
 							<td class="px-4 py-3 text-center w-12">

@@ -6,6 +6,8 @@
 	import Flag from '$lib/components/Flag.svelte';
 	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
 	import KnockoutNote from '$lib/components/KnockoutNote.svelte';
+	import CountUp from '$lib/components/CountUp.svelte';
+	import { pop } from '$lib/motion';
 
 	let { data } = $props();
 
@@ -122,10 +124,12 @@
 				<!-- Stats strip · 104 · 48 · 16 — centered on phones, editorial
 				     left-align from sm up -->
 				<div class="grid grid-cols-3 gap-0 mt-16 pt-6 border-t border-wire/60">
-					{#each [['104', t('pitch_stat_matches')], ['48', t('pitch_stat_teams')], ['16', t('pitch_stat_cities')]] as [n, label]}
+					{#each [[104, t('pitch_stat_matches')], [48, t('pitch_stat_teams')], [16, t('pitch_stat_cities')]] as [n, label]}
 						<div class="text-center sm:text-left">
 							<div class="text-3xl sm:text-4xl lg:text-5xl font-semibold tabular-nums leading-none"
-								style="font-family: var(--font-display); letter-spacing: -0.03em">{n}</div>
+								style="font-family: var(--font-display); letter-spacing: -0.03em">
+								<CountUp value={n as number} decimals={0} duration={1200} />
+							</div>
 							<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2"
 								style="font-family: var(--font-mono)">{label}</div>
 						</div>
@@ -248,9 +252,9 @@
 								<div class="text-center shrink-0 px-2">
 									<p class="{sole ? 'text-6xl sm:text-7xl' : 'text-4xl'} font-bold text-accent tabular-nums leading-none flex items-center justify-center gap-2"
 										style="font-family: var(--font-display)">
-										<span>{liveHome}</span>
+										{#key liveHome}<span in:pop={{ duration: 380 }} class="inline-block">{liveHome}</span>{/key}
 										<span class="{sole ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-muted">–</span>
-										<span>{liveAway}</span>
+										{#key liveAway}<span in:pop={{ duration: 380 }} class="inline-block">{liveAway}</span>{/key}
 									</p>
 									<span class="inline-flex items-center gap-1.5 mt-3 rounded bg-live px-2 py-0.5 {sole ? 'text-xs' : 'text-[10px]'} font-bold text-fg tracking-widest">
 										<span class="w-1 h-1 rounded-full bg-fg/80 animate-pulse"></span>
@@ -417,7 +421,7 @@
 				<div class="text-center sm:text-left">
 					<div class="text-3xl sm:text-4xl font-semibold text-accent tabular-nums leading-none"
 						style="font-family: var(--font-display); letter-spacing: -0.03em">
-						{data.stats.totalPoints.toFixed(2)}
+						<CountUp value={data.stats.totalPoints} />
 					</div>
 					<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2 flex items-baseline gap-2 justify-center sm:justify-start"
 						style="font-family: var(--font-mono)">
@@ -432,7 +436,7 @@
 				<div class="text-center sm:text-left">
 					<div class="text-3xl sm:text-4xl font-semibold text-fg tabular-nums leading-none"
 						style="font-family: var(--font-display); letter-spacing: -0.03em">
-						{data.stats.pronosticsCount}
+						<CountUp value={data.stats.pronosticsCount} decimals={0} />
 					</div>
 					<div class="text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-faint mt-2"
 						style="font-family: var(--font-mono)">

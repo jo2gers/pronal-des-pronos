@@ -9,6 +9,8 @@
 	import { STAGE_LABELS_FR, STAGE_LABELS_EN } from '$lib/wc2026';
 	import { roundShort, sourceLabel, resolveSourceTeam, type SlotTeam } from '$lib/bracketMap';
 	import { knockoutOutcome } from '$lib/utils';
+	import { reveal } from '$lib/motion';
+	import { fade } from 'svelte/transition';
 
 	type M = {
 		id: string; slot_code: string; stage: string;
@@ -92,7 +94,8 @@
 
 <div class="-mx-4 px-4 overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
 	<div class="relative" style="width: {totalW}px; height: {totalH}px;">
-		<svg class="absolute inset-0 pointer-events-none" width={totalW} height={totalH} aria-hidden="true">
+		<svg class="absolute inset-0 pointer-events-none" width={totalW} height={totalH} aria-hidden="true"
+			in:fade={{ duration: 500, delay: 250 }}>
 			{#each connectors as d}
 				<path {d} fill="none" stroke="var(--color-wire)" stroke-width="1.5" />
 			{/each}
@@ -105,7 +108,8 @@
 				<span class="hidden sm:inline">{labels[round.stage]}</span>
 			</div>
 			{#each round.matches as m, i}
-				<div class="absolute" style="left: {r * COL_W}px; top: {centerY(r, i) - CARD_H / 2}px; width: {CARD_W}px; height: {CARD_H}px;">
+				<div class="absolute" in:reveal={{ delay: r * 90 + i * 14, y: 10 }}
+					style="left: {r * COL_W}px; top: {centerY(r, i) - CARD_H / 2}px; width: {CARD_W}px; height: {CARD_H}px;">
 					{#if isReal(m)}
 						<a href="/matches/{m.id}" class="block h-full">{@render face(m)}</a>
 					{:else}
@@ -118,7 +122,7 @@
 </div>
 
 {#if third}
-	<div class="mt-3">
+	<div class="mt-3" in:reveal={{ delay: 520, y: 10 }}>
 		<p class="text-[10px] uppercase tracking-wide text-faint font-mono mb-1.5">{labels['third']}</p>
 		<div class="max-w-[260px]">
 			{#if isReal(third)}

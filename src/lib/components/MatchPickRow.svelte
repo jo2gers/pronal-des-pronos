@@ -5,6 +5,7 @@
 	import { t, getLang } from '$lib/i18n.svelte';
 	import { teamLabel } from '$lib/wc2026';
 	import { getShowOdds } from '$lib/prefs.svelte';
+	import { punch, pop } from '$lib/motion';
 	import Flag from '$lib/components/Flag.svelte';
 
 	type MatchLike = {
@@ -238,10 +239,12 @@
 			<div class="flex items-center gap-1.5 sm:gap-2">
 				{@render stepperButton('home', -1)}
 				<a href="/matches/{match.id}" class="hover:opacity-80 transition-opacity">
-					<span class="text-3xl sm:text-4xl font-bold tabular-nums leading-none w-7 sm:w-9 text-center block {scoreColour}"
-						style="font-family: var(--font-display)">
-						{touched ? home : '–'}
-					</span>
+					{#key touched ? home : -1}
+						<span in:punch class="text-3xl sm:text-4xl font-bold tabular-nums leading-none w-7 sm:w-9 text-center block {scoreColour}"
+							style="font-family: var(--font-display)">
+							{touched ? home : '–'}
+						</span>
+					{/key}
 				</a>
 				{@render stepperButton('home', 1)}
 			</div>
@@ -253,10 +256,12 @@
 			<div class="flex items-center gap-1.5 sm:gap-2">
 				{@render stepperButton('away', -1)}
 				<a href="/matches/{match.id}" class="hover:opacity-80 transition-opacity">
-					<span class="text-3xl sm:text-4xl font-bold tabular-nums leading-none w-7 sm:w-9 text-center block {scoreColour}"
-						style="font-family: var(--font-display)">
-						{touched ? away : '–'}
-					</span>
+					{#key touched ? away : -1}
+						<span in:punch class="text-3xl sm:text-4xl font-bold tabular-nums leading-none w-7 sm:w-9 text-center block {scoreColour}"
+							style="font-family: var(--font-display)">
+							{touched ? away : '–'}
+						</span>
+					{/key}
 				</a>
 				{@render stepperButton('away', 1)}
 			</div>
@@ -342,7 +347,7 @@
 						{t('saving')}
 					</span>
 				{:else if saveStatus === 'saved' || (saveStatus === 'idle' && hasProno)}
-					<span class="flex items-center gap-1 font-medium" style="color: var(--color-success)">
+					<span in:pop={{ duration: 320 }} class="flex items-center gap-1 font-medium" style="color: var(--color-success)">
 						<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
 						</svg>
