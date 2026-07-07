@@ -94,3 +94,50 @@
 @keyframes tifo-slide-in-right  { from { transform: translateX(100%); } }
 @keyframes tifo-slide-out-right { to   { transform: translateX(100%); } }
 @keyframes tifo-slide-in-left   { from { transform: translateX(-100%); } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Interaction system — one consistent, fast, tactile response for every hover,
+   press and focus across the app.
+   • Motion craft (refero motion.md §2–4, §8): 90–150ms, ease-out, explicit
+     transition properties (never `transition: all`), fully off under reduced
+     motion.
+   • UNLAYERED on purpose: it unifies the scattered per-element `transition-*`
+     Tailwind utilities (which live in a cascade layer) so transform/opacity
+     animate too — no need to touch hundreds of elements.
+   • `:where()` keeps specificity 0, so any component-level class or inline
+     style still wins where a surface needs something bespoke.
+   • Svelte's JS transitions compile to CSS *animations*, not inline transform
+     tweens, so `transition: transform` below never fights reveal/pop/punch.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --dur-fast: 140ms;
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1); /* ease-out with a touch more life */
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Smooth, consistent feedback on everything interactive. */
+  :where(a[href], button, [role='button'], summary, label[for], select,
+         input[type='checkbox'], input[type='radio']) {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-emphasized);
+  }
+
+  /* Press: every button/link acknowledges the tap with a quick scale-in.
+     transform is ignored on inline text links, so only button-like elements
+     (block/flex/inline-flex) actually scale — exactly the ones that should. */
+  :where(a[href], button:not(:disabled), [role='button'], summary):active {
+    transform: scale(0.97);
+    transition-duration: 60ms;
+  }
+
+  /* Primary (lime) CTAs lift a hair on hover — reads as "ready to press". */
+  :where(a.bg-accent, button.bg-accent):hover {
+    transform: translateY(-1px);
+  }
+
+  /* Focus ring animates in for keyboard users (colour + ring share the timing). */
+  :where(a[href], button, [role='button']):focus-visible {
+    transition-duration: var(--dur-fast);
+  }
+}
