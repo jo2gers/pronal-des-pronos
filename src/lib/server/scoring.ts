@@ -101,48 +101,57 @@ export async function scoreMatch(
 	let bonusAwarded = 0;
 	if (!opts.skipBonus && !match.bonus_calculated) {
 		const stageBonus = STAGE_BONUS[match.stage] ?? 0;
-		if (stageBonus > 0) {
-			// The team bonus follows who ADVANCED — penalties > extra time > 90-min —
-			// even though predictions above are graded on the 90-min score. (Always
-			// read the deciding columns fresh; this runs at most once per match.)
-			const { data: dec } = await supabase
-				.from('matches')
-				.select('ft_home_score, ft_away_score, pen_home, pen_away')
-				.eq('id', match.id)
-				.single();
-			const effHome = (dec?.pen_home ?? dec?.ft_home_score ?? match.home_score) as number;
-			const effAway = (dec?.pen_away ?? dec?.ft_away_score ?? match.away_score) as number;
-			let winnerTeamEn: string | null = null;
-			if (effHome > effAway) winnerTeamEn = match.home_team;
-			else if (effAway > effHome) winnerTeamEn = match.away_team;
+		// The team bonus follows who ADVANCED — penalties > extra time > 90-min —
+		// even though predictions above are graded on the 90-min score. (Read the
+		// deciding columns fresh; this runs at most once per match.)
+		const { data: dec } = await supabase
+			.from('matches')
+			.select('ft_home_score, ft_away_score, pen_home, pen_away')
+			.eq('id', match.id)
+			.single();
+		const effHome = (dec?.pen_home ?? dec?.ft_home_score ?? match.home_score) as number;
+		const effAway = (dec?.pen_away ?? dec?.ft_away_score ?? match.away_score) as number;
+		let winnerTeamEn: string | null = null;
+		if (effHome > effAway) winnerTeamEn = match.home_team;
+		else if (effAway > effHome) winnerTeamEn = match.away_team;
 
-			if (winnerTeamEn) {
-				const { data: oddsRow } = await supabase
-					.from('wc_winner_odds')
-					.select('multiplier')
-					.eq('team_name_en', winnerTeamEn)
-					.maybeSingle();
+		if (winnerTeamEn && stageBonus > 0) {
+			const { data: oddsRow } = await supabase
+				.from('wc_winner_odds')
+				.select('multiplier')
+				.eq('team_name_en', winnerTeamEn)
+				.maybeSingle();
 
-				const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
-				const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
+			const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
+			const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
 
-				const { data: supporters } = await supabase
+			const { data: supporters } = await supabase
+				.from('profiles')
+				.select('id, team_bonus_points')
+				.eq('favorite_team', winnerTeamEn);
+
+			for (const profile of supporters ?? []) {
+				await supabase
 					.from('profiles')
-					.select('id, team_bonus_points')
-					.eq('favorite_team', winnerTeamEn);
-
-				for (const profile of supporters ?? []) {
-					await supabase
-						.from('profiles')
-						.update({
-							team_bonus_points: parseFloat(((profile.team_bonus_points ?? 0) + bonusToAward).toFixed(2))
-						})
-						.eq('id', profile.id);
-					bonusAwarded++;
-				}
+					.update({
+						team_bonus_points: parseFloat(((profile.team_bonus_points ?? 0) + bonusToAward).toFixed(2))
+					})
+					.eq('id', profile.id);
+				bonusAwarded++;
 			}
 		}
-		await supabase.from('matches').update({ bonus_calculated: true }).eq('id', match.id);
+
+		// A KNOCKOUT match can't truly end level: an effective draw here means the
+		// result isn't final yet (shootout / extra time pending, or a stale score
+		// at the FT transition). Leave bonus_calculated=false so the NEXT run —
+		// once the real result lands — awards the bonus, instead of locking the
+		// winner's fans out. (This is the bug that under-credited France/Argentina/…
+		// and over-credited Morocco.) A GROUP draw is legitimate — no winner, no
+		// bonus — and is marked done.
+		const knockoutDrawPending = effHome === effAway && match.stage !== 'group';
+		if (!knockoutDrawPending) {
+			await supabase.from('matches').update({ bonus_calculated: true }).eq('id', match.id);
+		}
 	}
 
 	return { scored, bonusAwarded };
