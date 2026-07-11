@@ -10,14 +10,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveOddsUsed } from '$lib/utils';
 
+// SINGLE SOURCE OF TRUTH for the per-win team bonus. MUST match the published
+// table on the rules page (src/routes/rules/+page.svelte) — that's the contract
+// players signed up on. An older Fibonacci scale (…R16 3, QF 5, SF 8, final 13)
+// lived here and under-paid every knockout win vs the rules (QF paid 5× instead
+// of 8× — Spain fans got 9 pts for a ×1.8 quarter-final instead of 14.4).
 export const STAGE_BONUS: Record<string, number> = {
 	group:       1,
 	round_of_32: 2,
-	round_of_16: 3,
-	quarters:    5,
-	semis:       8,
-	final:       13,
-	third:       3
+	round_of_16: 4,
+	quarters:    8,
+	semis:       13,
+	third:       5,
+	final:       21
 };
 
 export type ScorableMatch = {

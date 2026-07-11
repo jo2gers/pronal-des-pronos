@@ -1,4 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
+import { STAGE_BONUS } from '$lib/server/scoring';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
@@ -17,7 +18,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		.from('pronostics')
 		.select(`
 			id, predicted_home, predicted_away, points_earned, is_scored,
-			match:matches(id, home_team, away_team, home_flag, away_flag, home_score, away_score, match_datetime, stage, status)
+			match:matches(id, home_team, away_team, home_flag, away_flag, home_score, away_score, ft_home_score, ft_away_score, pen_home, pen_away, match_datetime, stage, status)
 		`)
 		.eq('user_id', params.id);
 
@@ -65,9 +66,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	// finished match, attach the bonus amount that match contributed. Helps the
 	// match-history table explain why the user's profile total is higher than
 	// the pure prediction-points column suggests.
-	const STAGE_BONUS: Record<string, number> = {
-		group: 1, round_of_32: 2, round_of_16: 3, quarters: 5, semis: 8, final: 13, third: 3
-	};
+	// STAGE_BONUS imported from scoring — the exact table scoreMatch awards from.
 	let favTeamMultiplier = 1.0;
 	if (profile.favorite_team) {
 		const { data: oddsRow } = await supabase
@@ -81,9 +80,13 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		const m = p.match as any;
 		let teamBonus: number | null = null;
 		if (profile.favorite_team && m && m.home_score != null && m.away_score != null) {
+			// Effective result (pens > extra time > 90') — a shootout win must
+			// annotate its bonus too, not read as a 90' draw.
+			const effH = m.pen_home ?? m.ft_home_score ?? m.home_score;
+			const effA = m.pen_away ?? m.ft_away_score ?? m.away_score;
 			let winner: string | null = null;
-			if (m.home_score > m.away_score) winner = m.home_team;
-			else if (m.away_score > m.home_score) winner = m.away_team;
+			if (effH > effA) winner = m.home_team;
+			else if (effA > effH) winner = m.away_team;
 			if (winner === profile.favorite_team) {
 				const stageBonus = STAGE_BONUS[m.stage] ?? 0;
 				if (stageBonus > 0) teamBonus = parseFloat((stageBonus * favTeamMultiplier).toFixed(2));

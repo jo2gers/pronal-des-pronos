@@ -1,5 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { effectiveStatus, resolveOddsUsed } from '$lib/utils';
+import { STAGE_BONUS } from '$lib/server/scoring';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
@@ -76,15 +77,18 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	// Team bonus annotation only makes sense once the result exists.
 	if (match.status === 'finished') {
-		const STAGE_BONUS: Record<string, number> = {
-			group: 1, round_of_32: 2, round_of_16: 3, quarters: 5, semis: 8, final: 13, third: 3
-		};
+		// STAGE_BONUS is the same table scoreMatch awards from — one source of
+		// truth (it must mirror the rules page).
 		const stageBonus = STAGE_BONUS[match.stage] ?? 0;
 
+		// The bonus follows who ADVANCED: penalties > extra time > 90-min —
+		// a shootout win must annotate too, not read as a 90' draw.
 		let winnerTeam: string | null = null;
 		if (match.home_score != null && match.away_score != null) {
-			if (match.home_score > match.away_score) winnerTeam = match.home_team;
-			else if (match.away_score > match.home_score) winnerTeam = match.away_team;
+			const effH = (match as any).pen_home ?? (match as any).ft_home_score ?? match.home_score;
+			const effA = (match as any).pen_away ?? (match as any).ft_away_score ?? match.away_score;
+			if (effH > effA) winnerTeam = match.home_team;
+			else if (effA > effH) winnerTeam = match.away_team;
 		}
 
 		if (winnerTeam && stageBonus > 0) {
