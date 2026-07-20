@@ -1,154 +1,43 @@
-import { fail } from '@sveltejs/kit';
-import { createServerClient } from '@supabase/ssr';
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
-import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
-import { resolveOddsUsed } from '$lib/utils';
-import { syncLiveScores } from '$lib/server/syncLiveScores';
-import type { Actions, PageServerLoad } from './$types';
+import type { PageServerLoad } from './$types';
 
-function adminClient() {
-	return createServerClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-		cookies: { getAll: () => [], setAll: () => {} }
-	});
-}
-
+// Tournament over — the home page is the farewell screen: thank-you message,
+// world champion, the players' final podium and links to the two surfaces that
+// stay open (finished matches + final leaderboard). The old live/countdown/pick
+// home (and its pronostic action) is retired; see git history.
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
-	const nowIso = new Date().toISOString();
 
-	// Pull fresh live scores from Polymarket before reading matches. Rate-
-	// limited inside syncLiveScores to 1 actual fetch per 20s per instance,
-	// so concurrent page loads coalesce. Failures are swallowed so a Polymarket
-	// hiccup never breaks the homepage.
-	try {
-		await syncLiveScores(adminClient());
-	} catch {
-		// non-fatal — render with last-known scores
-	}
+	const [{ data: finalMatch }, { data: statRows }, { data: profiles }] = await Promise.all([
+		supabase
+			.from('matches')
+			.select('id, home_team, away_team, home_flag, away_flag, home_score, away_score, ft_home_score, ft_away_score, pen_home, pen_away')
+			.eq('slot_code', 'FINAL')
+			.maybeSingle(),
+		supabase.from('user_pronostic_stats').select('user_id, prono_points'),
+		supabase.from('profiles').select('id, username, display_name, avatar_url, favorite_team, team_bonus_points')
+	]);
 
-	const matchFields = 'id, home_team, away_team, home_flag, away_flag, stage, group_label, match_datetime, venue, status, home_score, away_score, odds_home, odds_draw, odds_away, live_elapsed, live_period, last_score_sync_at, youtube_video_id';
+	// Final standings — same math as the leaderboard (prono points + team bonus,
+	// id tiebreak), computed once here for the podium + the visitor's final rank.
+	const pronoByUser = new Map((statRows ?? []).map((r: any) => [r.user_id, parseFloat(String(r.prono_points ?? 0))]));
+	const board = (profiles ?? [])
+		.map((p: any) => ({
+			id: p.id as string,
+			username: p.username as string | null,
+			display_name: p.display_name as string | null,
+			avatar_url: p.avatar_url as string | null,
+			favorite_team: p.favorite_team as string | null,
+			total: (pronoByUser.get(p.id) ?? 0) + (p.team_bonus_points ?? 0)
+		}))
+		.sort((a, b) => b.total - a.total || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-	// Phantom-live: status still 'upcoming' but kickoff has passed (admin
-	// hasn't flipped to 'live' yet). Pull those separately and merge into the
-	// live list with status overridden so the homepage shows the LIVE card
-	// instead of leaving the match as "next match" or first in upcoming.
-	const [{ data: liveMatches }, { data: phantomLive }, { data: nextMatch }, { data: upcomingMatches }, { data: finishedMatches }, statsResult] =
-		await Promise.all([
-			supabase.from('matches').select(matchFields).eq('status', 'live').neq('home_team', 'TBD'),
-			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD')
-				.lte('match_datetime', nowIso),
-			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD').neq('away_team', 'TBD')
-				.gt('match_datetime', nowIso).order('match_datetime', { ascending: true }).limit(1).maybeSingle(),
-			supabase.from('matches').select(matchFields).eq('status', 'upcoming').neq('home_team', 'TBD').neq('away_team', 'TBD')
-				.gt('match_datetime', nowIso).order('match_datetime', { ascending: true }).limit(30),
-			supabase.from('matches').select(matchFields).eq('status', 'finished').neq('home_team', 'TBD')
-				.order('match_datetime', { ascending: false }).limit(3),
-			user
-				? supabase.from('pronostics').select('match_id, predicted_home, predicted_away, points_earned, is_scored, odds_used').eq('user_id', user.id)
-				: Promise.resolve({ data: null })
-		]);
-
-	const allLive = [
-		...(liveMatches ?? []),
-		...((phantomLive ?? []).map((m) => ({ ...m, status: 'live' as const })))
-	];
-
-	// Upcoming list on the home page: the next 5 matches, PLUS any others that
-	// kick off within the next 24h (so a busy evening of 6+ matches all show).
-	// TBD matches are excluded at the query level — no empty-flag placeholders
-	// (e.g. the final won't appear until the semi-finalists are known).
-	const cutoff24 = new Date(nowIso).getTime() + 24 * 60 * 60 * 1000;
-	const upcomingList = (upcomingMatches ?? []).filter(
-		(m, i) => i < 5 || new Date(m.match_datetime).getTime() <= cutoff24
-	);
-
-	let stats = null;
-	let pronosticsMap: Record<string, { predicted_home: number; predicted_away: number; points_earned: number | null; is_scored: boolean; odds_used: number | null }> = {};
-
-	if (user && statsResult.data) {
-		const pronostics = statsResult.data;
-		pronosticsMap = Object.fromEntries(
-			pronostics.map((p) => [p.match_id, {
-				predicted_home: p.predicted_home,
-				predicted_away: p.predicted_away,
-				points_earned: p.points_earned,
-				is_scored: p.is_scored,
-				odds_used: (p as any).odds_used ?? null
-			}])
-		);
-
-		const pronoPoints = pronostics.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
-
-		const { data: profileData } = await supabase
-			.from('profiles').select('team_bonus_points').eq('id', user.id).single();
-
-		const teamBonus   = profileData?.team_bonus_points ?? 0;
-		const totalPoints = pronoPoints + teamBonus;
-
-		// Global ("Tous") leaderboard rank — computed exactly like /leaderboard so
-		// the two always agree: members are users with a scored pick OR a team bonus;
-		// rank by total (scored prono points + team bonus), total DESC then user_id ASC.
-		const [{ data: statRows }, { data: allProfiles }] = await Promise.all([
-			supabase.from('user_pronostic_stats').select('user_id, prono_points'),
-			supabase.from('profiles').select('id, team_bonus_points')
-		]);
-		const pronoByUser = new Map<string, number>(
-			(statRows ?? []).map((s: any) => [s.user_id as string, parseFloat(String(s.prono_points ?? 0))])
-		);
-		const board = (allProfiles ?? [])
-			.filter((p) => pronoByUser.has(p.id) || (p.team_bonus_points ?? 0) > 0)
-			.map((p) => ({ id: p.id, total: (pronoByUser.get(p.id) ?? 0) + (p.team_bonus_points ?? 0) }))
-			.sort((a, b) => b.total - a.total || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-		const idx = board.findIndex((r) => r.id === user.id);
-		const rank = idx >= 0 ? idx + 1 : null;
-
-		stats = { totalPoints, pronoPoints, teamBonus, pronosticsCount: pronostics.length, rank };
-	}
+	const idx = user ? board.findIndex((r) => r.id === user.id) : -1;
 
 	return {
-		liveMatches: allLive,
-		nextMatch,
-		upcomingMatches: upcomingList,
-		// Already fetched most-recent-first (match_datetime DESC) — keep that so
-		// the latest match sits on top. (No .reverse(), which flipped it.)
-		finishedMatches: finishedMatches ?? [],
-		stats,
-		pronosticsMap,
-		user
+		user,
+		finalMatch,
+		top3: board.slice(0, 3),
+		myRank: idx >= 0 ? idx + 1 : null,
+		playerCount: board.length
 	};
-};
-
-export const actions: Actions = {
-	pronostic: async ({ request, locals: { supabase, safeGetSession } }) => {
-		const { user } = await safeGetSession();
-		if (!user) return fail(401, { error: 'Non authentifié' });
-
-		const form = await request.formData();
-		const match_id       = form.get('match_id') as string;
-		const predicted_home = parseInt(form.get('predicted_home') as string);
-		const predicted_away = parseInt(form.get('predicted_away') as string);
-
-		if (!match_id) return fail(400, { error: 'Match invalide' });
-		if (isNaN(predicted_home) || isNaN(predicted_away) || predicted_home < 0 || predicted_away < 0)
-			return fail(400, { error: 'Scores invalides', match_id });
-
-		const { data: match } = await supabase
-			.from('matches').select('match_datetime, status, home_team, away_team, stage, odds_home, odds_draw, odds_away')
-			.eq('id', match_id).single();
-
-		if (!match || new Date(match.match_datetime).getTime() - Date.now() < 5 * 60000)
-			return fail(400, { error: 'Pronos fermés pour ce match', match_id });
-		if (match.home_team === 'TBD' || match.away_team === 'TBD')
-			return fail(400, { error: 'Équipes pas encore déterminées', match_id });
-
-		const odds_used = resolveOddsUsed(predicted_home, predicted_away, match);
-
-		const { error: upsertError } = await supabase.from('pronostics').upsert(
-			{ user_id: user.id, match_id, predicted_home, predicted_away, odds_used },
-			{ onConflict: 'user_id,match_id' }
-		);
-
-		if (upsertError) return fail(500, { error: upsertError.message, match_id });
-		return { success: true, match_id, predicted_home, predicted_away };
-	}
 };

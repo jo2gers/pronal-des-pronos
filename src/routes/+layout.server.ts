@@ -1,6 +1,26 @@
+import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
+// Tournament over (final played 2026-07-19) — the site is a read-only archive.
+// Open: the farewell home, finished matches (+ detail), the leaderboard, and
+// profiles (the leaderboard links to them). Everything else redirects home.
+// Central here so every sub-route is covered without per-page guards. /admin
+// stays reachable (password-gated); /api endpoints don't run layout loads.
+const CLOSED_PREFIXES = [
+	'/bracket',
+	'/schedule',
+	'/leagues',
+	'/friends',
+	'/teams',
+	'/rules',
+	'/auth/register'
+];
+
+export const load: LayoutServerLoad = async ({ url, locals: { supabase, safeGetSession } }) => {
+	if (CLOSED_PREFIXES.some((p) => url.pathname === p || url.pathname.startsWith(p + '/'))) {
+		redirect(302, '/');
+	}
+
 	const { session, user } = await safeGetSession();
 
 	// Site-wide announcement banner — shown to everyone, logged in or not, so it

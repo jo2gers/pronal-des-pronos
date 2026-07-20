@@ -41,22 +41,14 @@
 	const navLinks = $derived([
 		{ href: '/',            label: t('nav_home') },
 		{ href: '/matches',     label: t('nav_matches') },
-		{ href: '/schedule',    label: t('nav_schedule') },
-		{ href: '/bracket',     label: t('nav_bracket') },
 		{ href: '/leaderboard', label: t('nav_leaderboard') },
-		{ href: '/leagues',      label: t('nav_groups') },
-		{ href: '/friends',     label: t('nav_friends') },
-		{ href: '/rules',       label: t('nav_rules') },
 	]);
 
-	// Mobile tab bar — 5 most-used destinations, drops Schedule + Rules from
-	// the full nav. Matches the design canvas exactly.
+	// Mobile tab bar — tournament over: archive mode, three destinations.
 	const mobileTabs = $derived([
 		{ href: '/',            label: t('nav_home') },
 		{ href: '/matches',     label: t('nav_matches') },
 		{ href: '/leaderboard', label: t('nav_leaderboard') },
-		{ href: '/leagues',     label: t('nav_groups') },
-		{ href: '/friends',     label: t('nav_friends') },
 	]);
 
 	$effect(() => {
@@ -345,11 +337,8 @@
 						{t('nav_logout')}
 					</button>
 				{:else}
+					<!-- Tournament over — no new sign-ups, login stays for existing players. -->
 					<a href="/auth/login{authQS}" class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
-					<a href="/auth/register{authQS}"
-						class="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-canvas hover:bg-accent-hi transition-colors">
-						{t('nav_register')}
-					</a>
 				{/if}
 			</div>
 
@@ -453,7 +442,6 @@
 							<button onclick={logout} class="whitespace-nowrap text-sm text-faint hover:text-err transition-colors cursor-pointer">{t('nav_logout')}</button>
 						{:else}
 							<a href="/auth/login{authQS}" onclick={closeMenu} class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
-							<a href="/auth/register{authQS}" onclick={closeMenu} class="text-sm text-accent font-semibold">{t('nav_register')}</a>
 						{/if}
 					</div>
 				</div>

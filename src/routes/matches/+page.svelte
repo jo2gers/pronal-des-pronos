@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { invalidateAll, goto } from '$app/navigation';
-	import { page } from '$app/state';
+	import { invalidateAll } from '$app/navigation';
 	import { groupByDay, daysUntilMatch } from '$lib/utils';
 	import { t, getLang } from '$lib/i18n.svelte';
 	import MatchPickRow from '$lib/components/MatchPickRow.svelte';
@@ -15,30 +14,13 @@
 		return () => clearInterval(interval);
 	});
 
-	// Tab lives in the URL (?tab=ended) so it survives navigation to a match
-	// detail and back via history.back().
-	const tab = $derived<'upcoming' | 'ended'>(
-		page.url.searchParams.get('tab') === 'ended' ? 'ended' : 'upcoming'
-	);
-
-	function setTab(next: 'upcoming' | 'ended') {
-		const url = new URL(page.url);
-		if (next === 'upcoming') url.searchParams.delete('tab');
-		else                     url.searchParams.set('tab', next);
-		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
-	}
-
-	// Filter to the active tab, then bucket by calendar day. Ended-tab buckets
-	// are reversed so the most recent day appears first.
+	// Tournament over — archive mode: every match is finished, so the page is a
+	// single reverse-chronological list (most recent day first). Tabs retired.
 	const buckets = $derived.by(() => {
-		const filtered = (data.matches ?? []).filter((m) =>
-			tab === 'ended' ? m.status === 'finished' : m.status !== 'finished'
+		const filtered = (data.matches ?? []).filter((m) => m.status === 'finished');
+		filtered.sort(
+			(a, b) => new Date(b.match_datetime).getTime() - new Date(a.match_datetime).getTime()
 		);
-		filtered.sort((a, b) => {
-			const da = new Date(a.match_datetime).getTime();
-			const db = new Date(b.match_datetime).getTime();
-			return tab === 'ended' ? db - da : da - db;
-		});
 		return groupByDay(filtered, getLang());
 	});
 </script>
@@ -48,39 +30,11 @@
 		<h1 class="text-2xl font-bold text-fg" style="font-family: var(--font-display); letter-spacing: 0.02em">
 			{t('nav_matches')}
 		</h1>
-		{#if !data.user}
-			<a href="/auth/login" class="text-sm text-accent hover:text-accent-hi transition-colors">
-				{t('login_to_pick')}
-			</a>
-		{/if}
-	</div>
-
-	<!-- Upcoming / Ended tabs + bracket shortcut -->
-	<div class="flex flex-wrap items-center gap-2">
-		<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-fit">
-			<button
-				onclick={() => setTab('upcoming')}
-				class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {tab === 'upcoming' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
-				{t('upcoming')}
-			</button>
-			<button
-				onclick={() => setTab('ended')}
-				class="rounded px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer {tab === 'ended' ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
-				{t('ended')}
-			</button>
-		</div>
-
-		<a href="/bracket"
-			class="ml-auto inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors">
-			{t('nav_bracket')}
-			<span aria-hidden="true">→</span>
-		</a>
 	</div>
 
 	{#if buckets.length === 0}
 		<div class="rounded-xl bg-panel border border-wire px-6 py-10 text-center">
-			<p class="text-muted">{tab === 'ended' ? t('no_ended') : t('no_upcoming')}</p>
-			<p class="text-sm text-faint mt-2">{tab === 'ended' ? t('no_ended_hint') : ''}</p>
+			<p class="text-muted">{t('no_ended')}</p>
 		</div>
 	{:else}
 		<div class="space-y-6">

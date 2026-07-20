@@ -20,6 +20,12 @@ export const BANNER_OPTIONS = [
 		i18n: 'banner_maintenance',
 		tone: 'warn',
 		adminLabel: 'Maintenance / bug en cours'
+	},
+	{
+		id: 'thanks',
+		i18n: 'banner_thanks',
+		tone: 'info',
+		adminLabel: 'Fin du tournoi · merci d\'avoir joué'
 	}
 ] as const;
 
