@@ -41,6 +41,24 @@
 		</p>
 	</section>
 
+	<!-- ── Feedback survey invite — until this account has answered ──────────── -->
+	{#if !data.surveyDone}
+		<section in:reveal={{ delay: 80, y: 12 }}>
+			<a href="/survey"
+				class="block rounded-2xl border border-accent/30 px-6 py-6 text-center hover:border-accent/60 transition-colors"
+				style="background: var(--color-accent-lo)">
+				<p class="text-lg font-bold text-fg" style="font-family: var(--font-display); letter-spacing: -0.02em">
+					💬 {t('home_survey_title')}
+				</p>
+				<p class="text-sm text-muted mt-2 max-w-[46ch] mx-auto">{t('home_survey_body')}</p>
+				<span class="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-canvas mt-4">
+					{t('home_survey_cta')}
+					<span aria-hidden="true">→</span>
+				</span>
+			</a>
+		</section>
+	{/if}
+
 	<!-- ── World champion ────────────────────────────────────────────────────── -->
 	{#if fin && champTeam}
 		<section in:reveal={{ delay: 120, y: 12 }}>

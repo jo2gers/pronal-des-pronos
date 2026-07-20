@@ -42,6 +42,8 @@
 		{ href: '/',            label: t('nav_home') },
 		{ href: '/matches',     label: t('nav_matches') },
 		{ href: '/leaderboard', label: t('nav_leaderboard') },
+		// Feedback survey — proposed until this account has answered.
+		...(data.surveyDone ? [] : [{ href: '/survey', label: t('nav_survey') }]),
 	]);
 
 	// Mobile tab bar — tournament over: archive mode, three destinations.

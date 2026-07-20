@@ -36,7 +36,8 @@ export const load: LayoutServerLoad = async ({ url, locals: { supabase, safeGetS
 		? { id: settings.banner_key as string, updatedAt: (settings.banner_updated_at as string | null) ?? null }
 		: null;
 
-	if (!user) return { session, user, profile: null, friendNotifCount: 0, groupNotifCount: 0, inviteCount: 0, banner };
+	if (!user)
+		return { session, user, profile: null, friendNotifCount: 0, groupNotifCount: 0, inviteCount: 0, banner, surveyDone: false };
 
 	// Admin group IDs (needed to count pending join requests)
 	const { data: adminGroups } = await supabase
@@ -47,7 +48,7 @@ export const load: LayoutServerLoad = async ({ url, locals: { supabase, safeGetS
 
 	const adminGroupIds = (adminGroups ?? []).map((g) => g.group_id);
 
-	const [{ count: friendCount }, joinResult, { count: inviteCount }, { data: profile }] = await Promise.all([
+	const [{ count: friendCount }, joinResult, { count: inviteCount }, { data: profile }, { data: surveyRow }] = await Promise.all([
 		supabase
 			.from('friendships')
 			.select('id', { count: 'exact', head: true })
@@ -69,6 +70,12 @@ export const load: LayoutServerLoad = async ({ url, locals: { supabase, safeGetS
 			.from('profiles')
 			.select('id, username, display_name, avatar_url')
 			.eq('id', user.id)
+			.maybeSingle(),
+		// Feedback survey — the nav tab + home invite hide once this account answered.
+		supabase
+			.from('survey_responses')
+			.select('user_id')
+			.eq('user_id', user.id)
 			.maybeSingle()
 	]);
 
@@ -79,6 +86,7 @@ export const load: LayoutServerLoad = async ({ url, locals: { supabase, safeGetS
 		friendNotifCount: friendCount ?? 0,
 		groupNotifCount:  (joinResult as { count: number | null }).count ?? 0,
 		inviteCount: inviteCount ?? 0,
-		banner
+		banner,
+		surveyDone: !!surveyRow
 	};
 };
