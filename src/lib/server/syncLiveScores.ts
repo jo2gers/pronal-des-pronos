@@ -14,7 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
 import { scorelineModel } from '$lib/scorelines';
-import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
+import { syncCompetitionOdds } from './sync-odds';
 import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId, fetchEspnKnockoutResult, type EspnStatus } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
 
@@ -771,10 +771,9 @@ export async function syncLiveScores(
 
 	// ── Cascade after any FT transition ────────────────────────────────────
 	// When a match ends, the bracket may now be ready to fill one or more
-	// knockout slots (e.g. last group match → R32 pairings, last R32 → R16).
-	// We chain resolve_bracket → backfillPolymarketSlugs → syncMatchOdds so
-	// the newly-named matches are immediately tracked by future cron ticks
-	// — no admin click required between rounds.
+	// knockout slots (V2: the UCL play-off/KO tree). resolve_bracket →
+	// per-competition odds+slug sync, so newly-named pairings are immediately
+	// tracked by future cron ticks — no admin click required between rounds.
 	let bracketUpdated = 0;
 	let slugsUpdated = 0;
 	let oddsUpdated = 0;
@@ -788,12 +787,10 @@ export async function syncLiveScores(
 
 		if (bracketUpdated > 0) {
 			try {
-				const r = await backfillPolymarketSlugs(supabase);
-				if (r.ok) slugsUpdated = r.updated;
-			} catch { /* non-fatal */ }
-			try {
-				const r = await syncMatchOdds(supabase);
-				if (r.ok) oddsUpdated = r.updated;
+				const results = await syncCompetitionOdds(supabase);
+				for (const r of Object.values(results) as any[]) {
+					if (r?.ok) { slugsUpdated += r.slugsSet ?? 0; oddsUpdated += r.oddsUpdated ?? 0; }
+				}
 			} catch { /* non-fatal */ }
 		}
 	}
