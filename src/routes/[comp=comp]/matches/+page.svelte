@@ -1,17 +1,17 @@
 <script lang="ts">
-	// V2 competition calendar — first visible surface of the next season.
-	// Read-only for now: picks/odds/steppers arrive with the V2 scoring wiring.
+	// V2 competition calendar — pickable: each row is a CompMatchRow stepper
+	// with the live exact-score multiplier (frozen server-side at the lock).
 	import { getLang } from '$lib/i18n.svelte';
-	import { groupByDay, formatTime } from '$lib/utils';
+	import { groupByDay } from '$lib/utils';
 	import { reveal } from '$lib/motion';
+	import CompMatchRow from '$lib/components/CompMatchRow.svelte';
 
 	let { data } = $props();
 
 	const compName = $derived(getLang() === 'fr' ? data.competition.name_fr : data.competition.name_en);
 	const buckets = $derived(groupByDay(data.matches, getLang()));
 
-	const badge = (team: string) => data.teamMap[team]?.logo ?? null;
-	const shortName = (team: string) => data.teamMap[team]?.short ?? team;
+	const teamInfo = (team: string) => data.teamMap[team] ?? { short: team, logo: null };
 </script>
 
 <div class="max-w-2xl mx-auto space-y-6">
@@ -42,29 +42,11 @@
 					</div>
 					<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40 overflow-hidden">
 						{#each bucket.items as m (m.id)}
-							<div class="flex items-center gap-3 px-4 py-3">
-								<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
-									<span class="truncate text-sm font-medium text-fg text-right">{shortName(m.home_team)}</span>
-									{#if badge(m.home_team)}
-										<img src={badge(m.home_team)} alt="" class="w-6 h-6 object-contain shrink-0" loading="lazy" />
-									{/if}
-								</div>
-								<div class="shrink-0 text-center w-16">
-									{#if m.status === 'finished'}
-										<span class="font-bold tabular-nums text-fg" style="font-family: var(--font-display)">
-											{m.home_score}–{m.away_score}
-										</span>
-									{:else}
-										<span class="text-xs text-faint tabular-nums">{formatTime(m.match_datetime, getLang())}</span>
-									{/if}
-								</div>
-								<div class="flex-1 min-w-0 flex items-center gap-2">
-									{#if badge(m.away_team)}
-										<img src={badge(m.away_team)} alt="" class="w-6 h-6 object-contain shrink-0" loading="lazy" />
-									{/if}
-									<span class="truncate text-sm font-medium text-fg">{shortName(m.away_team)}</span>
-								</div>
-							</div>
+							<CompMatchRow match={m}
+								home={teamInfo(m.home_team)}
+								away={teamInfo(m.away_team)}
+								existingProno={data.pronosticsMap[m.id] ?? null}
+								loggedIn={!!data.user} />
 						{/each}
 					</div>
 				</section>

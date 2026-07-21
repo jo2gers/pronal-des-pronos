@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
+import { scorelineModel } from '$lib/scorelines';
 import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
 import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId, fetchEspnKnockoutResult, type EspnStatus } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
@@ -178,6 +179,7 @@ export async function syncLiveScores(
 	espnBackstopUpdates?: number;
 	earlyGradedMatches?: number;
 	kickoffsRescheduled?: number;
+	scorelinesFrozen?: number;
 	error?: string;
 }> {
 	const nowMs = Date.now();
@@ -466,6 +468,38 @@ export async function syncLiveScores(
 		}
 	} catch {
 		// non-fatal — venue backfill simply doesn't run this tick
+	}
+
+	// ── V2: freeze the exact-score multipliers shortly before kickoff ──────────
+	// Poisson/Dixon-Coles matrix from the (already frozen) 1X2 odds, written once
+	// per match as jsonb {"h-a": mult}. Runs inside the last 30 min before
+	// kickoff — comfortably before the 5-min pick lock — and never recomputes
+	// (scoreline_multipliers stays exactly what players saw at lock). The WC
+	// archive has no upcoming matches, so this only ever touches V2 fixtures.
+	let scorelinesFrozen = 0;
+	try {
+		const { data: toFreeze } = await supabase
+			.from('matches')
+			.select('id, odds_home, odds_draw, odds_away')
+			.eq('status', 'upcoming')
+			.is('scoreline_multipliers', null)
+			.not('odds_home', 'is', null)
+			.lte('match_datetime', new Date(nowMs + 30 * 60 * 1000).toISOString())
+			.limit(12);
+
+		for (const m of toFreeze ?? []) {
+			const model = scorelineModel(Number(m.odds_home), Number(m.odds_draw), Number(m.odds_away));
+			const map: Record<string, number> = {};
+			for (let h = 0; h <= 10; h++)
+				for (let a = 0; a <= 10; a++) map[`${h}-${a}`] = model.exactMultiplier(h, a);
+			const { error } = await supabase
+				.from('matches')
+				.update({ scoreline_multipliers: map })
+				.eq('id', m.id);
+			if (!error) scorelinesFrozen++;
+		}
+	} catch {
+		// non-fatal — scoring falls back to the legacy flat 3× for this match
 	}
 
 	// ── Proactive kickoff reconciliation (next 6h) ─────────────────────────────
@@ -783,6 +817,7 @@ export async function syncLiveScores(
 		knockoutResultsSynced,
 		espnBackstopUpdates,
 		earlyGradedMatches,
-		kickoffsRescheduled
+		kickoffsRescheduled,
+		scorelinesFrozen
 	};
 }

@@ -52,19 +52,22 @@ export async function scoreMatch(
 
 	// Everyone is scored against the SAME odds: the match odds frozen 5 min
 	// before kickoff (the odds-sync lock), NOT the odds at pick time. Fetch
-	// them from the match row if the caller didn't pass them along.
+	// them from the match row if the caller didn't pass them along. The V2
+	// scoreline matrix (frozen at lock too) is always read fresh — callers
+	// never carry it.
 	let { odds_home, odds_draw, odds_away } = match;
+	const { data: matchRow } = await supabase
+		.from('matches')
+		.select('odds_home, odds_draw, odds_away, scoreline_multipliers')
+		.eq('id', match.id)
+		.single();
 	if (odds_home === undefined) {
-		const { data: oddsRow } = await supabase
-			.from('matches')
-			.select('odds_home, odds_draw, odds_away')
-			.eq('id', match.id)
-			.single();
-		odds_home = oddsRow?.odds_home ?? null;
-		odds_draw = oddsRow?.odds_draw ?? null;
-		odds_away = oddsRow?.odds_away ?? null;
+		odds_home = matchRow?.odds_home ?? null;
+		odds_draw = matchRow?.odds_draw ?? null;
+		odds_away = matchRow?.odds_away ?? null;
 	}
 	const oddsSource = { odds_home, odds_draw, odds_away };
+	const scorelineMults = (matchRow?.scoreline_multipliers ?? null) as Record<string, number> | null;
 
 	// 1. Per-pronostic points
 	const { data: pronostics } = await supabase
@@ -83,20 +86,34 @@ export async function scoreMatch(
 	const writes = (pronostics ?? []).map((p) => {
 		const ph = p.predicted_home;
 		const pa = p.predicted_away;
-		const basePoints =
-			ph === mh && pa === ma ? 3 :
-			Math.sign(ph - pa) === Math.sign(mh - ma) ? 1 :
-			0;
+		const exact = ph === mh && pa === ma;
+		const winner = exact || Math.sign(ph - pa) === Math.sign(mh - ma);
 
 		// resolveOddsUsed picks home/draw/away odds for the predicted outcome,
 		// with a 1.0 floor when odds are missing. odds_used is overwritten with the
 		// final locked odds so every surface shows the value points came from.
 		const finalOdds = resolveOddsUsed(ph, pa, oddsSource);
-		const points = basePoints === 0 ? 0 : parseFloat((basePoints * finalOdds).toFixed(2));
+
+		// Exact-score payout:
+		//  - V2 (scoreline matrix frozen at lock): ADDITIVE — winner points plus
+		//    the scoreline's own multiplier ln(1/P) (see docs/v2-next-season.md:
+		//    P(score) already prices the outcome, so it must not multiply the
+		//    outcome odds again; additive also guarantees exact > winner-only).
+		//  - Legacy (WC archive, or matrix missing): flat 3 × outcome odds.
+		let points = 0;
+		let exactMult: number | null = null;
+		if (exact) {
+			exactMult = scorelineMults?.[`${mh}-${ma}`] ?? null;
+			points = exactMult != null
+				? parseFloat((1 * finalOdds + exactMult).toFixed(2))
+				: parseFloat((3 * finalOdds).toFixed(2));
+		} else if (winner) {
+			points = parseFloat((1 * finalOdds).toFixed(2));
+		}
 
 		return supabase
 			.from('pronostics')
-			.update({ points_earned: points, is_scored: true, odds_used: finalOdds })
+			.update({ points_earned: points, is_scored: true, odds_used: finalOdds, exact_multiplier: exactMult })
 			.eq('id', p.id);
 	});
 	const results = await Promise.all(writes);

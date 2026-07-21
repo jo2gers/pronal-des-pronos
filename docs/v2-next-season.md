@@ -91,14 +91,18 @@ C'est LA méthode standard du secteur (bookmakers, modèles quantitatifs) :
 4. Correction **Dixon-Coles** (ρ ≈ −0,13) sur 0-0, 1-0, 0-1, 1-1 — les petits
    scores sont corrélés, Poisson pur les sous/sur-estime.
 5. On obtient **P(h, a) pour chaque score exact**. Implémenté dans
-   `src/lib/server/scorelines.ts` (cette branche).
+   `src/lib/scorelines.ts` (cette branche — maths pures, utilisable côté
+   client pour afficher le multiplicateur en direct dans le stepper).
 
 ### Le nouveau barème proposé
 
 - **Bon vainqueur** (inchangé) : `1 × cote du résultat`.
-- **Score exact** : au lieu de `3 ×`, le multiplicateur devient
-  **`ln(1 / P(score))`** — même philosophie logarithmique que le bonus équipe
-  actuel (`round(ln(cote), 1)`), borné à `[2, 8]` pour éviter les absurdités.
+- **Score exact** : le bonus **s'ajoute** au gain vainqueur :
+  `points = 1 × cote + ln(1/P(score))` (borné `[2, 8]`). Pourquoi additif ?
+  P(score) contient déjà la probabilité du résultat — re-multiplier par la
+  cote compterait deux fois la même chose ; et l'additif garantit qu'un score
+  exact rapporte TOUJOURS plus que le simple bon vainqueur du même match.
+  Même philosophie logarithmique que le bonus équipe (`round(ln(cote), 1)`).
 
 Exemple concret (match équilibré, cotes 2.60 / 3.20 / 2.90) :
 
