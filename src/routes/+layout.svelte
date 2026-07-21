@@ -42,6 +42,8 @@
 		{ href: '/',            label: t('nav_home') },
 		{ href: '/matches',     label: t('nav_matches') },
 		{ href: '/leaderboard', label: t('nav_leaderboard') },
+		// V2 preview entry — the 2026-27 season shell (branch only until launch).
+		{ href: '/pl-2026-27/matches', label: 'Saison 2026-27' },
 		// Feedback survey — proposed until this account has answered.
 		...(data.surveyDone ? [] : [{ href: '/survey', label: t('nav_survey') }]),
 	]);

@@ -30,7 +30,14 @@ type LiveMatchRow = {
 	bonus_calculated: boolean;
 	last_score_sync_at: string | null;
 	polymarket_event_slug: string;
+	competition_id: string;
 };
+
+// The knockout-only stages — the passes that assume "a match can't end level"
+// (early grading at end of regulation, ET/pens capture) must NEVER touch
+// league fixtures: a drawn PL match is a normal final result, and the capture
+// pass's draw-guard would otherwise refetch it forever.
+const KNOCKOUT_STAGES = ['playoff', 'round_of_32', 'round_of_16', 'quarters', 'semis', 'third', 'final'];
 
 type PolymarketEvent = {
 	id: string;
@@ -99,6 +106,17 @@ function alignLineups(lu: any, ourHomeTeam: string) {
 		: { home: lu.home, away: lu.away, subs };
 }
 
+// V2: several competitions run at once, each with its own ESPN league slug
+// ('fifa.world' | 'eng.1' | 'uefa.champions'). Every ESPN-touching pass maps a
+// match row → its competition's league via this lookup.
+async function loadLeagueByComp(supabase: SupabaseClient): Promise<Map<string, string>> {
+	const { data } = await supabase.from('competitions').select('id, espn_league');
+	return new Map((data ?? []).map((c: any) => [c.id as string, (c.espn_league as string) ?? 'fifa.world']));
+}
+
+const dayStr = (x: Date) =>
+	`${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`;
+
 // Proactive kickoff reconciliation — the PREVENTIVE counterpart to the
 // reactive reschedule in the ESPN backstop (which only notices once our
 // stored kickoff has already passed). For upcoming, team-known matches within
@@ -116,7 +134,7 @@ export async function syncKickoffTimes(
 	const nowMs = Date.now();
 	const { data: upcoming } = await supabase
 		.from('matches')
-		.select('id, home_team, away_team, match_datetime')
+		.select('id, home_team, away_team, match_datetime, competition_id')
 		.eq('status', 'upcoming')
 		.neq('home_team', 'TBD')
 		.neq('away_team', 'TBD')
@@ -124,25 +142,31 @@ export async function syncKickoffTimes(
 		.lte('match_datetime', new Date(nowMs + horizonMs).toISOString());
 
 	if (!upcoming?.length) return 0;
+	const leagueByComp = await loadLeagueByComp(supabase);
 
-	// One scoreboard fetch per relevant UTC day (±1 — ESPN groups by US date).
-	const dates = new Set<string>();
+	// One scoreboard fetch per (league, relevant UTC day ±1 — ESPN groups by US date).
+	const datesByLeague = new Map<string, Set<string>>();
 	for (const m of upcoming) {
+		const league = leagueByComp.get((m as any).competition_id) ?? 'fifa.world';
+		const set = datesByLeague.get(league) ?? new Set<string>();
 		const d = new Date(m.match_datetime);
-		for (const off of [-1, 0, 1]) {
-			const x = new Date(d.getTime() + off * 86400000);
-			dates.add(`${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`);
-		}
+		for (const off of [-1, 0, 1]) set.add(dayStr(new Date(d.getTime() + off * 86400000)));
+		datesByLeague.set(league, set);
 	}
-	const statuses = new Map<string, EspnStatus>();
-	for (const date of dates) {
-		const r = await fetchEspnEvents(date);
-		for (const [k, v] of r.statuses) if (!statuses.has(k)) statuses.set(k, v);
+	const statusesByLeague = new Map<string, Map<string, EspnStatus>>();
+	for (const [league, dates] of datesByLeague) {
+		const statuses = new Map<string, EspnStatus>();
+		for (const date of dates) {
+			const r = await fetchEspnEvents(league, date);
+			for (const [k, v] of r.statuses) if (!statuses.has(k)) statuses.set(k, v);
+		}
+		statusesByLeague.set(league, statuses);
 	}
 
 	let rescheduled = 0;
 	for (const m of upcoming) {
-		const st = statuses.get(`${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`);
+		const league = leagueByComp.get((m as any).competition_id) ?? 'fifa.world';
+		const st = statusesByLeague.get(league)?.get(`${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`);
 		if (!st?.date) continue;
 		const espnKo = new Date(st.date).getTime();
 		if (!Number.isFinite(espnKo)) continue;
@@ -185,13 +209,18 @@ export async function syncLiveScores(
 	const nowMs = Date.now();
 	const nowIso = new Date(nowMs).toISOString();
 
+	// competition_id → ESPN league slug, used by every ESPN-touching pass below.
+	const leagueByComp = await loadLeagueByComp(supabase);
+	const leagueOf = (competitionId: string | null | undefined) =>
+		leagueByComp.get(competitionId ?? '') ?? 'fifa.world';
+
 	// Pull both 'live' and 'upcoming' rows with a slug — filter past-kickoff
 	// upcoming rows in code. (Using PostgREST .or() with a nested .and() and
 	// an inline ISO timestamp doesn't work: the dots in 2026-05-14T22:36:33.303Z
 	// collide with PostgREST's field.op.value delimiter.)
 	const { data: rawMatches, error: selectError } = await supabase
 		.from('matches')
-		.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, last_score_sync_at, polymarket_event_slug')
+		.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, last_score_sync_at, polymarket_event_slug, competition_id')
 		.not('polymarket_event_slug', 'is', null)
 		.in('status', ['live', 'upcoming']);
 
@@ -305,14 +334,22 @@ export async function syncLiveScores(
 	);
 	if (timelineCandidates.length > 0) {
 		try {
-			const { events: espn, gameIds, scores, statuses } = await fetchEspnEvents();
-			if (espn.size > 0 || gameIds.size > 0) {
+			// One scoreboard fetch per league that has an in-play match (PL evening
+			// = one eng.1 call; a UCL night adds one uefa.champions call).
+			const leaguesInPlay = [...new Set(timelineCandidates.map((m) => leagueOf(m.competition_id)))];
+			const espnByLeague = new Map<string, Awaited<ReturnType<typeof fetchEspnEvents>>>();
+			for (const lg of leaguesInPlay) espnByLeague.set(lg, await fetchEspnEvents(lg));
+
+			const leagueOfMatchId = new Map(timelineCandidates.map((m) => [m.id, leagueOf(m.competition_id)]));
+			{
 				const { data: currentRows } = await supabase
 					.from('matches')
 					.select('id, home_team, away_team, status, home_score, away_score, live_events, lineups, espn_game_id, live_period, live_elapsed')
 					.in('id', timelineCandidates.map((m) => m.id));
 
 				for (const row of currentRows ?? []) {
+					const league = leagueOfMatchId.get(row.id) ?? 'fifa.world';
+					const { events: espn, gameIds, scores, statuses } = espnByLeague.get(league)!;
 					const k = `${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`;
 					const patch: Record<string, unknown> = {};
 
@@ -357,7 +394,7 @@ export async function syncLiveScores(
 					// already limited to in-play / just-ended matches; the JSON diff below
 					// skips no-op writes.
 					if (gid) {
-						const lu = await fetchEspnLineups(gid);
+						const lu = await fetchEspnLineups(league, gid);
 						if (lu) {
 							// Align ESPN home/away to OUR home/away by team name.
 							const aligned = alignLineups(lu, row.home_team);
@@ -385,15 +422,20 @@ export async function syncLiveScores(
 	// For finished matches (last 7 days) without a highlight yet, match against
 	// the playlist's RSS feed by team names and store the videoId. The feed is
 	// one cheap keyless call, fetched only when there's an unmatched match.
+	// WC-only: the playlist is FIFA's — club competitions skip it (a PL/UCL
+	// highlights source is a future feature).
 	let videosUpdated = 0;
 	try {
 		const since = new Date(nowMs - 7 * 86400_000).toISOString();
-		const { data: needHighlight } = await supabase
+		const { data: needHighlightRaw } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team')
+			.select('id, home_team, away_team, competition_id')
 			.eq('status', 'finished')
 			.is('youtube_video_id', null)
 			.gte('match_datetime', since);
+		const needHighlight = (needHighlightRaw ?? []).filter(
+			(r: any) => leagueOf(r.competition_id) === 'fifa.world'
+		);
 
 		if ((needHighlight ?? []).length > 0) {
 			const videos = await fetchHighlightVideos();
@@ -422,16 +464,17 @@ export async function syncLiveScores(
 		const since = new Date(nowMs - 7 * 86400_000).toISOString();
 		const { data: needLineups } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, espn_game_id')
+			.select('id, home_team, away_team, match_datetime, espn_game_id, competition_id')
 			.eq('status', 'finished')
 			.is('lineups', null)
 			.gte('match_datetime', since)
 			.limit(2);
 
 		for (const row of needLineups ?? []) {
-			const gid = row.espn_game_id ?? await resolveEspnGameId(row.home_team, row.away_team, row.match_datetime);
+			const league = leagueOf((row as any).competition_id);
+			const gid = row.espn_game_id ?? await resolveEspnGameId(league, row.home_team, row.away_team, row.match_datetime);
 			if (!gid) continue;
-			const lu = await fetchEspnLineups(gid);
+			const lu = await fetchEspnLineups(league, gid);
 			if (!lu) continue;
 			const aligned = alignLineups(lu, row.home_team);
 			await supabase.from('matches').update({ lineups: aligned, espn_game_id: gid }).eq('id', row.id);
@@ -449,16 +492,17 @@ export async function syncLiveScores(
 	try {
 		const { data: needVenue } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, espn_game_id')
+			.select('id, home_team, away_team, match_datetime, espn_game_id, competition_id')
 			.is('venue_country', null)
 			.neq('home_team', 'TBD')
 			.order('match_datetime', { ascending: true })
 			.limit(3);
 
 		for (const row of needVenue ?? []) {
-			const gid = row.espn_game_id ?? await resolveEspnGameId(row.home_team, row.away_team, row.match_datetime);
+			const league = leagueOf((row as any).competition_id);
+			const gid = row.espn_game_id ?? await resolveEspnGameId(league, row.home_team, row.away_team, row.match_datetime);
 			if (!gid) continue;
-			const v = await fetchEspnVenue(gid);
+			const v = await fetchEspnVenue(league, gid);
 			if (!v) continue;
 			await supabase
 				.from('matches')
@@ -527,7 +571,7 @@ export async function syncLiveScores(
 	try {
 		const { data: candidates } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, status, home_score, away_score, espn_game_id, polymarket_event_slug')
+			.select('id, home_team, away_team, match_datetime, status, home_score, away_score, espn_game_id, polymarket_event_slug, competition_id')
 			.in('status', ['upcoming', 'live'])
 			.neq('home_team', 'TBD')
 			.neq('away_team', 'TBD')
@@ -543,32 +587,36 @@ export async function syncLiveScores(
 			!m.polymarket_event_slug || nowMs - new Date(m.match_datetime).getTime() > STUCK_WINDOW_MS;
 
 		if ((candidates ?? []).length > 0) {
-			// ESPN groups the scoreboard by US date, so fetch each relevant UTC day
-			// (±1) once and merge — bounded to a couple of requests per tick.
-			const dates = new Set<string>();
+			// ESPN groups the scoreboard by US date; fetch each relevant
+			// (league, UTC day ±1) once and merge per league.
+			const datesByLeague = new Map<string, Set<string>>();
 			for (const m of candidates ?? []) {
+				const league = leagueOf((m as any).competition_id);
+				const set = datesByLeague.get(league) ?? new Set<string>();
 				const d = new Date(m.match_datetime);
-				for (const off of [-1, 0, 1]) {
-					const x = new Date(d.getTime() + off * 86400000);
-					dates.add(`${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`);
-				}
+				for (const off of [-1, 0, 1]) set.add(dayStr(new Date(d.getTime() + off * 86400000)));
+				datesByLeague.set(league, set);
 			}
-			const scores = new Map<string, { home: number; away: number }>();
-			const statuses = new Map<string, EspnStatus>();
-			const gameIds = new Map<string, string>();
-			for (const date of dates) {
-				const r = await fetchEspnEvents(date);
-				for (const [k, v] of r.scores) if (!scores.has(k)) scores.set(k, v);
-				for (const [k, v] of r.statuses) if (!statuses.has(k)) statuses.set(k, v);
-				for (const [k, v] of r.gameIds) if (!gameIds.has(k)) gameIds.set(k, v);
+			type EspnMaps = { scores: Map<string, { home: number; away: number }>; statuses: Map<string, EspnStatus>; gameIds: Map<string, string> };
+			const mapsByLeague = new Map<string, EspnMaps>();
+			for (const [league, dates] of datesByLeague) {
+				const maps: EspnMaps = { scores: new Map(), statuses: new Map(), gameIds: new Map() };
+				for (const date of dates) {
+					const r = await fetchEspnEvents(league, date);
+					for (const [k, v] of r.scores) if (!maps.scores.has(k)) maps.scores.set(k, v);
+					for (const [k, v] of r.statuses) if (!maps.statuses.has(k)) maps.statuses.set(k, v);
+					for (const [k, v] of r.gameIds) if (!maps.gameIds.has(k)) maps.gameIds.set(k, v);
+				}
+				mapsByLeague.set(league, maps);
 			}
 
 			for (const m of candidates ?? []) {
+				const maps = mapsByLeague.get(leagueOf((m as any).competition_id))!;
 				const k = `${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
-				const st = statuses.get(k);
+				const st = maps.statuses.get(k);
 				if (!st) continue; // ESPN doesn't carry this match yet — try next tick
-				const sc = scores.get(k);
-				const gid = gameIds.get(k);
+				const sc = maps.scores.get(k);
+				const gid = maps.gameIds.get(k);
 
 				// Delayed kickoff: we're past OUR stored time but ESPN still says the
 				// match hasn't started and carries a (moved) kickoff. Adopt it —
@@ -636,9 +684,9 @@ export async function syncLiveScores(
 	try {
 		const { data: liveKn } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, espn_game_id, pronostics!inner(id)')
+			.select('id, home_team, away_team, match_datetime, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, espn_game_id, competition_id, pronostics!inner(id)')
 			.eq('status', 'live')
-			.neq('stage', 'group')
+			.in('stage', KNOCKOUT_STAGES)
 			.eq('pronostics.is_scored', false)
 			.limit(3);
 
@@ -648,15 +696,18 @@ export async function syncLiveScores(
 		);
 
 		if (ripe.length > 0) {
-			const { statuses, gameIds } = await fetchEspnEvents();
+			const espnByLg = new Map<string, Awaited<ReturnType<typeof fetchEspnEvents>>>();
 			for (const m of ripe) {
+				const league = leagueOf((m as any).competition_id);
+				if (!espnByLg.has(league)) espnByLg.set(league, await fetchEspnEvents(league));
+				const { statuses, gameIds } = espnByLg.get(league)!;
 				const k = `${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
 				const st = statuses.get(k);
 				if (!st || st.state !== 'in' || (st.period ?? 0) < 3) continue; // still in regulation
 
 				const gid = (m as any).espn_game_id ?? gameIds.get(k);
 				if (!gid) continue;
-				const r = await fetchEspnKnockoutResult(gid);
+				const r = await fetchEspnKnockoutResult(league, gid);
 				if (!r) continue;
 
 				// Align ESPN home/away to our row by team name (as in the FT capture).
@@ -692,16 +743,17 @@ export async function syncLiveScores(
 	try {
 		const { data: needKn } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, match_datetime, espn_game_id')
-			.neq('stage', 'group')
+			.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, match_datetime, espn_game_id, competition_id')
+			.in('stage', KNOCKOUT_STAGES)
 			.eq('status', 'finished')
 			.eq('knockout_result_synced', false)
 			.limit(5);
 
 		for (const m of needKn ?? []) {
-			const gid = (m as any).espn_game_id ?? await resolveEspnGameId(m.home_team, m.away_team, (m as any).match_datetime);
+			const league = leagueOf((m as any).competition_id);
+			const gid = (m as any).espn_game_id ?? await resolveEspnGameId(league, m.home_team, m.away_team, (m as any).match_datetime);
 			if (!gid) continue; // no gameId yet — retry next tick
-			const r = await fetchEspnKnockoutResult(gid);
+			const r = await fetchEspnKnockoutResult(league, gid);
 			if (!r) continue; // transient — retry next tick
 
 			// Align ESPN home/away to our row by (normalised) team name.
