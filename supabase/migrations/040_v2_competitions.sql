@@ -1,10 +1,8 @@
--- 040 (V2 DRAFT — DO NOT APPLY until the V2 launch; lives on the
--- v2-next-season branch only. The live DB is the WC2026 archive.)
---
--- Multi-competition foundation: Premier League + Champions League 2026-27 as
--- two parallel games on the same accounts. Everything match-scoped gains a
--- competition_id; the WC2026 archive rows get a backfilled 'wc-2026'
--- competition so old pages keep working unchanged.
+-- 040: V2 multi-competition foundation — Premier League + Champions League
+-- 2026-27 as two parallel games on the same accounts. PURELY ADDITIVE and
+-- applied to the live DB while `main` still serves the WC2026 archive: the
+-- archive code never reads these tables/columns, and the wc-2026 backfill
+-- keeps every existing row coherent. The V2 branch builds against real data.
 
 create table public.competitions (
   id          uuid primary key default gen_random_uuid(),
@@ -34,7 +32,25 @@ update public.matches set competition_id = (select id from public.competitions w
 alter table public.matches alter column competition_id set not null;
 create index matches_competition_idx on public.matches (competition_id, match_datetime);
 
-alter table public.leagues add column competition_id uuid references public.competitions(id);
+-- Friends-leagues live in `groups` (the /leagues routes read that table).
+alter table public.groups add column competition_id uuid references public.competitions(id);
+
+-- Clubs (V2 competitions have crests, not country flags): one row per team per
+-- competition; the UI resolves a match's badge via (competition_id, name_en).
+create table public.competition_teams (
+  competition_id uuid not null references public.competitions(id) on delete cascade,
+  name_en        text not null,
+  name_fr        text,
+  short_name     text,
+  espn_team_id   text,
+  logo_url       text,
+  primary key (competition_id, name_en)
+);
+alter table public.competition_teams enable row level security;
+create policy "public read" on public.competition_teams for select using (true);
+
+-- League-format competitions play in numbered matchdays ("Journée 3").
+alter table public.matches add column matchday int;
 
 -- Favourite team becomes per-competition (Arsenal in PL, Real in UCL...).
 -- profiles.favorite_team stays as the WC2026 archive value.
