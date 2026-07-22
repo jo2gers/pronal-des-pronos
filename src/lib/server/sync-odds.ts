@@ -225,6 +225,15 @@ export async function syncCompetitionOdds(supabase: SupabaseClient) {
 		]);
 		const teamRows = teams ?? [];
 		const resolveTeam = (pmName: string) => teamRows.find((t) => clubMatches(pmName, t))?.name_en ?? null;
+		// The market question names the club in its FULL form ("Will Manchester
+		// City win vs Chelsea?") while the event title often abbreviates it ("EPL:
+		// Chelsea vs Man City"). Pull the subject out of the question and resolve it
+		// through the SAME alias matcher, so a market maps to a club regardless of
+		// which form Polymarket used.
+		const marketSubject = (q: unknown): string | null => {
+			const m = /^Will\s+(.+?)\s+(?:beat|win)\b/i.exec(String(q ?? ''));
+			return m ? m[1].trim() : null;
+		};
 
 		let oddsUpdated = 0, slugsSet = 0, lockedSkipped = 0;
 		const unmatched: string[] = [];
@@ -232,7 +241,9 @@ export async function syncCompetitionOdds(supabase: SupabaseClient) {
 		for (const event of events) {
 			const rawTitle = String(event.title ?? '').trim();
 			const title = rawTitle.replace(/^[A-Z]{2,6}:\s*/, '');
-			const parts = title.split(' vs. ');
+			// Polymarket mixes "X vs Y" and "X vs. Y" — tolerate both, else ~1/3 of
+			// PL fixtures (whichever use no period) are silently skipped.
+			const parts = title.split(/\s+vs\.?\s+/i);
 			if (parts.length !== 2) continue; // champion markets, props, etc.
 			const pmHome = parts[0].trim();
 			const pmAway = parts[1].trim();
@@ -256,8 +267,11 @@ export async function syncCompetitionOdds(supabase: SupabaseClient) {
 			if (new Date(dbMatch.match_datetime).getTime() - now < LOCK_MS) { lockedSkipped++; continue; }
 			const markets = event.markets as any[];
 			if (!Array.isArray(markets) || markets.length < 3) continue;
-			const homeMkt = markets.find((m: any) => m.question?.startsWith(`Will ${pmHome} beat`) || m.question?.startsWith(`Will ${pmHome} win`));
-			const awayMkt = markets.find((m: any) => m.question?.startsWith(`Will ${pmAway} beat`) || m.question?.startsWith(`Will ${pmAway} win`));
+			// Resolve each "Will <club> beat/win" market to a club via the alias
+			// matcher, then map to home/away by the resolved name_en — not the raw
+			// title token, which can differ from the question's full club name.
+			const homeMkt = markets.find((m: any) => { const s = marketSubject(m.question); return s != null && resolveTeam(s) === homeName; });
+			const awayMkt = markets.find((m: any) => { const s = marketSubject(m.question); return s != null && resolveTeam(s) === awayName; });
 			const drawMkt = markets.find((m: any) => m.question?.toLowerCase().includes('draw'));
 			if (!homeMkt || !awayMkt || !drawMkt) { unmatched.push(`${rawTitle} (marchés incomplets)`); continue; }
 

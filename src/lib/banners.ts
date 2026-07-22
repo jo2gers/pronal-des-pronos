@@ -26,6 +26,12 @@ export const BANNER_OPTIONS = [
 		i18n: 'banner_thanks',
 		tone: 'info',
 		adminLabel: 'Fin du tournoi · merci d\'avoir joué'
+	},
+	{
+		id: 'new_season',
+		i18n: 'banner_new_season',
+		tone: 'info',
+		adminLabel: 'Nouvelle saison · inscriptions ouvertes'
 	}
 ] as const;
 

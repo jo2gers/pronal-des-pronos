@@ -571,7 +571,7 @@ export async function syncLiveScores(
 	try {
 		const { data: candidates } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, status, home_score, away_score, espn_game_id, polymarket_event_slug, competition_id')
+			.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, espn_game_id, polymarket_event_slug, competition_id')
 			.in('status', ['upcoming', 'live'])
 			.neq('home_team', 'TBD')
 			.neq('away_team', 'TBD')
@@ -662,7 +662,28 @@ export async function syncLiveScores(
 				espnBackstopUpdates++;
 				// The capture pass (knockout, next) + safety pass (groups) score it;
 				// ended>0 also fires the bracket→slug→odds cascade for the next round.
-				if (patch.status === 'finished') ended++;
+				if (patch.status === 'finished') {
+					ended++;
+					// Score a finished NON-knockout (league/group) match right here:
+					// the capture pass only handles knockouts, and the safety pass uses
+					// pronostics!inner so it drops a zero-pick match — which would then
+					// lose the club bonus for the winner's supporters. Knockouts are
+					// left to the capture pass (they need the 90-min regulation split).
+					// Idempotent: bonus_calculated gates the award.
+					if (!KNOCKOUT_STAGES.includes(m.stage)) {
+						try {
+							await scoreMatch(supabase, {
+								id: m.id,
+								home_team: m.home_team,
+								away_team: m.away_team,
+								home_score: sc?.home ?? m.home_score,
+								away_score: sc?.away ?? m.away_score,
+								stage: m.stage,
+								bonus_calculated: m.bonus_calculated
+							});
+						} catch { /* safety pass retries next tick */ }
+					}
+				}
 			}
 		}
 	} catch {
@@ -829,6 +850,7 @@ export async function syncLiveScores(
 	let bracketUpdated = 0;
 	let slugsUpdated = 0;
 	let oddsUpdated = 0;
+	let oddsSynced = false;
 	if (ended > 0) {
 		try {
 			const { data: bracketResult } = await supabase.rpc('resolve_bracket');
@@ -843,8 +865,36 @@ export async function syncLiveScores(
 				for (const r of Object.values(results) as any[]) {
 					if (r?.ok) { slugsUpdated += r.slugsSet ?? 0; oddsUpdated += r.oddsUpdated ?? 0; }
 				}
+				oddsSynced = true;
 			} catch { /* non-fatal */ }
 		}
+	}
+
+	// ── Intraday odds/slug safety net ──────────────────────────────────────────
+	// The daily 06:00 fetch-odds cron is otherwise the ONLY populator of match
+	// odds+slugs, so a Polymarket market that opens after it (but before kickoff)
+	// would leave the fixture locking with no odds (flat-3x) and no slug (no live
+	// tracking). When any match kicks off within the next 6h, refresh odds+slugs
+	// this tick too — unless the ended>0 cascade above already did. Bounded to the
+	// hours before a match; syncCompetitionOdds is idempotent (slug write ignores
+	// the lock, odds respect the 5-min lock).
+	if (!oddsSynced) {
+		try {
+			const soon = new Date(nowMs + 6 * 60 * 60 * 1000).toISOString();
+			const { data: near } = await supabase
+				.from('matches')
+				.select('id')
+				.eq('status', 'upcoming')
+				.gte('match_datetime', nowIso)
+				.lte('match_datetime', soon)
+				.limit(1);
+			if ((near ?? []).length > 0) {
+				const results = await syncCompetitionOdds(supabase);
+				for (const r of Object.values(results) as any[]) {
+					if (r?.ok) { slugsUpdated += r.slugsSet ?? 0; oddsUpdated += r.oddsUpdated ?? 0; }
+				}
+			}
+		} catch { /* non-fatal */ }
 	}
 
 	return {

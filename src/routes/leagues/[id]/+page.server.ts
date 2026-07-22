@@ -24,15 +24,16 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 			.from('group_members')
 			.select('role, joined_at, profiles(id, username, display_name, avatar_url, team_bonus_points)')
 			.eq('group_id', params.id),
-		// Per-user scored aggregates from the DB view (no 1000-row cap, no re-summing).
-		isLegacyWc
-			? supabase
-					.from('user_pronostic_stats')
-					.select('user_id, prono_points, picks, winners, exact')
-			: supabase
-					.from('competition_pronostic_stats')
-					.select('user_id, prono_points, picks, winners, exact')
-					.eq('competition_id', competition.id),
+		// Per-user scored aggregates, ALWAYS scoped to this group's competition —
+		// the global user_pronostic_stats view sums across every competition, so a
+		// WC-archive league would absorb Premier League points once PL scoring
+		// starts. competition_pronostic_stats returns identical numbers for wc-2026
+		// today (WC is the only scored competition) — a safe swap. (Legacy WC still
+		// differs only in its bonus source: profiles.team_bonus_points below.)
+		supabase
+			.from('competition_pronostic_stats')
+			.select('user_id, prono_points, picks, winners, exact')
+			.eq('competition_id', competition?.id ?? null),
 		supabase
 			.from('friendships')
 			.select(`
