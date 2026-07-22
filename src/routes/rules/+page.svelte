@@ -56,13 +56,13 @@
 		<h2 class="text-base font-bold text-fg">{fr ? 'Le bonus club' : 'The club bonus'}</h2>
 		<p class="text-sm text-muted leading-relaxed">
 			{fr
-				? 'Choisis un club par compétition (page « Mon club ») avant le début de la saison — ensuite c\'est verrouillé. Chaque victoire de ton club te rapporte automatiquement son multiplicateur en points, même sans prono.'
-				: 'Pick one club per competition (the “My club” page) before the season starts — then it locks. Every win by your club automatically pays its multiplier in points, no pick needed.'}
+				? 'Choisis un club par compétition (page « Mon club ») avant le début de la saison — ensuite c\'est verrouillé. Chaque victoire de ton club te rapporte automatiquement des points, même sans prono.'
+				: 'Pick one club per competition (the “My club” page) before the season starts — then it locks. Every win by your club automatically pays you points, no pick needed.'}
 		</p>
 		<p class="text-sm text-muted leading-relaxed">
 			{fr
-				? 'Le multiplicateur vient de la cote du club au titre, figée au coup d\'envoi de la saison : le favori paie ×1 par victoire, un outsider ×5 ou plus. En Ligue des Champions, les tours à élimination paient davantage (8e ×4 … finale ×21).'
-				: 'The multiplier comes from the club\'s title odds, frozen at the season kickoff: the favourite pays ×1 per win, an underdog ×5 or more. In the Champions League, knockout rounds pay more (R16 ×4 … final ×21).'}
+				? 'Le multiplicateur vient de la cote du club au titre, figée au coup d\'envoi de la saison : chaque victoire rapporte la moitié de ce multiplicateur — un favori ~0,5 point, un outsider 2 à 3. En Ligue des Champions, les tours à élimination paient davantage (8e ×4 … finale ×21).'
+				: 'The multiplier comes from the club\'s title odds, frozen at the season kickoff: each win pays half that multiplier — a favourite ~0.5 point, an underdog 2 to 3. In the Champions League, knockout rounds pay more (R16 ×4 … final ×21).'}
 		</p>
 	</section>
 

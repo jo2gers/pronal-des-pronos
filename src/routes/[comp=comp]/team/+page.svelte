@@ -27,8 +27,8 @@
 		</h1>
 		<p class="text-sm text-muted mt-3 leading-relaxed max-w-[52ch]">
 			{fr
-				? 'Chaque victoire de ton club te rapporte automatiquement son multiplicateur en points — même sans prono. Plus le club est outsider, plus ça paie.'
-				: 'Every win by your club automatically pays its multiplier in points — no pick needed. The bigger the underdog, the bigger the payout.'}
+				? 'Chaque victoire de ton club te rapporte automatiquement des points — même sans prono. Plus le club est outsider, plus ça paie.'
+				: 'Every win by your club automatically pays you points — no pick needed. The bigger the underdog, the bigger the payout.'}
 		</p>
 		{#if data.locked}
 			<p class="text-[11px] text-warn mt-2">
@@ -51,7 +51,7 @@
 
 	<div class="grid grid-cols-2 sm:grid-cols-3 gap-2" in:reveal={{ delay: 100, y: 10 }}>
 		{#each data.teams as team (team.name_en)}
-			{@const mult = data.multByTeam[team.name_en] ?? null}
+			{@const perWin = data.perWinByTeam[team.name_en] ?? null}
 			{@const selected = data.myTeam === team.name_en}
 			<form method="POST" action="?/pick"
 				use:enhance={({ formData, cancel }) => {
@@ -84,9 +84,9 @@
 						<span class="block text-sm font-semibold truncate {selected ? 'text-accent' : 'text-fg'}">
 							{team.short_name ?? team.name_en}
 						</span>
-						{#if mult != null}
-							<span class="block text-[11px] tabular-nums {mult >= 4 ? 'text-accent' : 'text-faint'}">
-								×{mult} {fr ? 'par victoire' : 'per win'}
+						{#if perWin != null}
+							<span class="block text-[11px] tabular-nums {perWin >= 2 ? 'text-accent' : 'text-faint'}">
+								+{perWin} {fr ? 'pts / victoire' : 'pts / win'}
 							</span>
 						{/if}
 					</span>

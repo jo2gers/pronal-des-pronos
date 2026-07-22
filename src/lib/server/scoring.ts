@@ -23,10 +23,15 @@ export const STAGE_BONUS: Record<string, number> = {
 	semis:       13,
 	third:       5,
 	final:       21,
-	// V2 (club competitions): a flat 1 per league win — a 38-match season needs
-	// no escalation ladder; the UCL knockout reuses the ladder above, with the
-	// play-off round slotted at 2. Must mirror the V2 rules page at launch.
-	league:      1,
+	// V2 (club competitions): each league win pays 0.5 × the club's title-odds
+	// multiplier — a 38-match season needs no escalation ladder, and the 0.5
+	// coefficient keeps the passive club bonus a flavour, not a driver (the WC
+	// survey flagged point inflation making good picks feel less decisive; a
+	// favourite ×1.0 pays 0.5/win, an outsider ×5.2 pays ~2.6/win). The UCL
+	// knockout reuses the ladder above, play-off slotted at 2. Every surface that
+	// SHOWS the club bonus (rules page, /[comp]/team ×mult badges, leaderboard)
+	// must reflect this 0.5 coefficient — the displayed number is the real one.
+	league:      0.5,
 	playoff:     2
 };
 

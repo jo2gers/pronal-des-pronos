@@ -1,4 +1,5 @@
 import { redirect, fail } from '@sveltejs/kit';
+import { STAGE_BONUS } from '$lib/server/scoring';
 import type { Actions, PageServerLoad } from './$types';
 
 // Favourite club per competition — pickable (and changeable) until the season
@@ -27,14 +28,23 @@ export const load: PageServerLoad = async ({ params, parent, locals: { supabase,
 			.maybeSingle()
 	]);
 
-	const multByTeam: Record<string, number> = {};
-	for (const o of odds ?? []) multByTeam[o.team_name_en] = parseFloat(String(o.multiplier));
+	// The badge shows the REAL points a win pays, not the raw title-odds
+	// multiplier: per-win = STAGE_BONUS.league × multiplier (league coefficient is
+	// 0.5, so an Arsenal ×1.0 pays 0.5/win, a Newcastle ×5.2 pays ~2.6/win).
+	// Single-sourced from scoring.ts so the advertised rate can never drift from
+	// what actually accrues.
+	const leagueCoef = STAGE_BONUS.league ?? 1;
+	const perWinByTeam: Record<string, number> = {};
+	for (const o of odds ?? []) {
+		const mult = parseFloat(String(o.multiplier));
+		perWinByTeam[o.team_name_en] = Math.round(mult * leagueCoef * 10) / 10;
+	}
 
 	const locked = !!competition.starts_at && Date.now() >= new Date(competition.starts_at).getTime();
 
 	return {
 		teams: teams ?? [],
-		multByTeam,
+		perWinByTeam,
 		myTeam: mine?.team ?? null,
 		myBonus: mine ? parseFloat(String(mine.bonus_points ?? 0)) : 0,
 		locked,
