@@ -6,14 +6,17 @@ import type { LayoutServerLoad } from './$types';
 // profiles (the leaderboard links to them). Everything else redirects home.
 // Central here so every sub-route is covered without per-page guards. /admin
 // stays reachable (password-gated); /api endpoints don't run layout loads.
+// V2 launch: registration is OPEN again for the new season. Still closed —
+// WC-shaped pages pending their V2 rework: bracket/schedule (archive-only
+// views), leagues/friends (need per-competition scoping in the UI), teams
+// (country pages), rules (needs the V2 scoring rewrite).
 const CLOSED_PREFIXES = [
 	'/bracket',
 	'/schedule',
 	'/leagues',
 	'/friends',
 	'/teams',
-	'/rules',
-	'/auth/register'
+	'/rules'
 ];
 
 export const load: LayoutServerLoad = async ({ url, locals: { supabase, safeGetSession } }) => {

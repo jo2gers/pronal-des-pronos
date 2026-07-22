@@ -157,6 +157,26 @@ Décision restante :
 
 ---
 
+## 2c. Le jour du lancement (checklist de merge)
+
+Le site de la branche EST le site du lancement : accueil saison (cartes PL/UCL
++ compte à rebours), nav par compétitions, inscriptions rouvertes, archive CDM
+derrière un lien. Merger la PR = lancer. À faire ce jour-là :
+
+- [ ] `update site_settings set banner_key = null` (retirer la bannière
+      « merci d'avoir joué » de l'archive).
+- [ ] Vérifier que les slugs UCL sont posés (série + marché champion) si le
+      tirage a eu lieu — sinon la carte UCL affiche « tirage fin août », OK.
+- [ ] Merger la PR → Vercel déploie. C'est tout (migrations 040-044 déjà
+      appliquées, PL ingérée, cotes/multiplicateurs en place).
+- [ ] Annonce aux joueurs (la base compte ~47 comptes CDM, tous conservés).
+
+Rouvertures à traiter APRÈS le lancement (pages encore fermées car formées
+pour la CDM) : ligues d'amis + amis (re-scoper par compétition), règles
+(réécrire pour le barème V2), pages équipe.
+
+---
+
 ## 3. Comment on travaille (réponse à « comment venir modifier après ? »)
 
 1. Cette branche `v2-next-season` a une **PR brouillon** sur GitHub — la prod

@@ -38,21 +38,18 @@
 		return next ? `?next=${encodeURIComponent(next)}` : '';
 	});
 
+	// V2 season nav: the competitions ARE the site. The WC archive lives behind
+	// the home-page link (its /matches & /leaderboard routes stay reachable).
 	const navLinks = $derived([
-		{ href: '/',            label: t('nav_home') },
-		{ href: '/matches',     label: t('nav_matches') },
-		{ href: '/leaderboard', label: t('nav_leaderboard') },
-		// V2 preview entry — the 2026-27 season shell (branch only until launch).
-		{ href: '/pl-2026-27/matches', label: 'Saison 2026-27' },
-		// Feedback survey — proposed until this account has answered.
-		...(data.surveyDone ? [] : [{ href: '/survey', label: t('nav_survey') }]),
+		{ href: '/',                    label: t('nav_home') },
+		{ href: '/pl-2026-27/matches',  label: 'Premier League' },
+		{ href: '/ucl-2026-27/matches', label: getLang() === 'fr' ? 'Ligue des Champions' : 'Champions League' },
 	]);
 
-	// Mobile tab bar — tournament over: archive mode, three destinations.
 	const mobileTabs = $derived([
-		{ href: '/',            label: t('nav_home') },
-		{ href: '/matches',     label: t('nav_matches') },
-		{ href: '/leaderboard', label: t('nav_leaderboard') },
+		{ href: '/',                    label: t('nav_home') },
+		{ href: '/pl-2026-27/matches',  label: 'PL' },
+		{ href: '/ucl-2026-27/matches', label: 'UCL' },
 	]);
 
 	$effect(() => {
@@ -341,8 +338,11 @@
 						{t('nav_logout')}
 					</button>
 				{:else}
-					<!-- Tournament over — no new sign-ups, login stays for existing players. -->
 					<a href="/auth/login{authQS}" class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
+					<a href="/auth/register{authQS}"
+						class="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-canvas hover:bg-accent-hi transition-colors">
+						{t('nav_register')}
+					</a>
 				{/if}
 			</div>
 
@@ -446,6 +446,7 @@
 							<button onclick={logout} class="whitespace-nowrap text-sm text-faint hover:text-err transition-colors cursor-pointer">{t('nav_logout')}</button>
 						{:else}
 							<a href="/auth/login{authQS}" onclick={closeMenu} class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
+							<a href="/auth/register{authQS}" onclick={closeMenu} class="text-sm text-accent font-semibold">{t('nav_register')}</a>
 						{/if}
 					</div>
 				</div>

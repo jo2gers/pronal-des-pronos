@@ -1,136 +1,125 @@
 <script lang="ts">
-	// Farewell home — the tournament is over. Thank-you note (visitor's language),
-	// world champion, players' final podium, and the two doors that stay open.
-	import { t, getLang } from '$lib/i18n.svelte';
-	import { teamLabel } from '$lib/wc2026';
-	import { knockoutOutcome } from '$lib/utils';
-	import { reveal, pop } from '$lib/motion';
-	import Flag from '$lib/components/Flag.svelte';
+	// V2 season home — one card per competition, the season countdown, and the
+	// doors in. Logged-out visitors get the pitch + sign-up (reopened for the
+	// new season); the WC archive is one link at the bottom.
+	import { getLang, t } from '$lib/i18n.svelte';
+	import { formatDate, formatTime } from '$lib/utils';
+	import { reveal } from '$lib/motion';
 	import CountUp from '$lib/components/CountUp.svelte';
 
 	let { data } = $props();
 
-	const fin = $derived(data.finalMatch as any);
-	// Effective final result: 90' score + the ET/pens line (Spain won 1-0 a.p.).
-	const outcome = $derived(fin ? knockoutOutcome(fin) : null);
-	const champTeam = $derived.by(() => {
-		if (!fin) return null;
-		const homeWon = outcome ? outcome.winner === 'home' : (fin.home_score ?? 0) > (fin.away_score ?? 0);
-		return {
-			name: homeWon ? fin.home_team : fin.away_team,
-			flag: homeWon ? fin.home_flag : fin.away_flag
-		};
-	});
+	const fr = $derived(getLang() === 'fr');
+	const name = (c: { name_fr: string; name_en: string }) => (fr ? c.name_fr : c.name_en);
 
-	const medal = ['text-accent', 'text-fg/80', 'text-bonus'];
+	// Days until the earliest season kickoff (PL: Aug 21).
+	const firstKickoff = $derived.by(() => {
+		const dates = data.cards.map((c) => c.starts_at).filter(Boolean) as string[];
+		return dates.length ? dates.reduce((a, b) => (a < b ? a : b)) : null;
+	});
+	const daysToGo = $derived(
+		firstKickoff ? Math.max(0, Math.ceil((new Date(firstKickoff).getTime() - Date.now()) / 86400000)) : null
+	);
+
+	const info = (card: any, team: string) => card.teamMap[team] ?? { short: team, logo: null };
 </script>
 
-<div class="max-w-2xl mx-auto space-y-12 pt-6 sm:pt-12 pb-8">
+<div class="max-w-2xl mx-auto space-y-10">
 
-	<!-- ── Thank you ─────────────────────────────────────────────────────────── -->
-	<section class="text-center" in:reveal={{ y: 12 }}>
-		<p class="text-[10.5px] uppercase tracking-[0.2em] text-faint mb-5" style="font-family: var(--font-mono)">
-			{getLang() === 'fr' ? 'Coupe du Monde 2026 · 11 juin – 19 juillet' : 'World Cup 2026 · June 11 – July 19'}
+	<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+	<section class="text-center pt-4 sm:pt-8" in:reveal={{ y: 12 }}>
+		<p class="text-[10.5px] uppercase tracking-[0.2em] text-faint mb-4" style="font-family: var(--font-mono)">
+			{fr ? 'Saison 2026-27' : '2026-27 season'}
 		</p>
-		<h1 class="text-5xl sm:text-6xl font-bold leading-[0.98]"
+		<h1 class="text-4xl sm:text-5xl font-bold leading-[0.98]"
 			style="font-family: var(--font-display); letter-spacing: -0.04em; text-wrap: balance">
-			{t('over_title')}
+			{fr ? 'La saison des pronos.' : 'The season of picks.'}
 		</h1>
-		<p class="text-[17px] leading-relaxed text-muted max-w-[46ch] mx-auto mt-6">
-			{t('over_body')}
+		<p class="text-[16px] leading-relaxed text-muted max-w-[48ch] mx-auto mt-4">
+			{fr
+				? 'Premier League et Ligue des Champions : pronostique chaque match, vise le score exact — les scores improbables paient gros.'
+				: 'Premier League and Champions League: call every match, chase the exact score — unlikely scorelines pay big.'}
 		</p>
+		{#if daysToGo != null && daysToGo > 0}
+			<p class="mt-5 text-2xl font-bold text-accent tabular-nums" style="font-family: var(--font-display)">
+				J−<CountUp value={daysToGo} decimals={0} duration={700} />
+			</p>
+		{/if}
+		{#if !data.user}
+			<div class="mt-6 flex gap-3 justify-center flex-wrap">
+				<a href="/auth/register" class="rounded-full bg-accent hover:bg-accent-hi px-6 py-3 text-sm font-bold text-canvas transition-colors">
+					{t('nav_register')}
+				</a>
+				<a href="/auth/login" class="rounded-full border border-wire-hi hover:bg-panel px-6 py-3 text-sm font-medium text-fg transition-colors">
+					{t('nav_login')}
+				</a>
+			</div>
+		{/if}
 	</section>
 
-	<!-- ── Feedback survey invite — until this account has answered ──────────── -->
-	{#if !data.surveyDone}
-		<section in:reveal={{ delay: 80, y: 12 }}>
-			<a href="/survey"
-				class="block rounded-2xl border border-accent/30 px-6 py-6 text-center hover:border-accent/60 transition-colors"
-				style="background: var(--color-accent-lo)">
-				<p class="text-lg font-bold text-fg" style="font-family: var(--font-display); letter-spacing: -0.02em">
-					💬 {t('home_survey_title')}
-				</p>
-				<p class="text-sm text-muted mt-2 max-w-[46ch] mx-auto">{t('home_survey_body')}</p>
-				<span class="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-canvas mt-4">
-					{t('home_survey_cta')}
-					<span aria-hidden="true">→</span>
-				</span>
-			</a>
-		</section>
-	{/if}
-
-	<!-- ── World champion ────────────────────────────────────────────────────── -->
-	{#if fin && champTeam}
-		<section in:reveal={{ delay: 120, y: 12 }}>
-			<a href="/matches/{fin.id}"
-				class="block rounded-2xl border border-wire bg-panel px-6 py-7 text-center hover:border-wire-hi transition-colors">
-				<p class="text-[10px] uppercase tracking-[0.14em] text-faint mb-4" style="font-family: var(--font-mono)">
-					🏆 {t('over_champion')}
-				</p>
-				<div class="flex items-center justify-center gap-3" in:pop={{ delay: 260 }}>
-					<Flag code={champTeam.flag} size={44} alt={teamLabel(champTeam.name)} />
-					<span class="text-3xl sm:text-4xl font-bold text-fg"
-						style="font-family: var(--font-display); letter-spacing: -0.02em">
-						{teamLabel(champTeam.name)}
-					</span>
-				</div>
-				<p class="text-sm text-faint mt-4 tabular-nums">
-					{teamLabel(fin.home_team)} {fin.home_score}–{fin.away_score} {teamLabel(fin.away_team)}
-					{#if outcome}
-						<span class="text-muted"> · {outcome.decided === 'pens' ? t('result_pens') : t('result_aet')} {outcome.home}–{outcome.away}</span>
+	<!-- ── One card per competition ─────────────────────────────────────────── -->
+	{#each data.cards as card, i (card.slug)}
+		<section class="rounded-2xl border border-wire bg-panel overflow-hidden" in:reveal={{ delay: 120 + i * 90, y: 12 }}>
+			<div class="px-5 py-4 flex items-baseline justify-between gap-3 border-b border-wire/60">
+				<h2 class="text-xl font-bold" style="font-family: var(--font-display); letter-spacing: -0.02em">
+					{name(card)}
+				</h2>
+				<p class="text-[11px] text-faint tabular-nums" style="font-family: var(--font-mono)">
+					{#if card.matchCount > 0}
+						{card.matchCount} {fr ? 'matchs' : 'matches'}{card.starts_at ? ` · ${formatDate(card.starts_at, getLang())}` : ''}
+					{:else}
+						{fr ? 'tirage fin août' : 'draw late August'}
 					{/if}
 				</p>
-			</a>
-		</section>
-	{/if}
-
-	<!-- ── Players' final podium ─────────────────────────────────────────────── -->
-	{#if data.top3.length > 0}
-		<section in:reveal={{ delay: 220, y: 12 }}>
-			<p class="text-[11px] uppercase tracking-[0.1em] text-faint mb-3 px-1" style="font-family: var(--font-mono)">
-				{t('over_podium')}
-			</p>
-			<div class="-mx-4 sm:mx-0 divide-y divide-wire/60 border-y border-wire sm:border sm:rounded-xl sm:bg-panel/40 overflow-hidden">
-				{#each data.top3 as p, i}
-					<a href="/profile/{p.id}" class="flex items-center gap-3 px-4 py-3.5 hover:bg-raised/40 transition-colors">
-						<span class="w-7 text-center text-lg font-bold tabular-nums {medal[i]}"
-							style="font-family: var(--font-display)">{i + 1}</span>
-						{#if p.avatar_url}
-							<img src={p.avatar_url} alt="" class="w-9 h-9 rounded-full object-cover shrink-0" />
-						{:else}
-							<span class="w-9 h-9 rounded-full bg-raised border border-wire flex items-center justify-center text-sm font-bold text-muted shrink-0">
-								{(p.display_name ?? p.username ?? '?')[0]?.toUpperCase()}
-							</span>
-						{/if}
-						<span class="flex-1 min-w-0 truncate text-sm font-semibold text-fg">
-							{p.display_name ?? p.username ?? '?'}
-						</span>
-						<span class="font-bold tabular-nums {i === 0 ? 'text-accent' : 'text-fg/80'}"
-							style="font-family: var(--font-display)">
-							<CountUp value={p.total} />
-						</span>
-					</a>
-				{/each}
 			</div>
-			{#if data.myRank && data.myRank > 3}
-				<p class="text-sm text-faint mt-3 px-1 text-center">
-					{t('your_rank')} · <span class="text-fg font-semibold tabular-nums">#{data.myRank}</span>
-					<span class="text-faint">/ {data.playerCount}</span>
+
+			{#if card.next.length > 0}
+				<div class="divide-y divide-wire/40">
+					{#each card.next as m (m.id)}
+						<a href="/{card.slug}/matches/{m.id}" class="flex items-center gap-3 px-5 py-2.5 hover:bg-raised/40 transition-colors">
+							<div class="flex-1 min-w-0 flex items-center justify-end gap-2">
+								<span class="truncate text-sm text-fg text-right">{info(card, m.home_team).short}</span>
+								{#if info(card, m.home_team).logo}<img src={info(card, m.home_team).logo} alt="" class="w-5 h-5 object-contain shrink-0" loading="lazy" />{/if}
+							</div>
+							<span class="shrink-0 text-[11px] text-faint tabular-nums w-14 text-center">{formatTime(m.match_datetime, getLang())}</span>
+							<div class="flex-1 min-w-0 flex items-center gap-2">
+								{#if info(card, m.away_team).logo}<img src={info(card, m.away_team).logo} alt="" class="w-5 h-5 object-contain shrink-0" loading="lazy" />{/if}
+								<span class="truncate text-sm text-fg">{info(card, m.away_team).short}</span>
+							</div>
+						</a>
+					{/each}
+				</div>
+			{:else}
+				<p class="px-5 py-6 text-sm text-muted text-center">
+					{fr ? 'Le calendrier arrive avec le tirage de la phase de ligue.' : 'Fixtures arrive with the league-phase draw.'}
 				</p>
 			{/if}
-		</section>
-	{/if}
 
-	<!-- ── The two doors that stay open ──────────────────────────────────────── -->
-	<section class="flex gap-3 justify-center flex-wrap" in:reveal={{ delay: 320, y: 10 }}>
-		<a href="/leaderboard"
-			class="inline-flex items-center gap-2 rounded-full bg-accent hover:bg-accent-hi px-6 py-3 text-sm font-semibold text-canvas transition-colors">
-			{t('over_cta_leaderboard')}
-			<span aria-hidden="true">→</span>
+			<div class="px-5 py-3.5 border-t border-wire/60 flex items-center gap-4 flex-wrap">
+				<a href="/{card.slug}/matches" class="text-sm font-semibold text-accent hover:text-accent-hi transition-colors">
+					{fr ? 'Pronostiquer' : 'Make picks'} →
+				</a>
+				<a href="/{card.slug}/leaderboard" class="text-sm text-muted hover:text-fg transition-colors">
+					{t('nav_leaderboard')}
+				</a>
+				<a href="/{card.slug}/team" class="text-sm text-muted hover:text-fg transition-colors ml-auto">
+					{#if card.myTeam}
+						<span class="inline-flex items-center gap-1.5">
+							{#if info(card, card.myTeam).logo}<img src={info(card, card.myTeam).logo} alt="" class="w-4 h-4 object-contain" />{/if}
+							{info(card, card.myTeam).short}
+						</span>
+					{:else}
+						{fr ? 'Choisir mon club' : 'Pick my club'}
+					{/if}
+				</a>
+			</div>
+		</section>
+	{/each}
+
+	<!-- ── The archive ──────────────────────────────────────────────────────── -->
+	<p class="text-center text-sm text-faint pb-4" in:reveal={{ delay: 320 }}>
+		<a href="/matches" class="hover:text-fg transition-colors underline decoration-wire underline-offset-4">
+			{fr ? 'Archive · Coupe du Monde 2026 🏆 Espagne' : 'Archive · World Cup 2026 🏆 Spain'}
 		</a>
-		<a href="/matches"
-			class="inline-flex items-center rounded-full border border-wire-hi hover:bg-panel px-6 py-3 text-sm font-medium text-fg transition-colors">
-			{t('over_cta_matches')}
-		</a>
-	</section>
+	</p>
 </div>
