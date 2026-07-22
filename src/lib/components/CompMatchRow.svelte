@@ -31,7 +31,8 @@
 		away,
 		existingProno = null,
 		loggedIn = false,
-		action = '?/pronostic'
+		action = '?/pronostic',
+		href = null
 	}: {
 		match: MatchLike;
 		home: Team;
@@ -39,6 +40,7 @@
 		existingProno?: { predicted_home: number; predicted_away: number } | null;
 		loggedIn?: boolean;
 		action?: string;
+		href?: string | null;
 	} = $props();
 
 	let h = $state(existingProno?.predicted_home ?? 0);
@@ -145,7 +147,11 @@
 
 			<!-- V2: live exact-score multiplier + save state -->
 			<div class="mt-1.5 flex items-center justify-center gap-3 h-4 text-[11px] tabular-nums">
-				<span class="text-faint">{formatTime(match.match_datetime, getLang())}</span>
+				{#if href}
+					<a {href} class="text-faint hover:text-fg transition-colors">{formatTime(match.match_datetime, getLang())} →</a>
+				{:else}
+					<span class="text-faint">{formatTime(match.match_datetime, getLang())}</span>
+				{/if}
 				{#if exactMult != null}
 					<span class="text-accent font-semibold">
 						{fr ? 'score exact' : 'exact score'} ×{exactMult}
@@ -164,23 +170,30 @@
 			</div>
 		</form>
 	{:else}
-		<div class="flex items-center gap-3">
-			{@render teamSide(match.home_team, home, 'end')}
-			<div class="shrink-0 text-center w-16">
-				{#if match.status === 'finished' || match.status === 'live'}
-					<span class="font-bold tabular-nums {match.status === 'live' ? 'text-live' : 'text-fg'}" style="font-family: var(--font-display)">
-						{match.home_score ?? 0}–{match.away_score ?? 0}
-					</span>
-				{:else}
-					<span class="text-xs text-faint tabular-nums">{formatTime(match.match_datetime, getLang())}</span>
-				{/if}
+		{#snippet staticRow()}
+			<div class="flex items-center gap-3">
+				{@render teamSide(match.home_team, home, 'end')}
+				<div class="shrink-0 text-center w-16">
+					{#if match.status === 'finished' || match.status === 'live'}
+						<span class="font-bold tabular-nums {match.status === 'live' ? 'text-live' : 'text-fg'}" style="font-family: var(--font-display)">
+							{match.home_score ?? 0}–{match.away_score ?? 0}
+						</span>
+					{:else}
+						<span class="text-xs text-faint tabular-nums">{formatTime(match.match_datetime, getLang())}</span>
+					{/if}
+				</div>
+				{@render teamSide(match.away_team, away, 'start')}
 			</div>
-			{@render teamSide(match.away_team, away, 'start')}
-		</div>
-		{#if existingProno}
-			<p class="mt-1 text-center text-[11px] text-faint tabular-nums">
-				{fr ? 'Ton prono' : 'Your pick'} <span class="text-muted font-semibold">{existingProno.predicted_home}–{existingProno.predicted_away}</span>
-			</p>
+			{#if existingProno}
+				<p class="mt-1 text-center text-[11px] text-faint tabular-nums">
+					{fr ? 'Ton prono' : 'Your pick'} <span class="text-muted font-semibold">{existingProno.predicted_home}–{existingProno.predicted_away}</span>
+				</p>
+			{/if}
+		{/snippet}
+		{#if href}
+			<a {href} class="block">{@render staticRow()}</a>
+		{:else}
+			{@render staticRow()}
 		{/if}
 	{/if}
 </div>

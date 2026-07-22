@@ -46,7 +46,8 @@
 								home={teamInfo(m.home_team)}
 								away={teamInfo(m.away_team)}
 								existingProno={data.pronosticsMap[m.id] ?? null}
-								loggedIn={!!data.user} />
+								loggedIn={!!data.user}
+								href="/{data.competition.slug}/matches/{m.id}" />
 						{/each}
 					</div>
 				</section>
