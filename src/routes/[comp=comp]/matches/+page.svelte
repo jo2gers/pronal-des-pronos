@@ -33,7 +33,7 @@
 <div class="max-w-2xl mx-auto space-y-6">
 	<header in:reveal={{ y: 10 }}>
 		<p class="text-[10.5px] uppercase tracking-[0.14em] text-faint" style="font-family: var(--font-mono)">
-			{getLang() === 'fr' ? 'Saison 2026-27 · aperçu V2' : '2026-27 season · V2 preview'}
+			{getLang() === 'fr' ? 'Saison 2026-27' : '2026-27 season'}
 		</p>
 		<h1 class="text-3xl sm:text-4xl font-bold mt-1" style="font-family: var(--font-display); letter-spacing: -0.03em">
 			{compName}

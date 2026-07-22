@@ -38,24 +38,24 @@
 		return next ? `?next=${encodeURIComponent(next)}` : '';
 	});
 
-	// V2 season nav: the competitions ARE the site. The WC archive lives behind
-	// the home-page link (its /matches & /leaderboard routes stay reachable).
+	// V2 nav: you CHOOSE a competition from the home chooser and live inside it —
+	// so the header no longer carries PL/UCL switcher links (that would undo the
+	// "commit to one" model). Accueil is the chooser/hub; the rest is global
+	// social + rules chrome. The active competition's own sections (Matchs /
+	// Classement / Mon club) live in the /[comp] sub-nav.
 	const navLinks = $derived([
-		{ href: '/',                    label: t('nav_home') },
-		{ href: '/pl-2026-27/matches',  label: 'Premier League' },
-		{ href: '/ucl-2026-27/matches', label: getLang() === 'fr' ? 'Ligue des Champions' : 'Champions League' },
-		{ href: '/leagues',             label: t('nav_groups') },
-		{ href: '/friends',             label: t('nav_friends') },
-		{ href: '/rules',               label: t('nav_rules') },
+		{ href: '/',         label: t('nav_home') },
+		{ href: '/leagues',  label: t('nav_groups') },
+		{ href: '/friends',  label: t('nav_friends') },
+		{ href: '/rules',    label: t('nav_rules') },
 	]);
 
-	// Bottom bar: 5 slots — social gets priority; Règles lives in the burger.
+	// Mobile bottom bar mirrors the global chrome (4 tabs).
 	const mobileTabs = $derived([
-		{ href: '/',                    label: t('nav_home') },
-		{ href: '/pl-2026-27/matches',  label: 'PL' },
-		{ href: '/ucl-2026-27/matches', label: 'UCL' },
-		{ href: '/leagues',             label: t('nav_groups') },
-		{ href: '/friends',             label: t('nav_friends') },
+		{ href: '/',         label: t('nav_home') },
+		{ href: '/leagues',  label: t('nav_groups') },
+		{ href: '/friends',  label: t('nav_friends') },
+		{ href: '/rules',    label: t('nav_rules') },
 	]);
 
 	$effect(() => {
@@ -172,7 +172,7 @@
 </script>
 
 <svelte:head>
-	<title>Tifo — World Cup 2026 picks with your friends</title>
+	<title>Tifo — Premier League & Champions League picks with your friends</title>
 	<meta name="description" content="Tifo · friends · leagues · scoreboard. Designed and built by Devsigny." />
 	<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
 	<link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32.png?v=4" />
@@ -510,7 +510,7 @@
 	     iOS home-indicator. -->
 	<nav class="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-wire/60 backdrop-blur-xl"
 		style="background: color-mix(in srgb, var(--color-canvas) 92%, transparent); padding-bottom: env(safe-area-inset-bottom, 0px)">
-		<div class="grid grid-cols-5 gap-0.5 px-2 pt-2 pb-2">
+		<div class="grid grid-cols-4 gap-0.5 px-2 pt-2 pb-2">
 			{#each mobileTabs as link}
 				{@const active = page.url.pathname === link.href}
 				<a href={link.href}
