@@ -7,13 +7,16 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
 	const { data: memberships } = await supabase
 		.from('group_members')
-		.select('role, groups(id, name, description, invite_code, created_at)')
+		.select('role, groups(id, name, description, invite_code, created_at, competitions(slug, name_fr, name_en))')
 		.eq('user_id', user.id);
 
 	const groups = (memberships ?? []).map((m) => ({
-		...(m.groups as Record<string, unknown>),
+		...(m.groups as unknown as Record<string, unknown>),
 		role: m.role
-	})) as Array<{ id: string; name: string; description: string | null; invite_code: string; created_at: string; role: string }>;
+	})) as Array<{
+		id: string; name: string; description: string | null; invite_code: string; created_at: string; role: string;
+		competitions: { slug: string; name_fr: string; name_en: string } | null;
+	}>;
 
 	// Admin groups: load pending join requests
 	const adminGroupIds = groups.filter((g) => g.role === 'admin').map((g) => g.id);
@@ -39,7 +42,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			group_id: r.group_id,
 			group_name: groups.find((g) => g.id === r.group_id)?.name ?? '',
 			created_at: r.created_at,
-			profiles: r.profiles as { id: string; username: string; display_name: string | null; avatar_url: string | null } | null
+			profiles: r.profiles as unknown as { id: string; username: string; display_name: string | null; avatar_url: string | null } | null
 		}));
 	}
 
@@ -55,8 +58,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const myPendingRequests = (myRequests ?? []).map((r) => ({
 		id: r.id,
 		group_id: r.group_id,
-		group_name: (r.groups as { name: string } | null)?.name ?? '',
-		invite_code: (r.groups as { invite_code: string } | null)?.invite_code ?? null,
+		group_name: (r.groups as unknown as { name: string } | null)?.name ?? '',
+		invite_code: (r.groups as unknown as { invite_code: string } | null)?.invite_code ?? null,
 		created_at: r.created_at
 	}));
 
@@ -77,8 +80,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const myPendingInvites = (myInvites ?? []).map((inv) => ({
 		id: inv.id,
 		group_id: inv.group_id,
-		group_name: (inv.groups as { name: string; description: string | null } | null)?.name ?? '',
-		group_description: (inv.groups as { name: string; description: string | null } | null)?.description ?? null,
+		group_name: (inv.groups as unknown as { name: string; description: string | null } | null)?.name ?? '',
+		group_description: (inv.groups as unknown as { name: string; description: string | null } | null)?.description ?? null,
 		invited_by: inviterMap[inv.invited_by] as { username: string; display_name: string | null } | null,
 		created_at: inv.created_at
 	}));

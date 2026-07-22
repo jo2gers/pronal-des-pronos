@@ -571,7 +571,7 @@
 				<div class="rounded-xl overflow-hidden p-4 space-y-5"
 					style="background: linear-gradient(to bottom, oklch(0.42 0.09 150), oklch(0.38 0.09 150))">
 					{#each ['G','D','M','F'] as line}
-						{@const row = sideLineup.starters.filter((p) => p.group === line)}
+						{@const row = sideLineup.starters.filter((p: { group: string }) => p.group === line)}
 						{#if row.length > 0}
 							<div class="flex justify-center gap-2 sm:gap-3 flex-wrap">
 								{#each row as p (p.num ?? p.name)}

@@ -44,12 +44,18 @@
 		{ href: '/',                    label: t('nav_home') },
 		{ href: '/pl-2026-27/matches',  label: 'Premier League' },
 		{ href: '/ucl-2026-27/matches', label: getLang() === 'fr' ? 'Ligue des Champions' : 'Champions League' },
+		{ href: '/leagues',             label: t('nav_groups') },
+		{ href: '/friends',             label: t('nav_friends') },
+		{ href: '/rules',               label: t('nav_rules') },
 	]);
 
+	// Bottom bar: 5 slots — social gets priority; Règles lives in the burger.
 	const mobileTabs = $derived([
 		{ href: '/',                    label: t('nav_home') },
 		{ href: '/pl-2026-27/matches',  label: 'PL' },
 		{ href: '/ucl-2026-27/matches', label: 'UCL' },
+		{ href: '/leagues',             label: t('nav_groups') },
+		{ href: '/friends',             label: t('nav_friends') },
 	]);
 
 	$effect(() => {

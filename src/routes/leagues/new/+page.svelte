@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { t } from '$lib/i18n.svelte';
-	let { form } = $props();
+	import { t, getLang } from '$lib/i18n.svelte';
+	let { data, form } = $props();
 	let loading = $state(false);
 	let name = $state('');
 	const nameValid = $derived(name.trim().length >= 2);
+	const fr = $derived(getLang() === 'fr');
 </script>
 
 <div class="max-w-lg mx-auto">
@@ -21,6 +22,19 @@
 			loading = true;
 			return async ({ update }) => { loading = false; await update(); };
 		}} class="space-y-4">
+			<div>
+				<p class="block text-sm text-muted mb-2">{fr ? 'Compétition' : 'Competition'}</p>
+				<div class="flex gap-3">
+					{#each data.competitions as comp, i}
+						<label class="flex-1 cursor-pointer">
+							<input type="radio" name="competition_id" value={comp.id} class="sr-only peer" checked={i === 0} required />
+							<div class="rounded-lg border border-wire peer-checked:border-accent peer-checked:bg-accent-lo px-4 py-3 text-center transition-colors">
+								<p class="text-sm font-semibold text-fg">{fr ? comp.name_fr : comp.name_en}</p>
+							</div>
+						</label>
+					{/each}
+				</div>
+			</div>
 			<div>
 				<label for="name" class="block text-sm text-muted mb-1">{t('group_name_label')}</label>
 				<input id="name" name="name" type="text" required minlength="2" maxlength="50"

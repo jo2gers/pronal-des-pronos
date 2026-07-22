@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { t } from '$lib/i18n.svelte';
+	import { t, getLang } from '$lib/i18n.svelte';
 
 	let { data, form } = $props();
+	const fr = $derived(getLang() === 'fr');
 	let copied = $state(false);
 	let codeCopied = $state(false);
 	let showAddFriend = $state(false);
@@ -35,6 +36,11 @@
 			<span class="text-xs border border-wire rounded px-1.5 py-0.5 text-faint">
 				{data.group.is_public === false ? t('group_private') : t('group_public')}
 			</span>
+			{#if data.competition}
+				<span class="text-xs border border-wire rounded px-1.5 py-0.5 text-muted">
+					{fr ? data.competition.name_fr : data.competition.name_en}
+				</span>
+			{/if}
 		</div>
 		{#if data.group.description}
 			<p class="text-muted text-sm mt-1">{data.group.description}</p>
