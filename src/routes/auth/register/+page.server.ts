@@ -1,22 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession }, url }) => {
+export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) => {
 	const { user } = await safeGetSession();
 	const next = url.searchParams.get('next') ?? '/';
 	if (user) redirect(303, next);
 
-	// multiplier (not raw odds): the bonus multiplier is what the site
-	// actually applies — show users the number their points will use.
-	const { data: oddsData } = await supabase
-		.from('wc_winner_odds')
-		.select('team_name_en, multiplier');
-
-	const oddsMap = Object.fromEntries(
-		(oddsData ?? []).map((o) => [o.team_name_en, parseFloat(String(o.multiplier))])
-	);
-
-	return { next, oddsMap };
+	return { next };
 };
 
 export const actions: Actions = {
@@ -25,7 +15,6 @@ export const actions: Actions = {
 		const email = form.get('email') as string;
 		const password = form.get('password') as string;
 		const username = (form.get('username') as string).trim().toLowerCase();
-		const favorite_team = (form.get('favorite_team') as string).trim();
 		const next = (form.get('next') as string) || '/';
 
 		if (!/^[a-z0-9_]{3,30}$/.test(username)) {
@@ -37,15 +26,9 @@ export const actions: Actions = {
 			});
 		}
 
-		if (!favorite_team) {
-			return fail(400, {
-				error: 'Tu dois choisir une équipe favorite pour participer.',
-				email,
-				username,
-				next
-			});
-		}
-
+		// V2: no forced favourite team at sign-up — the club is picked per
+		// competition on /[comp]/team (profiles.favorite_team stays the WC
+		// archive field and is no longer written here).
 		const { data, error } = await supabase.auth.signUp({
 			email,
 			password,
@@ -55,11 +38,7 @@ export const actions: Actions = {
 		if (error) return fail(400, { error: error.message, email, username, next });
 		if (!data.user) return fail(400, { error: 'Erreur lors de la création du compte', email, username, next });
 
-		// Update the profile username + favorite team
-		await supabase
-			.from('profiles')
-			.update({ username, favorite_team })
-			.eq('id', data.user.id);
+		await supabase.from('profiles').update({ username }).eq('id', data.user.id);
 
 		redirect(303, next);
 	}
