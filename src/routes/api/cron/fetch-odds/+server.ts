@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { createClient } from '@supabase/supabase-js';
-import { syncCompetitionOdds } from '$lib/server/sync-odds';
+import { syncCompetitionOdds, syncCompetitionWinnerOdds } from '$lib/server/sync-odds';
 import { syncKickoffTimes } from '$lib/server/syncLiveScores';
 import type { RequestHandler } from './$types';
 
@@ -35,8 +35,9 @@ export const GET: RequestHandler = async ({ request }) => {
 
 	const { data: bracketResolved, error: bracketErr } = await supabase.rpc('resolve_bracket');
 
-	const [competitions, kickoffsRescheduled] = await Promise.all([
+	const [competitions, winnerOdds, kickoffsRescheduled] = await Promise.all([
 		syncCompetitionOdds(supabase),
+		syncCompetitionWinnerOdds(supabase),
 		syncKickoffTimes(supabase, 7 * 24 * 60 * 60 * 1000).catch(() => 0)
 	]);
 
@@ -44,6 +45,7 @@ export const GET: RequestHandler = async ({ request }) => {
 		ts: new Date().toISOString(),
 		bracket: bracketErr ? { ok: false, error: bracketErr.message } : { ok: true, ...(bracketResolved as object) },
 		competitions,
+		winnerOdds,
 		kickoffsRescheduled
 	});
 };

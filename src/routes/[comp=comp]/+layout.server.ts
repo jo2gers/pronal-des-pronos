@@ -7,7 +7,7 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = async ({ params, locals: { supabase } }) => {
 	const { data: competitions } = await supabase
 		.from('competitions')
-		.select('id, slug, name_fr, name_en, format, active')
+		.select('id, slug, name_fr, name_en, format, active, starts_at')
 		.or(`active.eq.true,slug.eq.${params.comp}`);
 
 	const competition = (competitions ?? []).find((c) => c.slug === params.comp);

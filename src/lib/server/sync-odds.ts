@@ -285,6 +285,71 @@ export async function syncCompetitionOdds(supabase: SupabaseClient) {
 	return results;
 }
 
+/**
+ * V2 — competition winner odds (champion market → per-club bonus multipliers).
+ * The market slug is competition data (polymarket_winner_slug). Multipliers
+ * freeze once the season starts (starts_at), same rule as the WC's.
+ * Question format (calibrated live): 'Will <club> win the 2026-27 English
+ * Premier League (EPL) Championship?' with [yes, no] prices.
+ */
+export async function syncCompetitionWinnerOdds(supabase: SupabaseClient) {
+	const { data: comps } = await supabase
+		.from('competitions')
+		.select('id, slug, polymarket_winner_slug, starts_at')
+		.eq('active', true)
+		.not('polymarket_winner_slug', 'is', null);
+
+	const results: Record<string, unknown> = {};
+	for (const comp of comps ?? []) {
+		// Frozen at season start — the multipliers drive every future bonus.
+		if (comp.starts_at && Date.now() >= new Date(comp.starts_at).getTime()) {
+			results[comp.slug] = { ok: true, locked: true, updated: 0 };
+			continue;
+		}
+
+		const res = await fetch(
+			`https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(comp.polymarket_winner_slug)}`,
+			{ headers: { Accept: 'application/json' } }
+		);
+		if (!res.ok) { results[comp.slug] = { ok: false, error: `Polymarket: ${res.status}` }; continue; }
+		const raw = await res.json();
+		const event = (Array.isArray(raw) ? raw : [raw])[0];
+		const markets: any[] = Array.isArray(event?.markets) ? event.markets : [];
+
+		const { data: teams } = await supabase
+			.from('competition_teams')
+			.select('name_en, short_name')
+			.eq('competition_id', comp.id);
+		const teamRows = teams ?? [];
+
+		let updated = 0;
+		const unmatched: string[] = [];
+		for (const market of markets) {
+			const q = market.question as string | undefined;
+			const m = q?.match(/^Will (.+?) win the .+$/);
+			if (!m) continue;
+			const team = teamRows.find((t) => clubMatches(m[1], t))?.name_en;
+			if (!team) { unmatched.push(m[1]); continue; }
+
+			let prices = market.outcomePrices;
+			if (typeof prices === 'string') { try { prices = JSON.parse(prices); } catch { prices = null; } }
+			const prob = Array.isArray(prices) ? parseFloat(prices[0] ?? '0') || 0 : 0;
+			if (prob <= 0) continue;
+			const odds = parseFloat(Math.min(3001, 1 / prob).toFixed(2));
+
+			const { error } = await supabase
+				.from('competition_winner_odds')
+				.upsert(
+					{ competition_id: comp.id, team_name_en: team, team_name_fr: team, odds },
+					{ onConflict: 'competition_id,team_name_en' }
+				);
+			if (!error) updated++;
+		}
+		results[comp.slug] = { ok: true, updated, unmatched: unmatched.slice(0, 10) };
+	}
+	return results;
+}
+
 // ── WC winner odds (team-level, for favorite-team bonus) ───────────────────
 export async function syncWCWinnerOdds(supabase: SupabaseClient) {
 	// Hard freeze 5 minutes before the tournament's first kickoff: these

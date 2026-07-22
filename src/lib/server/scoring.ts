@@ -22,7 +22,12 @@ export const STAGE_BONUS: Record<string, number> = {
 	quarters:    8,
 	semis:       13,
 	third:       5,
-	final:       21
+	final:       21,
+	// V2 (club competitions): a flat 1 per league win — a 38-match season needs
+	// no escalation ladder; the UCL knockout reuses the ladder above, with the
+	// play-off round slotted at 2. Must mirror the V2 rules page at launch.
+	league:      1,
+	playoff:     2
 };
 
 export type ScorableMatch = {
@@ -58,7 +63,7 @@ export async function scoreMatch(
 	let { odds_home, odds_draw, odds_away } = match;
 	const { data: matchRow } = await supabase
 		.from('matches')
-		.select('odds_home, odds_draw, odds_away, scoreline_multipliers')
+		.select('odds_home, odds_draw, odds_away, scoreline_multipliers, competition_id')
 		.eq('id', match.id)
 		.single();
 	if (odds_home === undefined) {
@@ -138,28 +143,64 @@ export async function scoreMatch(
 		else if (effAway > effHome) winnerTeamEn = match.away_team;
 
 		if (winnerTeamEn && stageBonus > 0) {
-			const { data: oddsRow } = await supabase
-				.from('wc_winner_odds')
-				.select('multiplier')
-				.eq('team_name_en', winnerTeamEn)
-				.maybeSingle();
+			// V2 (club competitions): the bonus lives PER COMPETITION — supporters
+			// come from favorite_teams and the multiplier from
+			// competition_winner_odds; the award accrues on favorite_teams
+			// .bonus_points. The WC archive keeps its legacy path untouched
+			// (profiles.favorite_team + wc_winner_odds).
+			const { data: compRow } = matchRow?.competition_id
+				? await supabase.from('competitions').select('slug').eq('id', matchRow.competition_id).single()
+				: { data: null };
+			const isV2 = !!compRow && compRow.slug !== 'wc-2026';
 
-			const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
-			const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
+			if (isV2) {
+				const [{ data: oddsRow }, { data: supporters }] = await Promise.all([
+					supabase
+						.from('competition_winner_odds')
+						.select('multiplier')
+						.eq('competition_id', matchRow!.competition_id)
+						.eq('team_name_en', winnerTeamEn)
+						.maybeSingle(),
+					supabase
+						.from('favorite_teams')
+						.select('user_id, bonus_points')
+						.eq('competition_id', matchRow!.competition_id)
+						.eq('team', winnerTeamEn)
+				]);
+				const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
+				const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
+				for (const s of supporters ?? []) {
+					await supabase
+						.from('favorite_teams')
+						.update({ bonus_points: parseFloat(((s.bonus_points ?? 0) + bonusToAward).toFixed(2)) })
+						.eq('user_id', s.user_id)
+						.eq('competition_id', matchRow!.competition_id);
+					bonusAwarded++;
+				}
+			} else {
+				const { data: oddsRow } = await supabase
+					.from('wc_winner_odds')
+					.select('multiplier')
+					.eq('team_name_en', winnerTeamEn)
+					.maybeSingle();
 
-			const { data: supporters } = await supabase
-				.from('profiles')
-				.select('id, team_bonus_points')
-				.eq('favorite_team', winnerTeamEn);
+				const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
+				const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
 
-			for (const profile of supporters ?? []) {
-				await supabase
+				const { data: supporters } = await supabase
 					.from('profiles')
-					.update({
-						team_bonus_points: parseFloat(((profile.team_bonus_points ?? 0) + bonusToAward).toFixed(2))
-					})
-					.eq('id', profile.id);
-				bonusAwarded++;
+					.select('id, team_bonus_points')
+					.eq('favorite_team', winnerTeamEn);
+
+				for (const profile of supporters ?? []) {
+					await supabase
+						.from('profiles')
+						.update({
+							team_bonus_points: parseFloat(((profile.team_bonus_points ?? 0) + bonusToAward).toFixed(2))
+						})
+						.eq('id', profile.id);
+					bonusAwarded++;
+				}
 			}
 		}
 
@@ -168,9 +209,10 @@ export async function scoreMatch(
 		// at the FT transition). Leave bonus_calculated=false so the NEXT run —
 		// once the real result lands — awards the bonus, instead of locking the
 		// winner's fans out. (This is the bug that under-credited France/Argentina/…
-		// and over-credited Morocco.) A GROUP draw is legitimate — no winner, no
-		// bonus — and is marked done.
-		const knockoutDrawPending = effHome === effAway && match.stage !== 'group';
+		// and over-credited Morocco.) GROUP and LEAGUE draws are legitimate final
+		// results — no winner, no bonus — and are marked done.
+		const knockoutDrawPending =
+			effHome === effAway && match.stage !== 'group' && match.stage !== 'league';
 		if (!knockoutDrawPending) {
 			await supabase.from('matches').update({ bonus_calculated: true }).eq('id', match.id);
 		}

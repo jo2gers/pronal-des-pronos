@@ -13,7 +13,8 @@
 	const section = $derived(page.url.pathname.split('/')[2] ?? 'matches');
 	const tabs = $derived([
 		{ seg: 'matches', label: t('nav_matches') },
-		{ seg: 'leaderboard', label: t('nav_leaderboard') }
+		{ seg: 'leaderboard', label: t('nav_leaderboard') },
+		{ seg: 'team', label: getLang() === 'fr' ? 'Mon club' : 'My club' }
 	]);
 </script>
 

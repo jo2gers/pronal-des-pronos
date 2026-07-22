@@ -127,7 +127,33 @@ on voit en direct combien paierait 2-1 vs 3-2. Excellent pour le jeu.
 
 - [ ] Bornes du multiplicateur : [2, 8] proposé (0-0 ≥ ×2, jamais plus de ×8).
 - [ ] Le « bon vainqueur » garde `1 × cote` (proposé : oui, ne pas tout changer).
-- [ ] Afficher la matrice des multiplicateurs sur la page match (proposé : oui).
+- [x] Afficher la matrice des multiplicateurs sur la page match — fait : la
+      grille EST le sélecteur de score.
+
+---
+
+## 2b. Bonus équipe favorite V2 (implémenté — à valider)
+
+Le questionnaire a parlé : seul point faible de la CDM (4/7), avec le
+commentaire « trop de points, ça rend le bon prono moins critique ». On garde
+la mécanique (les gens aiment avoir un club) mais **par compétition et bien
+plus léger** :
+
+- **Un club par compétition** (Arsenal en PL, le Real en UCL) — page « Mon
+  club » : grille des 20 blasons avec le multiplicateur affiché
+  (`round(ln(cote titre), 1)`, marché champion Polymarket, figé au coup
+  d'envoi de la saison). Choix modifiable jusqu'au début de la saison.
+- **Barème plat en championnat : 1 × multiplicateur par victoire.** Pas
+  d'escalade sur 38 journées (l'escalade CDM sur 7 matchs devenait énorme sur
+  une saison). Arsenal ×1.0/victoire ≈ 25-28 pts/saison ; Sunderland ×6.4 en
+  paie autant en 4 victoires — l'outsider reste un vrai pari.
+- **UCL knockout : l'échelle existante** (8e ×4 … finale ×21), barrages ×2.
+- Le bonus s'accumule sur `favorite_teams.bonus_points` (par compétition) et
+  entre dans le classement de SA compétition uniquement.
+
+Décision restante :
+- [ ] Valider le « 1 × mult par victoire » en championnat (alternative : 0.5 ×
+      si encore trop de points — un chiffre à changer).
 
 ---
 
