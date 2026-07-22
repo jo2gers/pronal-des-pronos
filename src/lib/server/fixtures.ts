@@ -24,7 +24,7 @@ export async function syncCompetitionFixtures(
 	window: { from: string; to: string }
 ): Promise<
 	| { ok: false; error: string }
-	| { ok: true; total: number; teams: number; inserted: number; updated: number; skippedLive: number }
+	| { ok: true; total: number; teams: number; inserted: number; updated: number; skippedLive: number; matchdaysAssigned?: number }
 > {
 	const { data: comp } = await supabase
 		.from('competitions')
@@ -133,5 +133,55 @@ export async function syncCompetitionFixtures(
 		inserted += chunk.length;
 	}
 
-	return { ok: true, total: events.size, teams: teams.size, inserted, updated, skippedLive };
+	// League formats play in numbered matchdays ("Journée 3") — assign them
+	// once the calendar is in.
+	let matchdaysAssigned = 0;
+	if (comp.format === 'league' || comp.format === 'league_then_knockout') {
+		matchdaysAssigned = await assignMatchdays(supabase, comp.id);
+	}
+
+	return { ok: true, total: events.size, teams: teams.size, inserted, updated, skippedLive, matchdaysAssigned };
+}
+
+// ── Matchday ("journée") assignment ─────────────────────────────────────────
+// ESPN's soccer feeds carry NO round/week number (checked: scoreboard + core
+// API both null), so we reconstruct it from the calendar: walk the fixtures
+// chronologically and start a new matchday the moment a club would play twice
+// in the current one. On a freshly-published league calendar (rounds are
+// disjoint date blocks) this reproduces the official matchweeks exactly.
+//
+// One-shot by design: it only runs while EVERY row's matchday is still null.
+// Once assigned, a matchday is the ROUND number — it must survive later
+// postponements (a moved match keeps its journée), so we never recompute.
+export async function assignMatchdays(supabase: SupabaseClient, competitionId: string): Promise<number> {
+	const { data: rows } = await supabase
+		.from('matches')
+		.select('id, home_team, away_team, match_datetime, matchday')
+		.eq('competition_id', competitionId)
+		.eq('stage', 'league')
+		.order('match_datetime', { ascending: true })
+		.order('id', { ascending: true });
+
+	if (!rows?.length) return 0;
+	if (rows.some((r) => r.matchday != null)) return 0; // already assigned — never recompute
+
+	let day = 1;
+	let teamsInDay = new Set<string>();
+	const assignments = new Map<number, string[]>();
+	for (const r of rows) {
+		if (teamsInDay.has(r.home_team) || teamsInDay.has(r.away_team)) {
+			day++;
+			teamsInDay = new Set();
+		}
+		teamsInDay.add(r.home_team);
+		teamsInDay.add(r.away_team);
+		assignments.set(day, [...(assignments.get(day) ?? []), r.id]);
+	}
+
+	let updated = 0;
+	for (const [matchday, ids] of assignments) {
+		const { error } = await supabase.from('matches').update({ matchday }).in('id', ids);
+		if (!error) updated += ids.length;
+	}
+	return updated;
 }
