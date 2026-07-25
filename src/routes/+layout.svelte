@@ -194,11 +194,12 @@
 		<div class="mx-auto flex h-14 max-w-6xl items-center px-4 gap-4">
 			<!-- Tifo · Mosaïque mark + wordmark. 5×5 stadium-tifo grid
 			     forming a T, with the bottom cell as the lime accent dot. -->
-			<a href="/" onclick={closeMenu} class="shrink-0 flex items-center gap-2.5" aria-label="Tifo">
+			<a href="/" onclick={closeMenu} class="logo shrink-0 flex items-center gap-2.5" aria-label="Tifo">
 				<svg width="28" height="28" viewBox="0 0 40 40" aria-hidden="true" class="shrink-0">
 					{#each [[0,0,1],[1,0,1],[2,0,1],[3,0,1],[4,0,1],[2,1,1],[2,2,1],[2,3,1],[2,4,2]] as cell}
-						<rect x={cell[0]*8 + 1} y={cell[1]*8 + 1} width="6" height="6"
+						<rect class="tile" x={cell[0]*8 + 1} y={cell[1]*8 + 1} width="6" height="6"
 							rx="0.5"
+							style="--d: {(4 - cell[1]) * 28}ms"
 							fill={cell[2] === 2 ? 'var(--color-accent)' : 'var(--color-fg)'} />
 					{/each}
 				</svg>
@@ -559,3 +560,20 @@
 		</div>
 	</footer>
 </div>
+
+<style>
+	/* Logo mark: on hover the lime accent rises up the T like a stadium tifo
+	   being raised — bottom cell first, cascading to the crossbar (per-tile
+	   delay via --d). Reversible; silent under reduced motion. */
+	.logo :global(.tile) {
+		transition: fill 200ms ease var(--d, 0ms);
+	}
+	.logo:hover :global(.tile) {
+		fill: var(--color-accent);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.logo :global(.tile) {
+			transition: none;
+		}
+	}
+</style>
