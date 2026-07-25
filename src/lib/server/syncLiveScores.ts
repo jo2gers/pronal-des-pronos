@@ -486,15 +486,24 @@ export async function syncLiveScores(
 
 	// ── Venue / host location backfill ─────────────────────────────────────
 	// Stadium + host city/country are static, so we fill them once per match
-	// (any status, real teams) then never refetch. Capped at 3 per tick — over
-	// ~40 min the whole calendar fills in.
+	// (real teams) then never refetch. Capped at 3 per tick. GATED to a window
+	// around now [−30d, +14d]: a full-season calendar (e.g. 380 PL fixtures) is
+	// months out, and ESPN can't resolve a gameId for a far-future date — without
+	// the horizon the earliest 3 null-venue rows are refetched EVERY minute
+	// (~9 wasted ESPN calls/min) forever. Inside the window ESPN has the fixture,
+	// so venue fills within a few ticks then the row drops out; each match enters
+	// the window ~2 weeks before kickoff, plenty of lead for the detail page.
 	let venuesUpdated = 0;
 	try {
+		const venueFrom = new Date(nowMs - 30 * 86400_000).toISOString();
+		const venueTo = new Date(nowMs + 14 * 86400_000).toISOString();
 		const { data: needVenue } = await supabase
 			.from('matches')
 			.select('id, home_team, away_team, match_datetime, espn_game_id, competition_id')
 			.is('venue_country', null)
 			.neq('home_team', 'TBD')
+			.gte('match_datetime', venueFrom)
+			.lte('match_datetime', venueTo)
 			.order('match_datetime', { ascending: true })
 			.limit(3);
 
