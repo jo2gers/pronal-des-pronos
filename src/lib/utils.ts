@@ -1,3 +1,14 @@
+// Sanitize a user-supplied post-auth redirect target. Only same-origin absolute
+// PATHS are allowed: must start with a single '/', never '//' (protocol-relative
+// → off-site) nor '/\' (some browsers normalise the backslash to a slash), and
+// never a scheme. Anything else falls back to the home page, so a crafted
+// ?next=https://evil.com can't turn login/register into an open redirect.
+export function safeNext(next: string | null | undefined): string {
+	if (!next || !next.startsWith('/')) return '/';
+	if (next.startsWith('//') || next.startsWith('/\\')) return '/';
+	return next;
+}
+
 export function isoToFlag(iso: string | null | undefined): string {
 	if (!iso || iso === 'TBD') return '🏳';
 	return iso

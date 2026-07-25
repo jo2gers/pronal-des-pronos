@@ -1,9 +1,10 @@
 import { redirect } from '@sveltejs/kit';
+import { safeNext } from '$lib/utils';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 	const code = url.searchParams.get('code');
-	const next = url.searchParams.get('next') ?? '/';
+	const next = safeNext(url.searchParams.get('next'));
 
 	console.log('[oauth-callback] hit', { hasCode: !!code, next });
 

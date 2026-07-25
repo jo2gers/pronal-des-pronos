@@ -1,9 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { safeNext } from '$lib/utils';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) => {
 	const { user } = await safeGetSession();
-	const next = url.searchParams.get('next') ?? '/';
+	const next = safeNext(url.searchParams.get('next'));
 	if (user) redirect(303, next);
 
 	const errorCode = url.searchParams.get('error');
@@ -25,7 +26,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const email = form.get('email') as string;
 		const password = form.get('password') as string;
-		const next = (form.get('next') as string) || '/';
+		const next = safeNext(form.get('next') as string);
 
 		const { error } = await supabase.auth.signInWithPassword({ email, password });
 

@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { safeNext } from '$lib/utils';
 import type { Actions, PageServerLoad } from './$types';
 
 // OAuth profile completion: only the username now. V2 dropped the forced
@@ -8,7 +9,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
 
-	const next = url.searchParams.get('next') ?? '/';
+	const next = safeNext(url.searchParams.get('next'));
 
 	const { data: profile } = await supabase
 		.from('profiles')
@@ -35,7 +36,7 @@ export const actions: Actions = {
 	default: async ({ request, locals: { supabase, safeGetSession } }) => {
 		const form = await request.formData();
 		const username = (form.get('username') as string).trim().toLowerCase();
-		const next = (form.get('next') as string) || '/';
+		const next = safeNext(form.get('next') as string);
 
 		const { user } = await safeGetSession();
 		if (!user) return fail(401, { error: 'Non authentifié', username, next });
