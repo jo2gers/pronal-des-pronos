@@ -84,6 +84,20 @@
 	}
 
 	const scoreColour = $derived(touched ? 'text-accent' : 'text-faint');
+
+	// How the user's pick stands against the score. Only a VERDICT once finished
+	// (a live comparison is provisional); 'exact' = spot on, 'result' = right
+	// winner/draw, 'miss' = wrong. Lets the live/finished list show at a glance
+	// how your pick is doing — the survey's "voir ses pronos sur le live".
+	const pickResult = $derived.by(() => {
+		if (!existingProno || match.status !== 'finished') return null;
+		if (match.home_score == null || match.away_score == null) return null;
+		const ph = existingProno.predicted_home, pa = existingProno.predicted_away;
+		const ah = match.home_score, aa = match.away_score;
+		if (ph === ah && pa === aa) return 'exact';
+		const sign = (x: number, y: number) => (x > y ? 1 : x < y ? -1 : 0);
+		return sign(ph, pa) === sign(ah, aa) ? 'result' : 'miss';
+	});
 </script>
 
 {#snippet stepper(side: 'home' | 'away')}
@@ -185,8 +199,18 @@
 				{@render teamSide(match.away_team, away, 'start')}
 			</div>
 			{#if existingProno}
-				<p class="mt-1 text-center text-[11px] text-faint tabular-nums">
-					{fr ? 'Ton prono' : 'Your pick'} <span class="text-muted font-semibold">{existingProno.predicted_home}–{existingProno.predicted_away}</span>
+				<p class="mt-1 text-center text-[11px] tabular-nums">
+					<span class="text-faint">{fr ? 'Ton prono' : 'Your pick'}</span>
+					<span class="font-semibold {pickResult === 'exact' ? 'text-accent' : 'text-muted'}">{existingProno.predicted_home}–{existingProno.predicted_away}</span>
+					{#if pickResult === 'exact'}
+						<span class="text-accent font-semibold">· {fr ? 'score exact ✓' : 'exact ✓'}</span>
+					{:else if pickResult === 'result'}
+						<span class="text-muted">· {fr ? 'bon résultat' : 'right result'}</span>
+					{:else if pickResult === 'miss'}
+						<span class="text-faint">· {fr ? 'raté' : 'missed'}</span>
+					{:else if match.status === 'live'}
+						<span class="text-faint">· {fr ? 'en cours' : 'live'}</span>
+					{/if}
 				</p>
 			{/if}
 		{/snippet}
