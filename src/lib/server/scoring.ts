@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveOddsUsed } from '$lib/utils';
+import { scorelineModel } from '$lib/scorelines';
 
 // SINGLE SOURCE OF TRUTH for the per-win team bonus. MUST match the published
 // table on the rules page (src/routes/rules/+page.svelte) — that's the contract
@@ -79,6 +80,25 @@ export async function scoreMatch(
 	const oddsSource = { odds_home, odds_draw, odds_away };
 	const scorelineMults = (matchRow?.scoreline_multipliers ?? null) as Record<string, number> | null;
 
+	// Competition context — drives BOTH the V2 additive exact-score below and the
+	// V2 club-bonus path further down (fetched once here, reused). WC archive
+	// (slug 'wc-2026') keeps its legacy flat-3× exact scoring.
+	const { data: compRow } = matchRow?.competition_id
+		? await supabase.from('competitions').select('slug').eq('id', matchRow.competition_id).single()
+		: { data: null };
+	const isV2 = !!compRow && compRow.slug !== 'wc-2026';
+
+	// The V2 exact-score is additive (1×odds + scoreline multiplier). Prefer the
+	// matrix frozen at lock; if it's missing (the freeze pass never ran — e.g.
+	// odds arrived after the match left 'upcoming') recompute the SAME model from
+	// the frozen match odds, so every V2 exact score is priced additively and
+	// consistently, never the legacy flat-3× fallback. Only for V2 comps with
+	// real odds; the archive and odds-less matches still fall back to legacy.
+	const onDemandModel =
+		isV2 && !scorelineMults && odds_home != null && odds_draw != null && odds_away != null
+			? scorelineModel(Number(odds_home), Number(odds_draw), Number(odds_away))
+			: null;
+
 	// 1. Per-pronostic points
 	const { data: pronostics } = await supabase
 		.from('pronostics')
@@ -113,7 +133,7 @@ export async function scoreMatch(
 		let points = 0;
 		let exactMult: number | null = null;
 		if (exact) {
-			exactMult = scorelineMults?.[`${mh}-${ma}`] ?? null;
+			exactMult = scorelineMults?.[`${mh}-${ma}`] ?? onDemandModel?.exactMultiplier(mh, ma) ?? null;
 			points = exactMult != null
 				? parseFloat((1 * finalOdds + exactMult).toFixed(2))
 				: parseFloat((3 * finalOdds).toFixed(2));
@@ -152,12 +172,7 @@ export async function scoreMatch(
 			// come from favorite_teams and the multiplier from
 			// competition_winner_odds; the award accrues on favorite_teams
 			// .bonus_points. The WC archive keeps its legacy path untouched
-			// (profiles.favorite_team + wc_winner_odds).
-			const { data: compRow } = matchRow?.competition_id
-				? await supabase.from('competitions').select('slug').eq('id', matchRow.competition_id).single()
-				: { data: null };
-			const isV2 = !!compRow && compRow.slug !== 'wc-2026';
-
+			// (profiles.favorite_team + wc_winner_odds). (isV2 resolved once above.)
 			if (isV2) {
 				const [{ data: oddsRow }, { data: supporters }] = await Promise.all([
 					supabase
