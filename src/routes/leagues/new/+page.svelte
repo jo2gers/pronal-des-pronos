@@ -27,7 +27,7 @@
 				<div class="flex gap-3">
 					{#each data.competitions as comp, i}
 						<label class="flex-1 cursor-pointer">
-							<input type="radio" name="competition_id" value={comp.id} class="sr-only peer" checked={i === 0} required />
+							<input type="radio" name="competition_id" value={comp.id} class="sr-only peer" checked={data.currentSlug ? comp.slug === data.currentSlug : i === 0} required />
 							<div class="rounded-lg border border-wire peer-checked:border-accent peer-checked:bg-accent-lo px-4 py-3 text-center transition-colors">
 								<p class="text-sm font-semibold text-fg">{fr ? comp.name_fr : comp.name_en}</p>
 							</div>
