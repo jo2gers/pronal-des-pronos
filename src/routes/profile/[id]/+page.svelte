@@ -125,18 +125,30 @@
 			<p class="mt-3 text-xs text-accent">{t('friends_request_sent_confirm')}</p>
 		{/if}
 
-		<!-- Favourite team — prominent display -->
-		{#if data.profile.favorite_team}
-			{@const url = flagUrl(data.profile.favorite_team, 80)}
+		<!-- Game switcher — this profile is scoped to ONE game (PL / UCL). -->
+		{#if data.activeComps.length > 1 && data.currentComp}
+			<div class="mt-4 flex gap-1 rounded-lg bg-raised border border-wire p-1 w-fit">
+				{#each data.activeComps as c (c.slug)}
+					<a href="/profile/{data.profile.id}?comp={c.slug}"
+						class="rounded px-3 py-1 text-xs font-semibold transition-colors
+							{c.slug === data.currentComp.slug ? 'bg-panel text-fg' : 'text-muted hover:text-fg'}">
+						{getLang() === 'fr' ? c.name_fr : c.name_en}
+					</a>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Favourite CLUB in the current game (crest, not a country flag) -->
+		{#if data.favTeam}
 			<div class="mt-5 pt-5 border-t border-wire flex items-center gap-4">
-				{#if url}
-					<img src={url} alt={data.profile.favorite_team}
-						class="w-14 h-10 object-cover rounded-md shadow-sm shrink-0" />
+				{#if data.favTeamCrest}
+					<img src={data.favTeamCrest} alt={data.favTeam}
+						class="w-12 h-12 object-contain shrink-0" />
 				{/if}
 				<div class="flex-1 min-w-0">
 					<p class="text-xs text-faint mb-0.5">{t('fav_team')}</p>
-					<p class="text-2xl font-bold text-fg leading-tight" style="font-family: var(--font-display)">
-						{teamLabel(data.profile.favorite_team)}
+					<p class="text-2xl font-bold text-fg leading-tight truncate" style="font-family: var(--font-display)">
+						{data.favTeamShort ?? data.favTeam}
 					</p>
 				</div>
 				{#if data.teamOdds != null}
@@ -276,7 +288,7 @@
 									{#if (p as any).teamBonus != null && (p as any).teamBonus > 0}
 										<span class="inline-flex items-baseline gap-1 mt-1 text-[10px] font-semibold tabular-nums"
 											style="color: var(--color-bonus)"
-											title="Bonus équipe — {teamLabel(data.profile.favorite_team!)} a gagné">
+											title="Bonus équipe — {data.favTeamShort ?? data.favTeam} a gagné">
 											<span class="uppercase tracking-widest text-[9px] opacity-80">{t('match_team_bonus_chip')}</span>
 											+{(p as any).teamBonus.toFixed(2)}
 										</span>

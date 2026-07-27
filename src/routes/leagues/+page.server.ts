@@ -1,22 +1,32 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { resolveCurrentComp } from '$lib/server/currentComp';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
+export const load: PageServerLoad = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
 
+	// Leagues belong to the game you're in — show ONLY the current competition's
+	// leagues (PL and UCL stay separate). The game comes from the /[comp] cookie,
+	// switchable here via ?comp=.
+	const { current, active } = await resolveCurrentComp(supabase, cookies, url.searchParams.get('comp'));
+
 	const { data: memberships } = await supabase
 		.from('group_members')
-		.select('role, groups(id, name, description, invite_code, created_at, competitions(slug, name_fr, name_en))')
+		.select('role, groups(id, name, description, invite_code, created_at, competition_id, competitions(slug, name_fr, name_en))')
 		.eq('user_id', user.id);
 
-	const groups = (memberships ?? []).map((m) => ({
+	const allGroups = (memberships ?? []).map((m) => ({
 		...(m.groups as unknown as Record<string, unknown>),
 		role: m.role
 	})) as Array<{
 		id: string; name: string; description: string | null; invite_code: string; created_at: string; role: string;
+		competition_id: string | null;
 		competitions: { slug: string; name_fr: string; name_en: string } | null;
 	}>;
+
+	// Only the current game's leagues.
+	const groups = current ? allGroups.filter((g) => g.competition_id === current.id) : allGroups;
 
 	// Admin groups: load pending join requests
 	const adminGroupIds = groups.filter((g) => g.role === 'admin').map((g) => g.id);
@@ -86,7 +96,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		created_at: inv.created_at
 	}));
 
-	return { groups, pendingRequests, myPendingRequests, myPendingInvites };
+	return { groups, pendingRequests, myPendingRequests, myPendingInvites, currentComp: current, activeComps: active };
 };
 
 export const actions: Actions = {

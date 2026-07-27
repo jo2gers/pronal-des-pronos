@@ -1,18 +1,16 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { resolveCurrentComp } from '$lib/server/currentComp';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
+export const load: PageServerLoad = async ({ cookies, locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
 
-	// V2: a league belongs to one active competition — the creator picks which.
-	const { data: competitions } = await supabase
-		.from('competitions')
-		.select('id, slug, name_fr, name_en')
-		.eq('active', true)
-		.order('starts_at', { ascending: true, nullsFirst: false });
+	// V2: a league belongs to one active competition — the creator picks which,
+	// defaulting to the game they're currently in.
+	const { current, active } = await resolveCurrentComp(supabase, cookies);
 
-	return { competitions: competitions ?? [] };
+	return { competitions: active, currentSlug: current?.slug ?? null };
 };
 
 export const actions: Actions = {

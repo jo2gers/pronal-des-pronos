@@ -33,6 +33,19 @@
 		</div>
 	</div>
 
+	<!-- Game switcher — leagues are per-competition; PL and UCL never mix. -->
+	{#if data.activeComps.length > 1 && data.currentComp}
+		<div class="flex gap-1 rounded-lg bg-raised border border-wire p-1 w-fit">
+			{#each data.activeComps as c (c.slug)}
+				<a href="/leagues?comp={c.slug}"
+					class="rounded px-3 py-1.5 text-sm font-semibold transition-colors
+						{c.slug === data.currentComp.slug ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg'}">
+					{fr ? c.name_fr : c.name_en}
+				</a>
+			{/each}
+		</div>
+	{/if}
+
 	<!-- Join by code form (inline, no chassis) -->
 	{#if showJoinInput}
 		<form method="POST" action="?/joinByCode" use:enhance={() => {

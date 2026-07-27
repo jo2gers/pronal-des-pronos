@@ -1,125 +1,145 @@
 import { error, fail } from '@sveltejs/kit';
 import { STAGE_BONUS } from '$lib/server/scoring';
+import { resolveCurrentComp } from '$lib/server/currentComp';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
+export const load: PageServerLoad = async ({ params, url, cookies, locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
+
+	// The profile is scoped to the GAME you're in (Premier League / Champions
+	// League) — never the finished World Cup. PL and UCL stay two separate games:
+	// your club, points and history here are THIS competition's. `?comp=` (the
+	// game switcher) overrides the /[comp] cookie.
+	const { current, active } = await resolveCurrentComp(supabase, cookies, url.searchParams.get('comp'));
+	const compId = current?.id ?? null;
 
 	const { data: profile } = await supabase
 		.from('profiles')
-		.select('id, username, display_name, avatar_url, favorite_team, country, team_bonus_points')
+		.select('id, username, display_name, avatar_url, country')
 		.eq('id', params.id)
 		.single();
 
 	if (!profile) error(404, 'Profil introuvable');
 
-	// Fetch ALL pronostics (scored ones for history, + count of unscored ones)
-	const { data: pronostics } = await supabase
-		.from('pronostics')
-		.select(`
-			id, predicted_home, predicted_away, points_earned, is_scored,
-			match:matches(id, home_team, away_team, home_flag, away_flag, home_score, away_score, ft_home_score, ft_away_score, pen_home, pen_away, match_datetime, stage, status)
-		`)
-		.eq('user_id', params.id);
+	// This user's club + accrued bonus in the current game (favorite_teams, NOT
+	// the retired WC profiles.favorite_team).
+	const { data: fav } = compId
+		? await supabase
+				.from('favorite_teams')
+				.select('team, bonus_points')
+				.eq('user_id', params.id)
+				.eq('competition_id', compId)
+				.maybeSingle()
+		: { data: null };
+	const favTeam = (fav?.team as string | null) ?? null;
+	const teamBonus = parseFloat(String(fav?.bonus_points ?? 0));
 
-	const scored    = (pronostics ?? []).filter((p) => p.is_scored).sort((a, b) => {
-		const dateA = new Date((a.match as any)?.match_datetime ?? 0).getTime();
-		const dateB = new Date((b.match as any)?.match_datetime ?? 0).getTime();
-		return dateB - dateA; // Newest first
-	});
+	// Club crest (competition_teams) + title multiplier (competition_winner_odds).
+	let favTeamCrest: string | null = null;
+	let favTeamShort: string | null = null;
+	let teamOdds: number | null = null;
+	if (favTeam && compId) {
+		const [{ data: crestRow }, { data: oddsRow }] = await Promise.all([
+			supabase
+				.from('competition_teams')
+				.select('short_name, logo_url')
+				.eq('competition_id', compId)
+				.eq('name_en', favTeam)
+				.maybeSingle(),
+			supabase
+				.from('competition_winner_odds')
+				.select('multiplier')
+				.eq('competition_id', compId)
+				.eq('team_name_en', favTeam)
+				.maybeSingle()
+		]);
+		favTeamCrest = (crestRow?.logo_url as string | null) ?? null;
+		favTeamShort = (crestRow?.short_name as string | null) ?? null;
+		if (oddsRow) teamOdds = parseFloat(String(oddsRow.multiplier));
+	}
+	const favTeamMultiplier = teamOdds ?? 1.0;
 
-	// Picks on locked-but-not-yet-scored matches (live, or kickoff within 5 min).
-	// RLS only returns other users' picks once the match is locked, so this list
-	// never leaks an open pick — for non-self profiles everything we received is
-	// already public.
+	// Aggregate stats for the current game — the per-competition view, so these
+	// match that game's leaderboard exactly.
+	const { data: stats } = compId
+		? await supabase
+				.from('competition_pronostic_stats')
+				.select('prono_points, winners, exact')
+				.eq('user_id', params.id)
+				.eq('competition_id', compId)
+				.maybeSingle()
+		: { data: null };
+	const pronoPoints = parseFloat(String(stats?.prono_points ?? 0));
+	const exactScores = (stats?.exact as number) ?? 0;
+	const winners = (stats?.winners as number) ?? 0;
+	const totalPoints = parseFloat((pronoPoints + teamBonus).toFixed(2));
+
+	// Pick history + live picks, current game only (scope by this competition's
+	// match ids — keeps WC picks out of the current profile).
+	const { data: compMatches } = compId
+		? await supabase.from('matches').select('id').eq('competition_id', compId)
+		: { data: [] as { id: string }[] };
+	const matchIds = (compMatches ?? []).map((m) => m.id);
+
+	const { data: pronostics } = matchIds.length
+		? await supabase
+				.from('pronostics')
+				.select(
+					`id, predicted_home, predicted_away, points_earned, is_scored,
+					match:matches(id, home_team, away_team, home_score, away_score, ft_home_score, ft_away_score, pen_home, pen_away, match_datetime, stage, status)`
+				)
+				.eq('user_id', params.id)
+				.in('match_id', matchIds)
+		: { data: [] };
+
+	const scored = (pronostics ?? [])
+		.filter((p) => p.is_scored)
+		.sort(
+			(a, b) =>
+				new Date((b.match as any)?.match_datetime ?? 0).getTime() -
+				new Date((a.match as any)?.match_datetime ?? 0).getTime()
+		);
+
 	const nowMs = Date.now();
 	const livePicks = (pronostics ?? [])
 		.filter((p) => {
 			if (p.is_scored) return false;
 			const m = p.match as any;
 			if (!m) return false;
-			return m.status === 'live' || m.status === 'finished' ||
-				new Date(m.match_datetime).getTime() - nowMs < 5 * 60000;
+			return (
+				m.status === 'live' ||
+				m.status === 'finished' ||
+				new Date(m.match_datetime).getTime() - nowMs < 5 * 60000
+			);
 		})
-		.sort((a, b) =>
-			new Date((a.match as any)?.match_datetime ?? 0).getTime() -
-			new Date((b.match as any)?.match_datetime ?? 0).getTime()
+		.sort(
+			(a, b) =>
+				new Date((a.match as any)?.match_datetime ?? 0).getTime() -
+				new Date((b.match as any)?.match_datetime ?? 0).getTime()
 		);
-	const pronoPoints  = scored.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
-	const teamBonus    = profile.team_bonus_points ?? 0;
-	const totalPoints  = pronoPoints + teamBonus;
-	const exactScores = scored.filter((p) => {
-		const m = p.match as any;
-		return m && p.predicted_home === m.home_score && p.predicted_away === m.away_score;
-	}).length;
-	// "Winners" = right outcome but NOT the exact score (the 1× tier). Mirrors the
-	// user_pronostic_stats view's `winners` definition exactly (not-exact AND same
-	// sign), so the count here always agrees with the leaderboard's Winners column.
-	const winners = scored.filter((p) => {
-		const m = p.match as any;
-		if (!m || m.home_score == null || m.away_score == null) return false;
-		if (p.predicted_home === m.home_score && p.predicted_away === m.away_score) return false;
-		return Math.sign(p.predicted_home - p.predicted_away) === Math.sign(m.home_score - m.away_score);
-	}).length;
 
-	// Per-match team-bonus annotation: if the user's favourite team won a given
-	// finished match, attach the bonus amount that match contributed. Helps the
-	// match-history table explain why the user's profile total is higher than
-	// the pure prediction-points column suggests.
-	// STAGE_BONUS imported from scoring — the exact table scoreMatch awards from.
-	let favTeamMultiplier = 1.0;
-	if (profile.favorite_team) {
-		const { data: oddsRow } = await supabase
-			.from('wc_winner_odds')
-			.select('multiplier')
-			.eq('team_name_en', profile.favorite_team)
-			.maybeSingle();
-		favTeamMultiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
-	}
+	const totalPronoCount = (pronostics ?? []).length;
+
+	// Per-match club-bonus annotation (current game): if the fav club won a given
+	// finished match, attach the bonus it paid (STAGE_BONUS × title multiplier).
 	const scoredWithBonus = scored.map((p) => {
 		const m = p.match as any;
-		let teamBonus: number | null = null;
-		if (profile.favorite_team && m && m.home_score != null && m.away_score != null) {
-			// Effective result (pens > extra time > 90') — a shootout win must
-			// annotate its bonus too, not read as a 90' draw.
+		let matchTeamBonus: number | null = null;
+		if (favTeam && m && m.home_score != null && m.away_score != null) {
 			const effH = m.pen_home ?? m.ft_home_score ?? m.home_score;
 			const effA = m.pen_away ?? m.ft_away_score ?? m.away_score;
-			let winner: string | null = null;
-			if (effH > effA) winner = m.home_team;
-			else if (effA > effH) winner = m.away_team;
-			if (winner === profile.favorite_team) {
-				const stageBonus = STAGE_BONUS[m.stage] ?? 0;
-				if (stageBonus > 0) teamBonus = parseFloat((stageBonus * favTeamMultiplier).toFixed(2));
+			let w: string | null = null;
+			if (effH > effA) w = m.home_team;
+			else if (effA > effH) w = m.away_team;
+			if (w === favTeam) {
+				const sb = STAGE_BONUS[m.stage] ?? 0;
+				if (sb > 0) matchTeamBonus = parseFloat((sb * favTeamMultiplier).toFixed(2));
 			}
 		}
-		return { ...p, teamBonus };
+		return { ...p, teamBonus: matchTeamBonus };
 	});
 
-	// Fetch WC winner odds from DB (populated by admin sync from Polymarket)
-	// odds column = 1/probability (decimal odds, e.g. 6.25 for Spain)
-	let teamOdds: number | null = null;
-	if (profile.favorite_team) {
-		const { data: oddsRows } = await supabase
-			.from('wc_winner_odds')
-			.select('odds, multiplier, team_name_en');
-
-		// Match by exact name first, then fallback to case-insensitive contains
-		const row =
-			(oddsRows ?? []).find((r) => r.team_name_en === profile.favorite_team) ??
-			(oddsRows ?? []).find((r) =>
-				r.team_name_en.toLowerCase().includes(profile.favorite_team!.toLowerCase().split(' ')[0])
-			);
-
-		if (row) teamOdds = parseFloat(String(row.multiplier ?? row.odds));
-	}
-
 	// Friendship status between the logged-in viewer and this profile.
-	// 'self'                — viewing your own profile
-	// 'none'                — not logged in or no friendship row
-	// 'pending_sent'        — you sent a request to this profile
-	// 'pending_received'    — they sent you a request
-	// 'accepted'            — you're friends
-	// 'declined'            — a previous request was declined (treat as 'none' for re-request)
 	type FriendStatus = 'self' | 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'declined';
 	let friendStatus: FriendStatus = 'none';
 	let friendshipId: string | null = null;
@@ -131,7 +151,9 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		const { data: f } = await supabase
 			.from('friendships')
 			.select('id, status, requester_id, addressee_id')
-			.or(`and(requester_id.eq.${user.id},addressee_id.eq.${params.id}),and(requester_id.eq.${params.id},addressee_id.eq.${user.id})`)
+			.or(
+				`and(requester_id.eq.${user.id},addressee_id.eq.${params.id}),and(requester_id.eq.${params.id},addressee_id.eq.${user.id})`
+			)
 			.maybeSingle();
 		if (f) {
 			friendshipId = f.id;
@@ -145,6 +167,11 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	return {
 		profile,
+		favTeam,
+		favTeamCrest,
+		favTeamShort,
+		currentComp: current,
+		activeComps: active,
 		pronostics: scoredWithBonus,
 		livePicks,
 		pronoPoints,
@@ -152,7 +179,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 		totalPoints,
 		exactScores,
 		winners,
-		totalPronoCount: (pronostics ?? []).length,
+		totalPronoCount,
 		isOwnProfile: user?.id === params.id,
 		teamOdds,
 		friendStatus,
