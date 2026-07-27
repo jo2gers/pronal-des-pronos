@@ -325,16 +325,10 @@
 		     two-line team name ("South Africa") must never push its flag up. -->
 		<div class="flex items-start justify-center gap-6 sm:gap-10">
 			<div class="text-center flex-1 min-w-0 flex flex-col items-center">
-				{#if data.match.home_team !== 'TBD'}
-					<a href="/teams/{encodeURIComponent(data.match.home_team)}"
-						class="flex flex-col items-center group/team w-full" title={teamLabel(data.match.home_team)}>
-						<Flag code={data.match.home_flag} size={88} alt={teamLabel(data.match.home_team)} class="mb-2 group-hover/team:scale-105 transition-transform" />
-						<p class="font-bold text-base text-fg leading-tight group-hover/team:text-accent transition-colors">{teamLabel(data.match.home_team)}</p>
-					</a>
-				{:else}
-					<Flag code={data.match.home_flag} size={88} alt={teamLabel(data.match.home_team)} class="mb-2" />
-					<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.home_team)}</p>
-				{/if}
+				<!-- The old country pages (/teams) are retired, so the crest is no
+				     longer a link — it would only bounce to the home page. -->
+				<Flag code={data.match.home_flag} size={88} alt={teamLabel(data.match.home_team)} class="mb-2" />
+				<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.home_team)}</p>
 			</div>
 
 			<div class="text-center shrink-0 self-center">
@@ -392,16 +386,8 @@
 			</div>
 
 			<div class="text-center flex-1 min-w-0 flex flex-col items-center">
-				{#if data.match.away_team !== 'TBD'}
-					<a href="/teams/{encodeURIComponent(data.match.away_team)}"
-						class="flex flex-col items-center group/team w-full" title={teamLabel(data.match.away_team)}>
-						<Flag code={data.match.away_flag} size={88} alt={teamLabel(data.match.away_team)} class="mb-2 group-hover/team:scale-105 transition-transform" />
-						<p class="font-bold text-base text-fg leading-tight group-hover/team:text-accent transition-colors">{teamLabel(data.match.away_team)}</p>
-					</a>
-				{:else}
-					<Flag code={data.match.away_flag} size={88} alt={teamLabel(data.match.away_team)} class="mb-2" />
-					<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.away_team)}</p>
-				{/if}
+				<Flag code={data.match.away_flag} size={88} alt={teamLabel(data.match.away_team)} class="mb-2" />
+				<p class="font-bold text-base text-fg leading-tight">{teamLabel(data.match.away_team)}</p>
 			</div>
 		</div>
 
@@ -571,7 +557,7 @@
 				<div class="rounded-xl overflow-hidden p-4 space-y-5"
 					style="background: linear-gradient(to bottom, oklch(0.42 0.09 150), oklch(0.38 0.09 150))">
 					{#each ['G','D','M','F'] as line}
-						{@const row = sideLineup.starters.filter((p) => p.group === line)}
+						{@const row = sideLineup.starters.filter((p: { group: string }) => p.group === line)}
 						{#if row.length > 0}
 							<div class="flex justify-center gap-2 sm:gap-3 flex-wrap">
 								{#each row as p (p.num ?? p.name)}

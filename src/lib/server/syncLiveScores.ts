@@ -13,7 +13,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scoreMatch } from './scoring';
-import { backfillPolymarketSlugs, syncMatchOdds } from './sync-odds';
+import { scorelineModel } from '$lib/scorelines';
+import { syncCompetitionOdds } from './sync-odds';
 import { fetchEspnEvents, fetchEspnLineups, fetchEspnVenue, resolveEspnGameId, fetchEspnKnockoutResult, type EspnStatus } from './espnEvents';
 import { fetchHighlightVideos } from './youtubeHighlights';
 
@@ -29,7 +30,14 @@ type LiveMatchRow = {
 	bonus_calculated: boolean;
 	last_score_sync_at: string | null;
 	polymarket_event_slug: string;
+	competition_id: string;
 };
+
+// The knockout-only stages — the passes that assume "a match can't end level"
+// (early grading at end of regulation, ET/pens capture) must NEVER touch
+// league fixtures: a drawn PL match is a normal final result, and the capture
+// pass's draw-guard would otherwise refetch it forever.
+const KNOCKOUT_STAGES = ['playoff', 'round_of_32', 'round_of_16', 'quarters', 'semis', 'third', 'final'];
 
 type PolymarketEvent = {
 	id: string;
@@ -98,6 +106,17 @@ function alignLineups(lu: any, ourHomeTeam: string) {
 		: { home: lu.home, away: lu.away, subs };
 }
 
+// V2: several competitions run at once, each with its own ESPN league slug
+// ('fifa.world' | 'eng.1' | 'uefa.champions'). Every ESPN-touching pass maps a
+// match row → its competition's league via this lookup.
+async function loadLeagueByComp(supabase: SupabaseClient): Promise<Map<string, string>> {
+	const { data } = await supabase.from('competitions').select('id, espn_league');
+	return new Map((data ?? []).map((c: any) => [c.id as string, (c.espn_league as string) ?? 'fifa.world']));
+}
+
+const dayStr = (x: Date) =>
+	`${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`;
+
 // Proactive kickoff reconciliation — the PREVENTIVE counterpart to the
 // reactive reschedule in the ESPN backstop (which only notices once our
 // stored kickoff has already passed). For upcoming, team-known matches within
@@ -115,7 +134,7 @@ export async function syncKickoffTimes(
 	const nowMs = Date.now();
 	const { data: upcoming } = await supabase
 		.from('matches')
-		.select('id, home_team, away_team, match_datetime')
+		.select('id, home_team, away_team, match_datetime, competition_id')
 		.eq('status', 'upcoming')
 		.neq('home_team', 'TBD')
 		.neq('away_team', 'TBD')
@@ -123,25 +142,31 @@ export async function syncKickoffTimes(
 		.lte('match_datetime', new Date(nowMs + horizonMs).toISOString());
 
 	if (!upcoming?.length) return 0;
+	const leagueByComp = await loadLeagueByComp(supabase);
 
-	// One scoreboard fetch per relevant UTC day (±1 — ESPN groups by US date).
-	const dates = new Set<string>();
+	// One scoreboard fetch per (league, relevant UTC day ±1 — ESPN groups by US date).
+	const datesByLeague = new Map<string, Set<string>>();
 	for (const m of upcoming) {
+		const league = leagueByComp.get((m as any).competition_id) ?? 'fifa.world';
+		const set = datesByLeague.get(league) ?? new Set<string>();
 		const d = new Date(m.match_datetime);
-		for (const off of [-1, 0, 1]) {
-			const x = new Date(d.getTime() + off * 86400000);
-			dates.add(`${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`);
-		}
+		for (const off of [-1, 0, 1]) set.add(dayStr(new Date(d.getTime() + off * 86400000)));
+		datesByLeague.set(league, set);
 	}
-	const statuses = new Map<string, EspnStatus>();
-	for (const date of dates) {
-		const r = await fetchEspnEvents(date);
-		for (const [k, v] of r.statuses) if (!statuses.has(k)) statuses.set(k, v);
+	const statusesByLeague = new Map<string, Map<string, EspnStatus>>();
+	for (const [league, dates] of datesByLeague) {
+		const statuses = new Map<string, EspnStatus>();
+		for (const date of dates) {
+			const r = await fetchEspnEvents(league, date);
+			for (const [k, v] of r.statuses) if (!statuses.has(k)) statuses.set(k, v);
+		}
+		statusesByLeague.set(league, statuses);
 	}
 
 	let rescheduled = 0;
 	for (const m of upcoming) {
-		const st = statuses.get(`${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`);
+		const league = leagueByComp.get((m as any).competition_id) ?? 'fifa.world';
+		const st = statusesByLeague.get(league)?.get(`${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`);
 		if (!st?.date) continue;
 		const espnKo = new Date(st.date).getTime();
 		if (!Number.isFinite(espnKo)) continue;
@@ -178,10 +203,16 @@ export async function syncLiveScores(
 	espnBackstopUpdates?: number;
 	earlyGradedMatches?: number;
 	kickoffsRescheduled?: number;
+	scorelinesFrozen?: number;
 	error?: string;
 }> {
 	const nowMs = Date.now();
 	const nowIso = new Date(nowMs).toISOString();
+
+	// competition_id → ESPN league slug, used by every ESPN-touching pass below.
+	const leagueByComp = await loadLeagueByComp(supabase);
+	const leagueOf = (competitionId: string | null | undefined) =>
+		leagueByComp.get(competitionId ?? '') ?? 'fifa.world';
 
 	// Pull both 'live' and 'upcoming' rows with a slug — filter past-kickoff
 	// upcoming rows in code. (Using PostgREST .or() with a nested .and() and
@@ -189,7 +220,7 @@ export async function syncLiveScores(
 	// collide with PostgREST's field.op.value delimiter.)
 	const { data: rawMatches, error: selectError } = await supabase
 		.from('matches')
-		.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, last_score_sync_at, polymarket_event_slug')
+		.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, last_score_sync_at, polymarket_event_slug, competition_id')
 		.not('polymarket_event_slug', 'is', null)
 		.in('status', ['live', 'upcoming']);
 
@@ -303,14 +334,22 @@ export async function syncLiveScores(
 	);
 	if (timelineCandidates.length > 0) {
 		try {
-			const { events: espn, gameIds, scores, statuses } = await fetchEspnEvents();
-			if (espn.size > 0 || gameIds.size > 0) {
+			// One scoreboard fetch per league that has an in-play match (PL evening
+			// = one eng.1 call; a UCL night adds one uefa.champions call).
+			const leaguesInPlay = [...new Set(timelineCandidates.map((m) => leagueOf(m.competition_id)))];
+			const espnByLeague = new Map<string, Awaited<ReturnType<typeof fetchEspnEvents>>>();
+			for (const lg of leaguesInPlay) espnByLeague.set(lg, await fetchEspnEvents(lg));
+
+			const leagueOfMatchId = new Map(timelineCandidates.map((m) => [m.id, leagueOf(m.competition_id)]));
+			{
 				const { data: currentRows } = await supabase
 					.from('matches')
 					.select('id, home_team, away_team, status, home_score, away_score, live_events, lineups, espn_game_id, live_period, live_elapsed')
 					.in('id', timelineCandidates.map((m) => m.id));
 
 				for (const row of currentRows ?? []) {
+					const league = leagueOfMatchId.get(row.id) ?? 'fifa.world';
+					const { events: espn, gameIds, scores, statuses } = espnByLeague.get(league)!;
 					const k = `${row.home_team.toLowerCase()}|${row.away_team.toLowerCase()}`;
 					const patch: Record<string, unknown> = {};
 
@@ -355,7 +394,7 @@ export async function syncLiveScores(
 					// already limited to in-play / just-ended matches; the JSON diff below
 					// skips no-op writes.
 					if (gid) {
-						const lu = await fetchEspnLineups(gid);
+						const lu = await fetchEspnLineups(league, gid);
 						if (lu) {
 							// Align ESPN home/away to OUR home/away by team name.
 							const aligned = alignLineups(lu, row.home_team);
@@ -383,15 +422,20 @@ export async function syncLiveScores(
 	// For finished matches (last 7 days) without a highlight yet, match against
 	// the playlist's RSS feed by team names and store the videoId. The feed is
 	// one cheap keyless call, fetched only when there's an unmatched match.
+	// WC-only: the playlist is FIFA's — club competitions skip it (a PL/UCL
+	// highlights source is a future feature).
 	let videosUpdated = 0;
 	try {
 		const since = new Date(nowMs - 7 * 86400_000).toISOString();
-		const { data: needHighlight } = await supabase
+		const { data: needHighlightRaw } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team')
+			.select('id, home_team, away_team, competition_id')
 			.eq('status', 'finished')
 			.is('youtube_video_id', null)
 			.gte('match_datetime', since);
+		const needHighlight = (needHighlightRaw ?? []).filter(
+			(r: any) => leagueOf(r.competition_id) === 'fifa.world'
+		);
 
 		if ((needHighlight ?? []).length > 0) {
 			const videos = await fetchHighlightVideos();
@@ -420,16 +464,17 @@ export async function syncLiveScores(
 		const since = new Date(nowMs - 7 * 86400_000).toISOString();
 		const { data: needLineups } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, espn_game_id')
+			.select('id, home_team, away_team, match_datetime, espn_game_id, competition_id')
 			.eq('status', 'finished')
 			.is('lineups', null)
 			.gte('match_datetime', since)
 			.limit(2);
 
 		for (const row of needLineups ?? []) {
-			const gid = row.espn_game_id ?? await resolveEspnGameId(row.home_team, row.away_team, row.match_datetime);
+			const league = leagueOf((row as any).competition_id);
+			const gid = row.espn_game_id ?? await resolveEspnGameId(league, row.home_team, row.away_team, row.match_datetime);
 			if (!gid) continue;
-			const lu = await fetchEspnLineups(gid);
+			const lu = await fetchEspnLineups(league, gid);
 			if (!lu) continue;
 			const aligned = alignLineups(lu, row.home_team);
 			await supabase.from('matches').update({ lineups: aligned, espn_game_id: gid }).eq('id', row.id);
@@ -441,22 +486,32 @@ export async function syncLiveScores(
 
 	// ── Venue / host location backfill ─────────────────────────────────────
 	// Stadium + host city/country are static, so we fill them once per match
-	// (any status, real teams) then never refetch. Capped at 3 per tick — over
-	// ~40 min the whole calendar fills in.
+	// (real teams) then never refetch. Capped at 3 per tick. GATED to a window
+	// around now [−30d, +14d]: a full-season calendar (e.g. 380 PL fixtures) is
+	// months out, and ESPN can't resolve a gameId for a far-future date — without
+	// the horizon the earliest 3 null-venue rows are refetched EVERY minute
+	// (~9 wasted ESPN calls/min) forever. Inside the window ESPN has the fixture,
+	// so venue fills within a few ticks then the row drops out; each match enters
+	// the window ~2 weeks before kickoff, plenty of lead for the detail page.
 	let venuesUpdated = 0;
 	try {
+		const venueFrom = new Date(nowMs - 30 * 86400_000).toISOString();
+		const venueTo = new Date(nowMs + 14 * 86400_000).toISOString();
 		const { data: needVenue } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, espn_game_id')
+			.select('id, home_team, away_team, match_datetime, espn_game_id, competition_id')
 			.is('venue_country', null)
 			.neq('home_team', 'TBD')
+			.gte('match_datetime', venueFrom)
+			.lte('match_datetime', venueTo)
 			.order('match_datetime', { ascending: true })
 			.limit(3);
 
 		for (const row of needVenue ?? []) {
-			const gid = row.espn_game_id ?? await resolveEspnGameId(row.home_team, row.away_team, row.match_datetime);
+			const league = leagueOf((row as any).competition_id);
+			const gid = row.espn_game_id ?? await resolveEspnGameId(league, row.home_team, row.away_team, row.match_datetime);
 			if (!gid) continue;
-			const v = await fetchEspnVenue(gid);
+			const v = await fetchEspnVenue(league, gid);
 			if (!v) continue;
 			await supabase
 				.from('matches')
@@ -466,6 +521,38 @@ export async function syncLiveScores(
 		}
 	} catch {
 		// non-fatal — venue backfill simply doesn't run this tick
+	}
+
+	// ── V2: freeze the exact-score multipliers shortly before kickoff ──────────
+	// Poisson/Dixon-Coles matrix from the (already frozen) 1X2 odds, written once
+	// per match as jsonb {"h-a": mult}. Runs inside the last 30 min before
+	// kickoff — comfortably before the 5-min pick lock — and never recomputes
+	// (scoreline_multipliers stays exactly what players saw at lock). The WC
+	// archive has no upcoming matches, so this only ever touches V2 fixtures.
+	let scorelinesFrozen = 0;
+	try {
+		const { data: toFreeze } = await supabase
+			.from('matches')
+			.select('id, odds_home, odds_draw, odds_away')
+			.eq('status', 'upcoming')
+			.is('scoreline_multipliers', null)
+			.not('odds_home', 'is', null)
+			.lte('match_datetime', new Date(nowMs + 30 * 60 * 1000).toISOString())
+			.limit(12);
+
+		for (const m of toFreeze ?? []) {
+			const model = scorelineModel(Number(m.odds_home), Number(m.odds_draw), Number(m.odds_away));
+			const map: Record<string, number> = {};
+			for (let h = 0; h <= 10; h++)
+				for (let a = 0; a <= 10; a++) map[`${h}-${a}`] = model.exactMultiplier(h, a);
+			const { error } = await supabase
+				.from('matches')
+				.update({ scoreline_multipliers: map })
+				.eq('id', m.id);
+			if (!error) scorelinesFrozen++;
+		}
+	} catch {
+		// non-fatal — scoring falls back to the legacy flat 3× for this match
 	}
 
 	// ── Proactive kickoff reconciliation (next 6h) ─────────────────────────────
@@ -493,7 +580,7 @@ export async function syncLiveScores(
 	try {
 		const { data: candidates } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, status, home_score, away_score, espn_game_id, polymarket_event_slug')
+			.select('id, home_team, away_team, match_datetime, status, home_score, away_score, stage, bonus_calculated, espn_game_id, polymarket_event_slug, competition_id')
 			.in('status', ['upcoming', 'live'])
 			.neq('home_team', 'TBD')
 			.neq('away_team', 'TBD')
@@ -509,32 +596,36 @@ export async function syncLiveScores(
 			!m.polymarket_event_slug || nowMs - new Date(m.match_datetime).getTime() > STUCK_WINDOW_MS;
 
 		if ((candidates ?? []).length > 0) {
-			// ESPN groups the scoreboard by US date, so fetch each relevant UTC day
-			// (±1) once and merge — bounded to a couple of requests per tick.
-			const dates = new Set<string>();
+			// ESPN groups the scoreboard by US date; fetch each relevant
+			// (league, UTC day ±1) once and merge per league.
+			const datesByLeague = new Map<string, Set<string>>();
 			for (const m of candidates ?? []) {
+				const league = leagueOf((m as any).competition_id);
+				const set = datesByLeague.get(league) ?? new Set<string>();
 				const d = new Date(m.match_datetime);
-				for (const off of [-1, 0, 1]) {
-					const x = new Date(d.getTime() + off * 86400000);
-					dates.add(`${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, '0')}${String(x.getUTCDate()).padStart(2, '0')}`);
-				}
+				for (const off of [-1, 0, 1]) set.add(dayStr(new Date(d.getTime() + off * 86400000)));
+				datesByLeague.set(league, set);
 			}
-			const scores = new Map<string, { home: number; away: number }>();
-			const statuses = new Map<string, EspnStatus>();
-			const gameIds = new Map<string, string>();
-			for (const date of dates) {
-				const r = await fetchEspnEvents(date);
-				for (const [k, v] of r.scores) if (!scores.has(k)) scores.set(k, v);
-				for (const [k, v] of r.statuses) if (!statuses.has(k)) statuses.set(k, v);
-				for (const [k, v] of r.gameIds) if (!gameIds.has(k)) gameIds.set(k, v);
+			type EspnMaps = { scores: Map<string, { home: number; away: number }>; statuses: Map<string, EspnStatus>; gameIds: Map<string, string> };
+			const mapsByLeague = new Map<string, EspnMaps>();
+			for (const [league, dates] of datesByLeague) {
+				const maps: EspnMaps = { scores: new Map(), statuses: new Map(), gameIds: new Map() };
+				for (const date of dates) {
+					const r = await fetchEspnEvents(league, date);
+					for (const [k, v] of r.scores) if (!maps.scores.has(k)) maps.scores.set(k, v);
+					for (const [k, v] of r.statuses) if (!maps.statuses.has(k)) maps.statuses.set(k, v);
+					for (const [k, v] of r.gameIds) if (!maps.gameIds.has(k)) maps.gameIds.set(k, v);
+				}
+				mapsByLeague.set(league, maps);
 			}
 
 			for (const m of candidates ?? []) {
+				const maps = mapsByLeague.get(leagueOf((m as any).competition_id))!;
 				const k = `${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
-				const st = statuses.get(k);
+				const st = maps.statuses.get(k);
 				if (!st) continue; // ESPN doesn't carry this match yet — try next tick
-				const sc = scores.get(k);
-				const gid = gameIds.get(k);
+				const sc = maps.scores.get(k);
+				const gid = maps.gameIds.get(k);
 
 				// Delayed kickoff: we're past OUR stored time but ESPN still says the
 				// match hasn't started and carries a (moved) kickoff. Adopt it —
@@ -580,7 +671,28 @@ export async function syncLiveScores(
 				espnBackstopUpdates++;
 				// The capture pass (knockout, next) + safety pass (groups) score it;
 				// ended>0 also fires the bracket→slug→odds cascade for the next round.
-				if (patch.status === 'finished') ended++;
+				if (patch.status === 'finished') {
+					ended++;
+					// Score a finished NON-knockout (league/group) match right here:
+					// the capture pass only handles knockouts, and the safety pass uses
+					// pronostics!inner so it drops a zero-pick match — which would then
+					// lose the club bonus for the winner's supporters. Knockouts are
+					// left to the capture pass (they need the 90-min regulation split).
+					// Idempotent: bonus_calculated gates the award.
+					if (!KNOCKOUT_STAGES.includes(m.stage)) {
+						try {
+							await scoreMatch(supabase, {
+								id: m.id,
+								home_team: m.home_team,
+								away_team: m.away_team,
+								home_score: sc?.home ?? m.home_score,
+								away_score: sc?.away ?? m.away_score,
+								stage: m.stage,
+								bonus_calculated: m.bonus_calculated
+							});
+						} catch { /* safety pass retries next tick */ }
+					}
+				}
 			}
 		}
 	} catch {
@@ -602,9 +714,9 @@ export async function syncLiveScores(
 	try {
 		const { data: liveKn } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, match_datetime, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, espn_game_id, pronostics!inner(id)')
+			.select('id, home_team, away_team, match_datetime, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, espn_game_id, competition_id, pronostics!inner(id)')
 			.eq('status', 'live')
-			.neq('stage', 'group')
+			.in('stage', KNOCKOUT_STAGES)
 			.eq('pronostics.is_scored', false)
 			.limit(3);
 
@@ -614,15 +726,18 @@ export async function syncLiveScores(
 		);
 
 		if (ripe.length > 0) {
-			const { statuses, gameIds } = await fetchEspnEvents();
+			const espnByLg = new Map<string, Awaited<ReturnType<typeof fetchEspnEvents>>>();
 			for (const m of ripe) {
+				const league = leagueOf((m as any).competition_id);
+				if (!espnByLg.has(league)) espnByLg.set(league, await fetchEspnEvents(league));
+				const { statuses, gameIds } = espnByLg.get(league)!;
 				const k = `${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
 				const st = statuses.get(k);
 				if (!st || st.state !== 'in' || (st.period ?? 0) < 3) continue; // still in regulation
 
 				const gid = (m as any).espn_game_id ?? gameIds.get(k);
 				if (!gid) continue;
-				const r = await fetchEspnKnockoutResult(gid);
+				const r = await fetchEspnKnockoutResult(league, gid);
 				if (!r) continue;
 
 				// Align ESPN home/away to our row by team name (as in the FT capture).
@@ -658,16 +773,17 @@ export async function syncLiveScores(
 	try {
 		const { data: needKn } = await supabase
 			.from('matches')
-			.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, match_datetime, espn_game_id')
-			.neq('stage', 'group')
+			.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated, odds_home, odds_draw, odds_away, match_datetime, espn_game_id, competition_id')
+			.in('stage', KNOCKOUT_STAGES)
 			.eq('status', 'finished')
 			.eq('knockout_result_synced', false)
 			.limit(5);
 
 		for (const m of needKn ?? []) {
-			const gid = (m as any).espn_game_id ?? await resolveEspnGameId(m.home_team, m.away_team, (m as any).match_datetime);
+			const league = leagueOf((m as any).competition_id);
+			const gid = (m as any).espn_game_id ?? await resolveEspnGameId(league, m.home_team, m.away_team, (m as any).match_datetime);
 			if (!gid) continue; // no gameId yet — retry next tick
-			const r = await fetchEspnKnockoutResult(gid);
+			const r = await fetchEspnKnockoutResult(league, gid);
 			if (!r) continue; // transient — retry next tick
 
 			// Align ESPN home/away to our row by (normalised) team name.
@@ -737,13 +853,13 @@ export async function syncLiveScores(
 
 	// ── Cascade after any FT transition ────────────────────────────────────
 	// When a match ends, the bracket may now be ready to fill one or more
-	// knockout slots (e.g. last group match → R32 pairings, last R32 → R16).
-	// We chain resolve_bracket → backfillPolymarketSlugs → syncMatchOdds so
-	// the newly-named matches are immediately tracked by future cron ticks
-	// — no admin click required between rounds.
+	// knockout slots (V2: the UCL play-off/KO tree). resolve_bracket →
+	// per-competition odds+slug sync, so newly-named pairings are immediately
+	// tracked by future cron ticks — no admin click required between rounds.
 	let bracketUpdated = 0;
 	let slugsUpdated = 0;
 	let oddsUpdated = 0;
+	let oddsSynced = false;
 	if (ended > 0) {
 		try {
 			const { data: bracketResult } = await supabase.rpc('resolve_bracket');
@@ -754,14 +870,40 @@ export async function syncLiveScores(
 
 		if (bracketUpdated > 0) {
 			try {
-				const r = await backfillPolymarketSlugs(supabase);
-				if (r.ok) slugsUpdated = r.updated;
-			} catch { /* non-fatal */ }
-			try {
-				const r = await syncMatchOdds(supabase);
-				if (r.ok) oddsUpdated = r.updated;
+				const results = await syncCompetitionOdds(supabase);
+				for (const r of Object.values(results) as any[]) {
+					if (r?.ok) { slugsUpdated += r.slugsSet ?? 0; oddsUpdated += r.oddsUpdated ?? 0; }
+				}
+				oddsSynced = true;
 			} catch { /* non-fatal */ }
 		}
+	}
+
+	// ── Intraday odds/slug safety net ──────────────────────────────────────────
+	// The daily 06:00 fetch-odds cron is otherwise the ONLY populator of match
+	// odds+slugs, so a Polymarket market that opens after it (but before kickoff)
+	// would leave the fixture locking with no odds (flat-3x) and no slug (no live
+	// tracking). When any match kicks off within the next 6h, refresh odds+slugs
+	// this tick too — unless the ended>0 cascade above already did. Bounded to the
+	// hours before a match; syncCompetitionOdds is idempotent (slug write ignores
+	// the lock, odds respect the 5-min lock).
+	if (!oddsSynced) {
+		try {
+			const soon = new Date(nowMs + 6 * 60 * 60 * 1000).toISOString();
+			const { data: near } = await supabase
+				.from('matches')
+				.select('id')
+				.eq('status', 'upcoming')
+				.gte('match_datetime', nowIso)
+				.lte('match_datetime', soon)
+				.limit(1);
+			if ((near ?? []).length > 0) {
+				const results = await syncCompetitionOdds(supabase);
+				for (const r of Object.values(results) as any[]) {
+					if (r?.ok) { slugsUpdated += r.slugsSet ?? 0; oddsUpdated += r.oddsUpdated ?? 0; }
+				}
+			}
+		} catch { /* non-fatal */ }
 	}
 
 	return {
@@ -783,6 +925,7 @@ export async function syncLiveScores(
 		knockoutResultsSynced,
 		espnBackstopUpdates,
 		earlyGradedMatches,
-		kickoffsRescheduled
+		kickoffsRescheduled,
+		scorelinesFrozen
 	};
 }

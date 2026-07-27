@@ -38,19 +38,24 @@
 		return next ? `?next=${encodeURIComponent(next)}` : '';
 	});
 
+	// V2 nav: you CHOOSE a competition from the home chooser and live inside it —
+	// so the header no longer carries PL/UCL switcher links (that would undo the
+	// "commit to one" model). Accueil is the chooser/hub; the rest is global
+	// social + rules chrome. The active competition's own sections (Matchs /
+	// Classement / Mon club) live in the /[comp] sub-nav.
 	const navLinks = $derived([
-		{ href: '/',            label: t('nav_home') },
-		{ href: '/matches',     label: t('nav_matches') },
-		{ href: '/leaderboard', label: t('nav_leaderboard') },
-		// Feedback survey — proposed until this account has answered.
-		...(data.surveyDone ? [] : [{ href: '/survey', label: t('nav_survey') }]),
+		{ href: '/',         label: t('nav_home') },
+		{ href: '/leagues',  label: t('nav_groups') },
+		{ href: '/friends',  label: t('nav_friends') },
+		{ href: '/rules',    label: t('nav_rules') },
 	]);
 
-	// Mobile tab bar — tournament over: archive mode, three destinations.
+	// Mobile bottom bar mirrors the global chrome (4 tabs).
 	const mobileTabs = $derived([
-		{ href: '/',            label: t('nav_home') },
-		{ href: '/matches',     label: t('nav_matches') },
-		{ href: '/leaderboard', label: t('nav_leaderboard') },
+		{ href: '/',         label: t('nav_home') },
+		{ href: '/leagues',  label: t('nav_groups') },
+		{ href: '/friends',  label: t('nav_friends') },
+		{ href: '/rules',    label: t('nav_rules') },
 	]);
 
 	$effect(() => {
@@ -167,7 +172,7 @@
 </script>
 
 <svelte:head>
-	<title>Tifo — World Cup 2026 picks with your friends</title>
+	<title>Tifo — Premier League & Champions League picks with your friends</title>
 	<meta name="description" content="Tifo · friends · leagues · scoreboard. Designed and built by Devsigny." />
 	<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
 	<link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32.png?v=4" />
@@ -189,11 +194,12 @@
 		<div class="mx-auto flex h-14 max-w-6xl items-center px-4 gap-4">
 			<!-- Tifo · Mosaïque mark + wordmark. 5×5 stadium-tifo grid
 			     forming a T, with the bottom cell as the lime accent dot. -->
-			<a href="/" onclick={closeMenu} class="shrink-0 flex items-center gap-2.5" aria-label="Tifo">
+			<a href="/" onclick={closeMenu} class="logo shrink-0 flex items-center gap-2.5" aria-label="Tifo">
 				<svg width="28" height="28" viewBox="0 0 40 40" aria-hidden="true" class="shrink-0">
 					{#each [[0,0,1],[1,0,1],[2,0,1],[3,0,1],[4,0,1],[2,1,1],[2,2,1],[2,3,1],[2,4,2]] as cell}
-						<rect x={cell[0]*8 + 1} y={cell[1]*8 + 1} width="6" height="6"
+						<rect class="tile" x={cell[0]*8 + 1} y={cell[1]*8 + 1} width="6" height="6"
 							rx="0.5"
+							style="--d: {(4 - cell[1]) * 28}ms"
 							fill={cell[2] === 2 ? 'var(--color-accent)' : 'var(--color-fg)'} />
 					{/each}
 				</svg>
@@ -339,8 +345,11 @@
 						{t('nav_logout')}
 					</button>
 				{:else}
-					<!-- Tournament over — no new sign-ups, login stays for existing players. -->
 					<a href="/auth/login{authQS}" class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
+					<a href="/auth/register{authQS}"
+						class="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-canvas hover:bg-accent-hi transition-colors">
+						{t('nav_register')}
+					</a>
 				{/if}
 			</div>
 
@@ -444,6 +453,7 @@
 							<button onclick={logout} class="whitespace-nowrap text-sm text-faint hover:text-err transition-colors cursor-pointer">{t('nav_logout')}</button>
 						{:else}
 							<a href="/auth/login{authQS}" onclick={closeMenu} class="text-sm text-muted hover:text-fg transition-colors">{t('nav_login')}</a>
+							<a href="/auth/register{authQS}" onclick={closeMenu} class="text-sm text-accent font-semibold">{t('nav_register')}</a>
 						{/if}
 					</div>
 				</div>
@@ -501,7 +511,7 @@
 	     iOS home-indicator. -->
 	<nav class="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-wire/60 backdrop-blur-xl"
 		style="background: color-mix(in srgb, var(--color-canvas) 92%, transparent); padding-bottom: env(safe-area-inset-bottom, 0px)">
-		<div class="grid grid-cols-5 gap-0.5 px-2 pt-2 pb-2">
+		<div class="grid grid-cols-4 gap-0.5 px-2 pt-2 pb-2">
 			{#each mobileTabs as link}
 				{@const active = page.url.pathname === link.href}
 				<a href={link.href}
@@ -550,3 +560,20 @@
 		</div>
 	</footer>
 </div>
+
+<style>
+	/* Logo mark: on hover the lime accent rises up the T like a stadium tifo
+	   being raised — bottom cell first, cascading to the crossbar (per-tile
+	   delay via --d). Reversible; silent under reduced motion. */
+	.logo :global(.tile) {
+		transition: fill 200ms ease var(--d, 0ms);
+	}
+	.logo:hover :global(.tile) {
+		fill: var(--color-accent);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.logo :global(.tile) {
+			transition: none;
+		}
+	}
+</style>

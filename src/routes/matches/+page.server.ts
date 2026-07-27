@@ -5,6 +5,11 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 
+	// The archive matches list is WC-2026 only — scope it, or once PL fixtures are
+	// ingested they'd appear in this "World Cup archive" view.
+	const { data: wc } = await supabase.from('competitions').select('id').eq('slug', 'wc-2026').maybeSingle();
+	const wcId = wc?.id ?? null;
+
 	const [{ data: matches }, pronosticsResult] = await Promise.all([
 		supabase
 			.from('matches')
@@ -13,6 +18,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 				stage, group_label, match_datetime, venue, status,
 				home_score, away_score, odds_home, odds_draw, odds_away, youtube_video_id
 			`)
+			.eq('competition_id', wcId)
 			.order('match_datetime', { ascending: true }),
 		user
 			? supabase

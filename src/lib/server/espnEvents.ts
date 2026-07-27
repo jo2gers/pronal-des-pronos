@@ -7,9 +7,11 @@
 //
 // Non-fatal by design: any failure here just means "no timeline this tick".
 
-const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
-const SCOREBOARD_URL = `${BASE}/scoreboard`;
-const SUMMARY_URL = `${BASE}/summary`;
+// League slug ('fifa.world' | 'eng.1' | 'uefa.champions' — competitions.espn_league)
+// is a parameter on every fetcher: the V2 runs several competitions at once.
+const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
+const scoreboardUrl = (league: string) => `${BASE}/${league}/scoreboard`;
+const summaryUrl = (league: string) => `${BASE}/${league}/summary`;
 
 export type MatchEvent = {
 	minute: string;             // "9'", "45'+2'"
@@ -73,7 +75,7 @@ const key = (a: string, b: string) => `${a.toLowerCase()}|${b.toLowerCase()}`;
 // so a 'pre' state past our stored kickoff means the match was pushed back.
 export type EspnStatus = { state: 'pre' | 'in' | 'post' | string; completed: boolean; detail: string; period: number | null; date: string | null };
 
-export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
+export async function fetchEspnEvents(league: string, dateYYYYMMDD?: string): Promise<{
 	events: Map<string, MatchEvent[]>;
 	gameIds: Map<string, string>;
 	scores: Map<string, { home: number; away: number }>;
@@ -85,7 +87,7 @@ export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 	const statuses = new Map<string, EspnStatus>();
 	try {
 		const qs = dateYYYYMMDD ? `?dates=${dateYYYYMMDD}&_=${Date.now()}` : `?_=${Date.now()}`;
-		const res = await fetch(`${SCOREBOARD_URL}${qs}`, {
+		const res = await fetch(`${scoreboardUrl(league)}${qs}`, {
 			headers: { Accept: 'application/json' }
 		});
 		if (!res.ok) return { events: out, gameIds, scores, statuses };
@@ -176,6 +178,7 @@ export async function fetchEspnEvents(dateYYYYMMDD?: string): Promise<{
 /** Resolve an ESPN gameId for one match via the dated scoreboard (±1 day for
  *  ESPN's US-date grouping), matching by team names. For finished-match backfill. */
 export async function resolveEspnGameId(
+	league: string,
 	homeTeamEn: string,
 	awayTeamEn: string,
 	matchDatetimeIso: string
@@ -187,7 +190,7 @@ export async function resolveEspnGameId(
 	});
 	const want = key(homeTeamEn, awayTeamEn);
 	for (const date of dates) {
-		const { gameIds } = await fetchEspnEvents(date);
+		const { gameIds } = await fetchEspnEvents(league, date);
 		const hit = gameIds.get(want);
 		if (hit) return hit;
 	}
@@ -230,9 +233,9 @@ function buildTeamLineup(r: any): TeamLineup {
  * Per-match formations + lineups from the summary endpoint's `rosters`.
  * Returned keyed to OUR home/away (caller passes which ESPN side is home).
  */
-export async function fetchEspnLineups(gameId: string): Promise<MatchLineups | null> {
+export async function fetchEspnLineups(league: string, gameId: string): Promise<MatchLineups | null> {
 	try {
-		const res = await fetch(`${SUMMARY_URL}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
+		const res = await fetch(`${summaryUrl(league)}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
 			headers: { Accept: 'application/json' }
 		});
 		if (!res.ok) return null;
@@ -289,9 +292,9 @@ export type KnockoutResult = {
 	decided: 'reg' | 'aet' | 'pens';
 };
 
-export async function fetchEspnKnockoutResult(gameId: string): Promise<KnockoutResult | null> {
+export async function fetchEspnKnockoutResult(league: string, gameId: string): Promise<KnockoutResult | null> {
 	try {
-		const res = await fetch(`${SUMMARY_URL}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
+		const res = await fetch(`${summaryUrl(league)}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
 			headers: { Accept: 'application/json' }
 		});
 		if (!res.ok) return null;
@@ -339,9 +342,9 @@ export type MatchVenue = { stadium: string | null; city: string | null; country:
 
 /** Stadium + host city/country from the summary endpoint's gameInfo.venue.
  *  Static per match, so the caller fetches it once then stops. */
-export async function fetchEspnVenue(gameId: string): Promise<MatchVenue | null> {
+export async function fetchEspnVenue(league: string, gameId: string): Promise<MatchVenue | null> {
 	try {
-		const res = await fetch(`${SUMMARY_URL}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
+		const res = await fetch(`${summaryUrl(league)}?event=${encodeURIComponent(gameId)}&_=${Date.now()}`, {
 			headers: { Accept: 'application/json' }
 		});
 		if (!res.ok) return null;

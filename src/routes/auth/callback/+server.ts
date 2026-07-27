@@ -1,9 +1,10 @@
 import { redirect } from '@sveltejs/kit';
+import { safeNext } from '$lib/utils';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 	const code = url.searchParams.get('code');
-	const next = url.searchParams.get('next') ?? '/';
+	const next = safeNext(url.searchParams.get('next'));
 
 	console.log('[oauth-callback] hit', { hasCode: !!code, next });
 
@@ -62,7 +63,11 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 		if (updErr) console.log('[oauth-callback] avatar/name backfill failed', updErr.message);
 	}
 
-	const incomplete = !profile || !profile.username || !profile.favorite_team;
+	// Onboarding gates on the username alone. favorite_team is the retired WC
+	// archive column (always null in V2), so including it made `incomplete`
+	// permanently true → a wasted callback→complete→next bounce on every OAuth
+	// login, and the username picker unreachable.
+	const incomplete = !profile || !profile.username;
 	if (incomplete) redirect(303, `/auth/complete?next=${encodeURIComponent(next)}`);
 
 	redirect(303, next);

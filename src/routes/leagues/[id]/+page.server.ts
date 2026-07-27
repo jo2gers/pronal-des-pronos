@@ -7,21 +7,33 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 
 	const { data: group } = await supabase
 		.from('groups')
-		.select('*')
+		.select('*, competitions(id, slug, name_fr, name_en)')
 		.eq('id', params.id)
 		.single();
 
 	if (!group) error(404, 'Ligue introuvable');
 
-	const [{ data: members }, { data: statRows }, friendshipsResult] = await Promise.all([
+	// V2: the scoreboard is scoped to the group's competition. WC leagues (the
+	// archive) keep the legacy global view + profiles.team_bonus_points; V2
+	// leagues read the per-competition view + favorite_teams.bonus_points.
+	const competition = group.competitions as { id: string; slug: string; name_fr: string; name_en: string } | null;
+	const isLegacyWc = !competition || competition.slug === 'wc-2026';
+
+	const [{ data: members }, { data: statRows }, friendshipsResult, { data: bonusRows }] = await Promise.all([
 		supabase
 			.from('group_members')
 			.select('role, joined_at, profiles(id, username, display_name, avatar_url, team_bonus_points)')
 			.eq('group_id', params.id),
-		// Per-user scored aggregates from the DB view (no 1000-row cap, no re-summing).
+		// Per-user scored aggregates, ALWAYS scoped to this group's competition —
+		// the global user_pronostic_stats view sums across every competition, so a
+		// WC-archive league would absorb Premier League points once PL scoring
+		// starts. competition_pronostic_stats returns identical numbers for wc-2026
+		// today (WC is the only scored competition) — a safe swap. (Legacy WC still
+		// differs only in its bonus source: profiles.team_bonus_points below.)
 		supabase
-			.from('user_pronostic_stats')
-			.select('user_id, prono_points, picks, winners, exact'),
+			.from('competition_pronostic_stats')
+			.select('user_id, prono_points, picks, winners, exact')
+			.eq('competition_id', competition?.id ?? null),
 		supabase
 			.from('friendships')
 			.select(`
@@ -30,7 +42,13 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 				addressee:profiles!friendships_addressee_id_fkey(id, username, display_name, avatar_url)
 			`)
 			.or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-			.eq('status', 'accepted')
+			.eq('status', 'accepted'),
+		isLegacyWc
+			? Promise.resolve({ data: [] as Array<{ user_id: string; bonus_points: number }> })
+			: supabase
+					.from('favorite_teams')
+					.select('user_id, bonus_points')
+					.eq('competition_id', competition.id)
 	]);
 
 	const memberIds = (members ?? []).map((m) => (m.profiles as any)?.id);
@@ -48,16 +66,19 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	const friendsNotInGroup = friends.filter((f) => f && !memberIds.includes(f.id));
 
 	// Scoreboard: per-member breakdown straight from the per-user stats view
-	// (picks, winners = correct-not-exact, exact, summed prono points). teamBonus
-	// comes straight from the profile column.
+	// (picks, winners = correct-not-exact, exact, summed prono points). teamBonus:
+	// legacy WC → profile column; V2 → favorite_teams.bonus_points for this comp.
 	const statsMap = new Map((statRows ?? []).map((s: any) => [s.user_id as string, s]));
+	const bonusMap = new Map((bonusRows ?? []).map((b: any) => [b.user_id as string, b.bonus_points]));
 
 	const scoreboard = (members ?? [])
 		.map((m) => {
 			const p = m.profiles as any;
 			const s = statsMap.get(p?.id) as any;
 			const pronoPts = parseFloat(String(s?.prono_points ?? 0));
-			const teamBonus   = parseFloat(String(p?.team_bonus_points ?? 0));
+			const teamBonus = isLegacyWc
+				? parseFloat(String(p?.team_bonus_points ?? 0))
+				: parseFloat(String(bonusMap.get(p?.id) ?? 0));
 			return {
 				profile: p,
 				role: m.role,
@@ -87,10 +108,10 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 			.eq('status', 'pending')
 			.order('created_at', { ascending: true });
 
-		pendingRequests = (requests ?? []) as typeof pendingRequests;
+		pendingRequests = (requests ?? []) as unknown as typeof pendingRequests;
 	}
 
-	return { group, scoreboard, isAdmin, user, friendsNotInGroup, pendingRequests };
+	return { group, competition, scoreboard, isAdmin, user, friendsNotInGroup, pendingRequests };
 };
 
 export const actions: Actions = {

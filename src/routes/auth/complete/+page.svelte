@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { WC2026_TEAMS, teamLabel } from '$lib/wc2026';
 	import { t } from '$lib/i18n.svelte';
 
 	let { data, form } = $props();
 	let loading = $state(false);
 	let username = $state(form?.username ?? data.profile?.username ?? data.suggestedUsername ?? '');
-	let selectedTeam = $state(form?.favorite_team ?? data.profile?.favorite_team ?? '');
 </script>
 
 <div class="mx-auto max-w-md mt-12">
@@ -40,42 +38,8 @@
 			/>
 		</div>
 
-		<div>
-			<div class="flex items-center justify-between mb-2">
-				<label class="flex items-baseline gap-1.5 text-sm text-muted">
-					<span>{t('fav_team')} <span class="text-accent">*</span></span>
-					<span class="cursor-help text-faint hover:text-fg transition-colors text-[11px]"
-						title={t('multiplier_help')} aria-label={t('multiplier_help')}>(?)</span>
-				</label>
-				{#if selectedTeam && data.oddsMap[selectedTeam]}
-					<span class="text-xs text-accent font-semibold tabular-nums">
-						×{data.oddsMap[selectedTeam].toFixed(2)} {t('auth_wc_bonus')}
-					</span>
-				{/if}
-			</div>
-			<input type="hidden" name="favorite_team" value={selectedTeam} required />
-			<p class="text-[11px] text-faint mb-2">{t('auth_odds_hint')}</p>
-
-			<div class="grid grid-cols-2 gap-1 max-h-56 overflow-y-auto pr-0.5">
-				{#each WC2026_TEAMS as team}
-					{@const isSelected = selectedTeam === team.name}
-					{@const odds = data.oddsMap[team.name]}
-					<button type="button" onclick={() => selectedTeam = team.name}
-						class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left border transition-colors cursor-pointer
-							{isSelected
-								? 'bg-accent-lo border-accent/50 text-fg'
-								: 'bg-raised border-wire hover:border-wire-hi text-fg'}">
-						<span class="text-sm font-medium truncate">{teamLabel(team.name)}</span>
-						{#if odds}
-							<span class="text-[11px] font-semibold shrink-0 tabular-nums
-								{isSelected ? 'text-accent' : 'text-faint'}">
-								×{odds.toFixed(2)}
-							</span>
-						{/if}
-					</button>
-				{/each}
-			</div>
-		</div>
+		<!-- V2: no forced favourite team here — the club is picked per
+		     competition on the « Mon club » page. -->
 
 		<button
 			type="submit" disabled={loading}

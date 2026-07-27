@@ -1,56 +1,55 @@
 import type { PageServerLoad } from './$types';
 
-// Tournament over — the home page is the farewell screen: thank-you message,
-// world champion, the players' final podium and links to the two surfaces that
-// stay open (finished matches + final leaderboard). The old live/countdown/pick
-// home (and its pronostic action) is retired; see git history.
+// V2 season home: one card per active competition — next fixtures, your club,
+// the doors in (picks / club / leaderboard). The WC2026 farewell home this
+// replaces lives in git history; the archive itself stays at /matches,
+// /leaderboard and /wc-2026/….
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 
-	const [{ data: finalMatch }, { data: statRows }, { data: profiles }] = await Promise.all([
-		supabase
-			.from('matches')
-			.select('id, home_team, away_team, home_flag, away_flag, home_score, away_score, ft_home_score, ft_away_score, pen_home, pen_away')
-			.eq('slot_code', 'FINAL')
-			.maybeSingle(),
-		supabase.from('user_pronostic_stats').select('user_id, prono_points'),
-		supabase.from('profiles').select('id, username, display_name, avatar_url, favorite_team, team_bonus_points')
-	]);
+	const { data: comps } = await supabase
+		.from('competitions')
+		.select('id, slug, name_fr, name_en, format, starts_at')
+		.eq('active', true)
+		.order('starts_at', { ascending: true });
 
-	// Final standings — same math as the leaderboard (prono points + team bonus,
-	// id tiebreak), computed once here for the podium + the visitor's final rank.
-	const pronoByUser = new Map((statRows ?? []).map((r: any) => [r.user_id, parseFloat(String(r.prono_points ?? 0))]));
-	const board = (profiles ?? [])
-		.map((p: any) => ({
-			id: p.id as string,
-			username: p.username as string | null,
-			display_name: p.display_name as string | null,
-			avatar_url: p.avatar_url as string | null,
-			favorite_team: p.favorite_team as string | null,
-			total: (pronoByUser.get(p.id) ?? 0) + (p.team_bonus_points ?? 0)
-		}))
-		.sort((a, b) => b.total - a.total || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+	const cards = await Promise.all(
+		(comps ?? []).map(async (c) => {
+			const [{ count: matchCount }, { data: next }, { data: teams }, favRes] = await Promise.all([
+				supabase.from('matches').select('id', { count: 'exact', head: true }).eq('competition_id', c.id),
+				supabase
+					.from('matches')
+					.select('id, home_team, away_team, match_datetime, matchday')
+					.eq('competition_id', c.id)
+					.eq('status', 'upcoming')
+					.order('match_datetime', { ascending: true })
+					.limit(3),
+				supabase.from('competition_teams').select('name_en, short_name, logo_url').eq('competition_id', c.id),
+				user
+					? supabase
+							.from('favorite_teams')
+							.select('team, bonus_points')
+							.eq('competition_id', c.id)
+							.eq('user_id', user.id)
+							.maybeSingle()
+					: Promise.resolve({ data: null })
+			]);
 
-	const idx = user ? board.findIndex((r) => r.id === user.id) : -1;
+			const teamMap: Record<string, { short: string | null; logo: string | null }> = {};
+			for (const t of teams ?? []) teamMap[t.name_en] = { short: t.short_name, logo: t.logo_url };
 
-	// Feedback survey: proposed on the farewell page until THIS account answers.
-	// Anonymous visitors see the invite too (the survey page routes via login).
-	let surveyDone = false;
-	if (user) {
-		const { data: sr } = await supabase
-			.from('survey_responses')
-			.select('user_id')
-			.eq('user_id', user.id)
-			.maybeSingle();
-		surveyDone = !!sr;
-	}
+			return {
+				slug: c.slug as string,
+				name_fr: c.name_fr as string,
+				name_en: c.name_en as string,
+				starts_at: c.starts_at as string | null,
+				matchCount: matchCount ?? 0,
+				next: next ?? [],
+				teamMap,
+				myTeam: (favRes.data as any)?.team ?? null
+			};
+		})
+	);
 
-	return {
-		user,
-		finalMatch,
-		top3: board.slice(0, 3),
-		myRank: idx >= 0 ? idx + 1 : null,
-		playerCount: board.length,
-		surveyDone
-	};
+	return { user, cards };
 };

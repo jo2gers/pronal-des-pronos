@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { t } from '$lib/i18n.svelte';
+	import { t, getLang } from '$lib/i18n.svelte';
 
 	let { data, form } = $props();
+	const fr = $derived(getLang() === 'fr');
 
 	let showJoinInput = $state(false);
 	let joiningCode   = $state(false);
@@ -228,7 +229,14 @@
 						{#if group.description}
 							<p class="text-sm text-muted mb-2 line-clamp-2">{group.description}</p>
 						{/if}
-						<p class="text-[11px] text-faint font-mono tracking-wider">{group.invite_code}</p>
+						<div class="flex items-center justify-between gap-2">
+							<p class="text-[11px] text-faint font-mono tracking-wider">{group.invite_code}</p>
+							{#if group.competitions}
+								<span class="text-[10px] text-muted border border-wire rounded px-1.5 py-0.5 shrink-0">
+									{fr ? group.competitions.name_fr : group.competitions.name_en}
+								</span>
+							{/if}
+						</div>
 					</a>
 				{/each}
 			</div>

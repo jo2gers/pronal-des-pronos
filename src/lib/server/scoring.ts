@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveOddsUsed } from '$lib/utils';
+import { scorelineModel } from '$lib/scorelines';
 
 // SINGLE SOURCE OF TRUTH for the per-win team bonus. MUST match the published
 // table on the rules page (src/routes/rules/+page.svelte) — that's the contract
@@ -22,7 +23,17 @@ export const STAGE_BONUS: Record<string, number> = {
 	quarters:    8,
 	semis:       13,
 	third:       5,
-	final:       21
+	final:       21,
+	// V2 (club competitions): each league win pays 0.5 × the club's title-odds
+	// multiplier — a 38-match season needs no escalation ladder, and the 0.5
+	// coefficient keeps the passive club bonus a flavour, not a driver (the WC
+	// survey flagged point inflation making good picks feel less decisive; a
+	// favourite ×1.0 pays 0.5/win, an outsider ×5.2 pays ~2.6/win). The UCL
+	// knockout reuses the ladder above, play-off slotted at 2. Every surface that
+	// SHOWS the club bonus (rules page, /[comp]/team ×mult badges, leaderboard)
+	// must reflect this 0.5 coefficient — the displayed number is the real one.
+	league:      0.5,
+	playoff:     2
 };
 
 export type ScorableMatch = {
@@ -52,19 +63,41 @@ export async function scoreMatch(
 
 	// Everyone is scored against the SAME odds: the match odds frozen 5 min
 	// before kickoff (the odds-sync lock), NOT the odds at pick time. Fetch
-	// them from the match row if the caller didn't pass them along.
+	// them from the match row if the caller didn't pass them along. The V2
+	// scoreline matrix (frozen at lock too) is always read fresh — callers
+	// never carry it.
 	let { odds_home, odds_draw, odds_away } = match;
+	const { data: matchRow } = await supabase
+		.from('matches')
+		.select('odds_home, odds_draw, odds_away, scoreline_multipliers, competition_id')
+		.eq('id', match.id)
+		.single();
 	if (odds_home === undefined) {
-		const { data: oddsRow } = await supabase
-			.from('matches')
-			.select('odds_home, odds_draw, odds_away')
-			.eq('id', match.id)
-			.single();
-		odds_home = oddsRow?.odds_home ?? null;
-		odds_draw = oddsRow?.odds_draw ?? null;
-		odds_away = oddsRow?.odds_away ?? null;
+		odds_home = matchRow?.odds_home ?? null;
+		odds_draw = matchRow?.odds_draw ?? null;
+		odds_away = matchRow?.odds_away ?? null;
 	}
 	const oddsSource = { odds_home, odds_draw, odds_away };
+	const scorelineMults = (matchRow?.scoreline_multipliers ?? null) as Record<string, number> | null;
+
+	// Competition context — drives BOTH the V2 additive exact-score below and the
+	// V2 club-bonus path further down (fetched once here, reused). WC archive
+	// (slug 'wc-2026') keeps its legacy flat-3× exact scoring.
+	const { data: compRow } = matchRow?.competition_id
+		? await supabase.from('competitions').select('slug').eq('id', matchRow.competition_id).single()
+		: { data: null };
+	const isV2 = !!compRow && compRow.slug !== 'wc-2026';
+
+	// The V2 exact-score is additive (1×odds + scoreline multiplier). Prefer the
+	// matrix frozen at lock; if it's missing (the freeze pass never ran — e.g.
+	// odds arrived after the match left 'upcoming') recompute the SAME model from
+	// the frozen match odds, so every V2 exact score is priced additively and
+	// consistently, never the legacy flat-3× fallback. Only for V2 comps with
+	// real odds; the archive and odds-less matches still fall back to legacy.
+	const onDemandModel =
+		isV2 && !scorelineMults && odds_home != null && odds_draw != null && odds_away != null
+			? scorelineModel(Number(odds_home), Number(odds_draw), Number(odds_away))
+			: null;
 
 	// 1. Per-pronostic points
 	const { data: pronostics } = await supabase
@@ -83,20 +116,34 @@ export async function scoreMatch(
 	const writes = (pronostics ?? []).map((p) => {
 		const ph = p.predicted_home;
 		const pa = p.predicted_away;
-		const basePoints =
-			ph === mh && pa === ma ? 3 :
-			Math.sign(ph - pa) === Math.sign(mh - ma) ? 1 :
-			0;
+		const exact = ph === mh && pa === ma;
+		const winner = exact || Math.sign(ph - pa) === Math.sign(mh - ma);
 
 		// resolveOddsUsed picks home/draw/away odds for the predicted outcome,
 		// with a 1.0 floor when odds are missing. odds_used is overwritten with the
 		// final locked odds so every surface shows the value points came from.
 		const finalOdds = resolveOddsUsed(ph, pa, oddsSource);
-		const points = basePoints === 0 ? 0 : parseFloat((basePoints * finalOdds).toFixed(2));
+
+		// Exact-score payout:
+		//  - V2 (scoreline matrix frozen at lock): ADDITIVE — winner points plus
+		//    the scoreline's own multiplier ln(1/P) (see docs/v2-next-season.md:
+		//    P(score) already prices the outcome, so it must not multiply the
+		//    outcome odds again; additive also guarantees exact > winner-only).
+		//  - Legacy (WC archive, or matrix missing): flat 3 × outcome odds.
+		let points = 0;
+		let exactMult: number | null = null;
+		if (exact) {
+			exactMult = scorelineMults?.[`${mh}-${ma}`] ?? onDemandModel?.exactMultiplier(mh, ma) ?? null;
+			points = exactMult != null
+				? parseFloat((1 * finalOdds + exactMult).toFixed(2))
+				: parseFloat((3 * finalOdds).toFixed(2));
+		} else if (winner) {
+			points = parseFloat((1 * finalOdds).toFixed(2));
+		}
 
 		return supabase
 			.from('pronostics')
-			.update({ points_earned: points, is_scored: true, odds_used: finalOdds })
+			.update({ points_earned: points, is_scored: true, odds_used: finalOdds, exact_multiplier: exactMult })
 			.eq('id', p.id);
 	});
 	const results = await Promise.all(writes);
@@ -121,28 +168,59 @@ export async function scoreMatch(
 		else if (effAway > effHome) winnerTeamEn = match.away_team;
 
 		if (winnerTeamEn && stageBonus > 0) {
-			const { data: oddsRow } = await supabase
-				.from('wc_winner_odds')
-				.select('multiplier')
-				.eq('team_name_en', winnerTeamEn)
-				.maybeSingle();
+			// V2 (club competitions): the bonus lives PER COMPETITION — supporters
+			// come from favorite_teams and the multiplier from
+			// competition_winner_odds; the award accrues on favorite_teams
+			// .bonus_points. The WC archive keeps its legacy path untouched
+			// (profiles.favorite_team + wc_winner_odds). (isV2 resolved once above.)
+			if (isV2) {
+				const [{ data: oddsRow }, { data: supporters }] = await Promise.all([
+					supabase
+						.from('competition_winner_odds')
+						.select('multiplier')
+						.eq('competition_id', matchRow!.competition_id)
+						.eq('team_name_en', winnerTeamEn)
+						.maybeSingle(),
+					supabase
+						.from('favorite_teams')
+						.select('user_id, bonus_points')
+						.eq('competition_id', matchRow!.competition_id)
+						.eq('team', winnerTeamEn)
+				]);
+				const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
+				const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
+				for (const s of supporters ?? []) {
+					await supabase
+						.from('favorite_teams')
+						.update({ bonus_points: parseFloat(((s.bonus_points ?? 0) + bonusToAward).toFixed(2)) })
+						.eq('user_id', s.user_id)
+						.eq('competition_id', matchRow!.competition_id);
+					bonusAwarded++;
+				}
+			} else {
+				const { data: oddsRow } = await supabase
+					.from('wc_winner_odds')
+					.select('multiplier')
+					.eq('team_name_en', winnerTeamEn)
+					.maybeSingle();
 
-			const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
-			const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
+				const multiplier = parseFloat(String(oddsRow?.multiplier ?? 1.0));
+				const bonusToAward = parseFloat((multiplier * stageBonus).toFixed(2));
 
-			const { data: supporters } = await supabase
-				.from('profiles')
-				.select('id, team_bonus_points')
-				.eq('favorite_team', winnerTeamEn);
-
-			for (const profile of supporters ?? []) {
-				await supabase
+				const { data: supporters } = await supabase
 					.from('profiles')
-					.update({
-						team_bonus_points: parseFloat(((profile.team_bonus_points ?? 0) + bonusToAward).toFixed(2))
-					})
-					.eq('id', profile.id);
-				bonusAwarded++;
+					.select('id, team_bonus_points')
+					.eq('favorite_team', winnerTeamEn);
+
+				for (const profile of supporters ?? []) {
+					await supabase
+						.from('profiles')
+						.update({
+							team_bonus_points: parseFloat(((profile.team_bonus_points ?? 0) + bonusToAward).toFixed(2))
+						})
+						.eq('id', profile.id);
+					bonusAwarded++;
+				}
 			}
 		}
 
@@ -151,9 +229,10 @@ export async function scoreMatch(
 		// at the FT transition). Leave bonus_calculated=false so the NEXT run —
 		// once the real result lands — awards the bonus, instead of locking the
 		// winner's fans out. (This is the bug that under-credited France/Argentina/…
-		// and over-credited Morocco.) A GROUP draw is legitimate — no winner, no
-		// bonus — and is marked done.
-		const knockoutDrawPending = effHome === effAway && match.stage !== 'group';
+		// and over-credited Morocco.) GROUP and LEAGUE draws are legitimate final
+		// results — no winner, no bonus — and are marked done.
+		const knockoutDrawPending =
+			effHome === effAway && match.stage !== 'group' && match.stage !== 'league';
 		if (!knockoutDrawPending) {
 			await supabase.from('matches').update({ bonus_calculated: true }).eq('id', match.id);
 		}

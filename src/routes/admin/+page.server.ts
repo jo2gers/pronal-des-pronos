@@ -22,6 +22,30 @@ function adminClient() {
 	});
 }
 
+// The V2 club bonus (favorite_teams.bonus_points) is a running accumulator that
+// scoreMatch INCREMENTS, so re-scoring a match without first resetting it
+// double-counts. Rebuild one competition's club bonus from scratch: zero it,
+// then replay every finished match of that competition with the bonus flag off.
+async function recomputeCompetitionClubBonus(
+	supabase: ReturnType<typeof adminClient>,
+	competitionId: string
+) {
+	await supabase.from('favorite_teams').update({ bonus_points: 0 }).eq('competition_id', competitionId);
+	const { data: finished } = await supabase
+		.from('matches')
+		.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated')
+		.eq('competition_id', competitionId)
+		.eq('status', 'finished');
+	let scored = 0;
+	let bonusAwarded = 0;
+	for (const m of finished ?? []) {
+		const r = await scoreMatch(supabase, { ...m, bonus_calculated: false });
+		scored += r.scored;
+		bonusAwarded += r.bonusAwarded;
+	}
+	return { scored, bonusAwarded };
+}
+
 export const load: PageServerLoad = async ({ locals: { safeGetSession }, cookies }) => {
 	const { user } = await safeGetSession();
 	if (!user) redirect(303, '/auth/login');
@@ -142,13 +166,23 @@ export const actions: Actions = {
 		if (isFinishedWithScores) {
 			const { data: match } = await supabase
 				.from('matches')
-				.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated')
+				.select('id, home_team, away_team, home_score, away_score, stage, bonus_calculated, competition_id')
 				.eq('id', id)
 				.single();
 			if (match) {
-				const result = await scoreMatch(supabase, match);
-				scored = result.scored;
-				bonusAwarded = result.bonusAwarded;
+				const { data: comp } = await supabase
+					.from('competitions').select('slug').eq('id', match.competition_id).maybeSingle();
+				if (comp && comp.slug !== 'wc-2026') {
+					// V2: the club bonus accumulator would double-count on a re-award,
+					// so rebuild this competition's club bonus from scratch instead.
+					const r = await recomputeCompetitionClubBonus(supabase, match.competition_id);
+					scored = r.scored;
+					bonusAwarded = r.bonusAwarded;
+				} else {
+					const result = await scoreMatch(supabase, match);
+					scored = result.scored;
+					bonusAwarded = result.bonusAwarded;
+				}
 				// Non-fatal: sync match odds in case a knockout slot just opened.
 				try { await runSyncMatchOdds(supabase); } catch { /* swallow */ }
 			}
@@ -193,8 +227,11 @@ export const actions: Actions = {
 	//
 	// Bonus state is fully reset before recomputing so any previously-awarded
 	// (possibly buggy) team bonuses are replaced by a fresh idempotent pass over
-	// every finished match. This makes the action the canonical "fix everything"
-	// button: pronostic points + team bonuses both end up correct.
+	// every finished match. Resets BOTH bonus accumulators: profiles.team_bonus_
+	// points (WC archive) and favorite_teams.bonus_points (V2 per-competition) —
+	// scoreMatch increments each, so without the reset a recompute double-counts.
+	// This makes the action the canonical "fix everything" button: pronostic
+	// points + team bonuses both end up correct.
 	calculateAll: async () => {
 		const supabase = adminClient();
 
@@ -215,6 +252,12 @@ export const actions: Actions = {
 				.update({ team_bonus_points: 0 })
 				.in('id', allProfileIds);
 		}
+
+		// V2 club bonus lives on favorite_teams.bonus_points (per competition) and
+		// scoreMatch INCREMENTS it — zero it too, else the recompute below adds a
+		// whole season of club bonus on top of the existing total. (PostgREST needs
+		// a filter; bonus_points >= 0 matches every row.)
+		await supabase.from('favorite_teams').update({ bonus_points: 0 }).gte('bonus_points', 0);
 
 		// Clear bonus_calculated on every match that has it set so scoreMatch
 		// awards the bonus again. Filtering by `.eq('bonus_calculated', true)`

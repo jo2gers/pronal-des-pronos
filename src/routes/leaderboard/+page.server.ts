@@ -3,11 +3,17 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
 
-	// Per-user scored-pronostic aggregates from the DB view (always fresh, no
-	// 1000-row cap, no JS re-summing) - one row per user who has a scored pick.
+	// This is the WC-2026 ARCHIVE leaderboard. Scope the per-user aggregates to
+	// the wc-2026 competition — the global user_pronostic_stats view sums across
+	// ALL competitions, so once Premier League matches are scored it would inflate
+	// these frozen standings. competition_pronostic_stats returns identical
+	// numbers today (WC is the only scored competition) — a safe swap.
+	const { data: wc } = await supabase.from('competitions').select('id').eq('slug', 'wc-2026').maybeSingle();
+	const wcId = wc?.id ?? null;
 	const { data: stats } = await supabase
-		.from('user_pronostic_stats')
-		.select('user_id, prono_points, picks, winners, exact');
+		.from('competition_pronostic_stats')
+		.select('user_id, prono_points, picks, winners, exact')
+		.eq('competition_id', wcId);
 	const statsMap = new Map((stats ?? []).map((s: any) => [s.user_id as string, s]));
 
 	// Fetch all profiles that appear in pronostics OR have a team bonus

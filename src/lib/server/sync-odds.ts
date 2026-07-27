@@ -153,6 +153,217 @@ export async function backfillPolymarketSlugs(supabase: SupabaseClient) {
 	return { ok: true as const, updated, alreadySet, unmatched };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// V2 — competition-aware odds + slug sync (PL / UCL / any competitions row
+// with polymarket_series_id set). One pass does both jobs the WC needed two
+// passes for: match each open Polymarket event to a fixture, write the event
+// slug (feeds the live-score loop) AND the 3-way odds (frozen by the 5-min
+// lock rule; the slug ignores the lock).
+//
+// Club-market differences vs the WC (calibrated on real events):
+//   title: ' EPL: Arsenal vs. Wolverhampton' → strip the '<PREFIX>: ' part
+//   home Q: 'Will Arsenal beat Wolverhampton?'   (WC said 'win')
+//   draw Q: '…end in a draw?'
+//   names are short forms → normalised/alias matching against
+//   competition_teams (name_en + short_name), STRICT orientation (a league
+//   pairing exists in both venues, so home-vs-home disambiguates the leg).
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CLUB_ALIASES: Record<string, string> = {
+	'man city': 'manchester city',
+	'man utd': 'manchester united',
+	'man united': 'manchester united',
+	spurs: 'tottenham hotspur',
+	wolves: 'wolverhampton wanderers',
+	'nottm forest': 'nottingham forest'
+};
+
+function normClub(s: string): string {
+	let n = s.toLowerCase().replace(/&/g, 'and').replace(/\./g, '').replace(/\s+/g, ' ').trim();
+	n = n.replace(/^afc /, '').replace(/ afc$/, '').replace(/ fc$/, '');
+	return CLUB_ALIASES[n] ?? n;
+}
+
+/** Does a Polymarket club name refer to this competition_teams row? */
+function clubMatches(pmName: string, team: { name_en: string; short_name: string | null }): boolean {
+	const pm = normClub(pmName);
+	const full = normClub(team.name_en);
+	const short = team.short_name ? normClub(team.short_name) : null;
+	if (pm === full || pm === short) return true;
+	// 'wolverhampton' → 'wolverhampton wanderers'; 'bournemouth' → 'afc bournemouth' (stripped)
+	if (full.startsWith(pm + ' ') || full === pm) return true;
+	return false;
+}
+
+export async function syncCompetitionOdds(supabase: SupabaseClient) {
+	const { data: comps } = await supabase
+		.from('competitions')
+		.select('id, slug, polymarket_series_id')
+		.eq('active', true)
+		.not('polymarket_series_id', 'is', null);
+
+	const LOCK_MS = 5 * 60 * 1000;
+	const now = Date.now();
+	const results: Record<string, unknown> = {};
+
+	for (const comp of comps ?? []) {
+		const res = await fetch(
+			`https://gamma-api.polymarket.com/events?series_id=${comp.polymarket_series_id}&closed=false&limit=200`,
+			{ headers: { Accept: 'application/json' } }
+		);
+		if (!res.ok) { results[comp.slug] = { ok: false, error: `Polymarket: ${res.status}` }; continue; }
+		const raw = await res.json();
+		const events: any[] = Array.isArray(raw) ? raw : (raw.events ?? []);
+
+		const [{ data: dbMatches }, { data: teams }] = await Promise.all([
+			supabase
+				.from('matches')
+				.select('id, home_team, away_team, match_datetime, status, polymarket_event_slug, odds_home')
+				.eq('competition_id', comp.id)
+				.in('status', ['upcoming', 'live']),
+			supabase.from('competition_teams').select('name_en, short_name').eq('competition_id', comp.id)
+		]);
+		const teamRows = teams ?? [];
+		const resolveTeam = (pmName: string) => teamRows.find((t) => clubMatches(pmName, t))?.name_en ?? null;
+		// The market question names the club in its FULL form ("Will Manchester
+		// City win vs Chelsea?") while the event title often abbreviates it ("EPL:
+		// Chelsea vs Man City"). Pull the subject out of the question and resolve it
+		// through the SAME alias matcher, so a market maps to a club regardless of
+		// which form Polymarket used.
+		const marketSubject = (q: unknown): string | null => {
+			const m = /^Will\s+(.+?)\s+(?:beat|win)\b/i.exec(String(q ?? ''));
+			return m ? m[1].trim() : null;
+		};
+
+		let oddsUpdated = 0, slugsSet = 0, lockedSkipped = 0;
+		const unmatched: string[] = [];
+
+		for (const event of events) {
+			const rawTitle = String(event.title ?? '').trim();
+			const title = rawTitle.replace(/^[A-Z]{2,6}:\s*/, '');
+			// Polymarket mixes "X vs Y" and "X vs. Y" — tolerate both, else ~1/3 of
+			// PL fixtures (whichever use no period) are silently skipped.
+			const parts = title.split(/\s+vs\.?\s+/i);
+			if (parts.length !== 2) continue; // champion markets, props, etc.
+			const pmHome = parts[0].trim();
+			const pmAway = parts[1].trim();
+			// Sub-markets ('… - Halftime Result') fail team resolution below — fine.
+			const homeName = resolveTeam(pmHome);
+			const awayName = resolveTeam(pmAway);
+			if (!homeName || !awayName) { unmatched.push(rawTitle); continue; }
+
+			// STRICT orientation — the reverse fixture is a different match.
+			const dbMatch = (dbMatches ?? []).find((m) => m.home_team === homeName && m.away_team === awayName);
+			if (!dbMatch) { unmatched.push(rawTitle); continue; }
+
+			// Slug first — the live loop needs it regardless of the odds lock.
+			const slug = event.slug as string | undefined;
+			if (slug && dbMatch.polymarket_event_slug !== slug) {
+				const { error } = await supabase.from('matches').update({ polymarket_event_slug: slug }).eq('id', dbMatch.id);
+				if (!error) slugsSet++;
+			}
+
+			// Odds — frozen 5 min before kickoff.
+			if (new Date(dbMatch.match_datetime).getTime() - now < LOCK_MS) { lockedSkipped++; continue; }
+			const markets = event.markets as any[];
+			if (!Array.isArray(markets) || markets.length < 3) continue;
+			// Resolve each "Will <club> beat/win" market to a club via the alias
+			// matcher, then map to home/away by the resolved name_en — not the raw
+			// title token, which can differ from the question's full club name.
+			const homeMkt = markets.find((m: any) => { const s = marketSubject(m.question); return s != null && resolveTeam(s) === homeName; });
+			const awayMkt = markets.find((m: any) => { const s = marketSubject(m.question); return s != null && resolveTeam(s) === awayName; });
+			const drawMkt = markets.find((m: any) => m.question?.toLowerCase().includes('draw'));
+			if (!homeMkt || !awayMkt || !drawMkt) { unmatched.push(`${rawTitle} (marchés incomplets)`); continue; }
+
+			const parsePrice = (market: any): number => {
+				let prices = market.outcomePrices;
+				if (typeof prices === 'string') { try { prices = JSON.parse(prices); } catch { return 0; } }
+				return Array.isArray(prices) ? parseFloat(prices[0] ?? '0') || 0 : 0;
+			};
+			const toOdds = (p: number): number => (!p || p <= 0 ? 1.0 : Math.min(15, parseFloat((1 / p).toFixed(2))));
+
+			const { error } = await supabase
+				.from('matches')
+				.update({
+					odds_home: toOdds(parsePrice(homeMkt)),
+					odds_draw: toOdds(parsePrice(drawMkt)),
+					odds_away: toOdds(parsePrice(awayMkt))
+				})
+				.eq('id', dbMatch.id);
+			if (!error) oddsUpdated++;
+		}
+
+		results[comp.slug] = { ok: true, events: events.length, oddsUpdated, slugsSet, lockedSkipped, unmatched: unmatched.slice(0, 20) };
+	}
+
+	return results;
+}
+
+/**
+ * V2 — competition winner odds (champion market → per-club bonus multipliers).
+ * The market slug is competition data (polymarket_winner_slug). Multipliers
+ * freeze once the season starts (starts_at), same rule as the WC's.
+ * Question format (calibrated live): 'Will <club> win the 2026-27 English
+ * Premier League (EPL) Championship?' with [yes, no] prices.
+ */
+export async function syncCompetitionWinnerOdds(supabase: SupabaseClient) {
+	const { data: comps } = await supabase
+		.from('competitions')
+		.select('id, slug, polymarket_winner_slug, starts_at')
+		.eq('active', true)
+		.not('polymarket_winner_slug', 'is', null);
+
+	const results: Record<string, unknown> = {};
+	for (const comp of comps ?? []) {
+		// Frozen at season start — the multipliers drive every future bonus.
+		if (comp.starts_at && Date.now() >= new Date(comp.starts_at).getTime()) {
+			results[comp.slug] = { ok: true, locked: true, updated: 0 };
+			continue;
+		}
+
+		const res = await fetch(
+			`https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(comp.polymarket_winner_slug)}`,
+			{ headers: { Accept: 'application/json' } }
+		);
+		if (!res.ok) { results[comp.slug] = { ok: false, error: `Polymarket: ${res.status}` }; continue; }
+		const raw = await res.json();
+		const event = (Array.isArray(raw) ? raw : [raw])[0];
+		const markets: any[] = Array.isArray(event?.markets) ? event.markets : [];
+
+		const { data: teams } = await supabase
+			.from('competition_teams')
+			.select('name_en, short_name')
+			.eq('competition_id', comp.id);
+		const teamRows = teams ?? [];
+
+		let updated = 0;
+		const unmatched: string[] = [];
+		for (const market of markets) {
+			const q = market.question as string | undefined;
+			const m = q?.match(/^Will (.+?) win the .+$/);
+			if (!m) continue;
+			const team = teamRows.find((t) => clubMatches(m[1], t))?.name_en;
+			if (!team) { unmatched.push(m[1]); continue; }
+
+			let prices = market.outcomePrices;
+			if (typeof prices === 'string') { try { prices = JSON.parse(prices); } catch { prices = null; } }
+			const prob = Array.isArray(prices) ? parseFloat(prices[0] ?? '0') || 0 : 0;
+			if (prob <= 0) continue;
+			const odds = parseFloat(Math.min(3001, 1 / prob).toFixed(2));
+
+			const { error } = await supabase
+				.from('competition_winner_odds')
+				.upsert(
+					{ competition_id: comp.id, team_name_en: team, team_name_fr: team, odds },
+					{ onConflict: 'competition_id,team_name_en' }
+				);
+			if (!error) updated++;
+		}
+		results[comp.slug] = { ok: true, updated, unmatched: unmatched.slice(0, 10) };
+	}
+	return results;
+}
+
 // ── WC winner odds (team-level, for favorite-team bonus) ───────────────────
 export async function syncWCWinnerOdds(supabase: SupabaseClient) {
 	// Hard freeze 5 minutes before the tournament's first kickoff: these
