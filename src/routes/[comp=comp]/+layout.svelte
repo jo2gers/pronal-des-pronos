@@ -25,7 +25,7 @@
 		<!-- Back to the chooser -->
 		<a href="/" class="inline-flex items-center gap-1 py-1.5 text-[11px] uppercase tracking-[0.12em] text-faint hover:text-fg transition-colors"
 			style="font-family: var(--font-mono)">
-			<span aria-hidden="true">‹</span> {fr ? 'Compétitions' : 'Competitions'}
+			<span aria-hidden="true">‹</span> {fr ? 'Accueil' : 'Home'}
 		</a>
 
 		<!-- Section tabs -->
