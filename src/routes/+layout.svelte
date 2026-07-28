@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
-	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/state';
+	import { goto, invalidateAll, beforeNavigate } from '$app/navigation';
+	import { page, updated } from '$app/state';
 	import { supabase } from '$lib/supabase';
 	import { getLang, setLang, t } from '$lib/i18n.svelte';
 	import { getShowOdds, toggleOdds, loadPrefs } from '$lib/prefs.svelte';
@@ -11,6 +11,18 @@
 	let menuOpen  = $state(false);
 	let notifOpen = $state(false);
 	let theme = $state<'dark' | 'light'>('dark');
+
+	// When a new deploy is detected (version poll), force a FULL page load on the
+	// next navigation instead of a client-side one — so a client that loaded an
+	// older build never renders a newer page's data with its stale component
+	// (the "home button broken after an update" class of bug). One hard reload
+	// then puts them on the fresh code.
+	beforeNavigate((nav) => {
+		if (updated.current && nav.to && !nav.willUnload) {
+			nav.cancel();
+			location.href = nav.to.url.href;
+		}
+	});
 
 	// Site-wide announcement banner — dismissible per message version. Keyed on
 	// banner.updatedAt so an edited/new message re-appears even for users who
