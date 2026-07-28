@@ -1,55 +1,60 @@
+import { resolveCurrentComp } from '$lib/server/currentComp';
 import type { PageServerLoad } from './$types';
 
-// V2 season home: one card per active competition — next fixtures, your club,
-// the doors in (picks / club / leaderboard). The WC2026 farewell home this
-// replaces lives in git history; the archive itself stays at /matches,
-// /leaderboard and /wc-2026/….
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
+// The home is the HALL of the game you're in — it opens directly on your current
+// competition (the /[comp] cookie, else ?comp= switch, else Premier League), NOT
+// a "choose every time" screen. A big banner names the competition and a switch
+// button changes it. The WC archive lives on at /leaderboard, /matches, /wc-2026.
+export const load: PageServerLoad = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
+	const { current, active } = await resolveCurrentComp(supabase, cookies, url.searchParams.get('comp'));
 
-	const { data: comps } = await supabase
-		.from('competitions')
-		.select('id, slug, name_fr, name_en, format, starts_at')
-		.eq('active', true)
-		.order('starts_at', { ascending: true });
+	let card: {
+		slug: string;
+		name_fr: string;
+		name_en: string;
+		starts_at: string | null;
+		matchCount: number;
+		next: { id: string; home_team: string; away_team: string; match_datetime: string }[];
+		teamMap: Record<string, { short: string | null; logo: string | null }>;
+		myTeam: string | null;
+	} | null = null;
 
-	const cards = await Promise.all(
-		(comps ?? []).map(async (c) => {
-			const [{ count: matchCount }, { data: next }, { data: teams }, favRes] = await Promise.all([
-				supabase.from('matches').select('id', { count: 'exact', head: true }).eq('competition_id', c.id),
-				supabase
-					.from('matches')
-					.select('id, home_team, away_team, match_datetime, matchday')
-					.eq('competition_id', c.id)
-					.eq('status', 'upcoming')
-					.order('match_datetime', { ascending: true })
-					.limit(3),
-				supabase.from('competition_teams').select('name_en, short_name, logo_url').eq('competition_id', c.id),
-				user
-					? supabase
-							.from('favorite_teams')
-							.select('team, bonus_points')
-							.eq('competition_id', c.id)
-							.eq('user_id', user.id)
-							.maybeSingle()
-					: Promise.resolve({ data: null })
-			]);
+	if (current) {
+		const [{ count: matchCount }, { data: next }, { data: teams }, favRes] = await Promise.all([
+			supabase.from('matches').select('id', { count: 'exact', head: true }).eq('competition_id', current.id),
+			supabase
+				.from('matches')
+				.select('id, home_team, away_team, match_datetime')
+				.eq('competition_id', current.id)
+				.eq('status', 'upcoming')
+				.order('match_datetime', { ascending: true })
+				.limit(3),
+			supabase.from('competition_teams').select('name_en, short_name, logo_url').eq('competition_id', current.id),
+			user
+				? supabase
+						.from('favorite_teams')
+						.select('team')
+						.eq('competition_id', current.id)
+						.eq('user_id', user.id)
+						.maybeSingle()
+				: Promise.resolve({ data: null })
+		]);
 
-			const teamMap: Record<string, { short: string | null; logo: string | null }> = {};
-			for (const t of teams ?? []) teamMap[t.name_en] = { short: t.short_name, logo: t.logo_url };
+		const teamMap: Record<string, { short: string | null; logo: string | null }> = {};
+		for (const t of teams ?? []) teamMap[t.name_en] = { short: t.short_name, logo: t.logo_url };
 
-			return {
-				slug: c.slug as string,
-				name_fr: c.name_fr as string,
-				name_en: c.name_en as string,
-				starts_at: c.starts_at as string | null,
-				matchCount: matchCount ?? 0,
-				next: next ?? [],
-				teamMap,
-				myTeam: (favRes.data as any)?.team ?? null
-			};
-		})
-	);
+		card = {
+			slug: current.slug,
+			name_fr: current.name_fr,
+			name_en: current.name_en,
+			starts_at: current.starts_at,
+			matchCount: matchCount ?? 0,
+			next: (next ?? []) as any,
+			teamMap,
+			myTeam: (favRes.data as any)?.team ?? null
+		};
+	}
 
-	return { user, cards };
+	return { user, card, current, active };
 };
