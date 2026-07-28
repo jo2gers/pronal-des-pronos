@@ -63,6 +63,20 @@
 				</a>
 			</div>
 		{/if}
+
+		{#if data.user && data.stats}
+			<!-- Logged-in: my dashboard for THIS game (points never mixed across games) -->
+			<div class="mt-5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+				<div class="flex items-baseline gap-2">
+					<span class="text-[10.5px] uppercase tracking-[0.14em] text-faint" style="font-family: var(--font-mono)">{fr ? 'Mes points' : 'My points'}</span>
+					<span class="text-3xl font-bold text-accent tabular-nums" style="font-family: var(--font-display)">{data.stats.totalPoints.toFixed(2)}</span>
+				</div>
+				<div class="flex items-baseline gap-2">
+					<span class="text-[10.5px] uppercase tracking-[0.14em] text-faint" style="font-family: var(--font-mono)">{fr ? 'Cette semaine' : 'This week'}</span>
+					<span class="text-lg font-semibold tabular-nums {data.stats.weekPoints > 0 ? 'text-accent' : 'text-muted'}">{data.stats.weekPoints > 0 ? '+' : ''}{data.stats.weekPoints.toFixed(2)}</span>
+				</div>
+			</div>
+		{/if}
 	</header>
 
 	<!-- ── The current game ─────────────────────────────────────────────────── -->
