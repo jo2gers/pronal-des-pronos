@@ -20,6 +20,10 @@ export const load: PageServerLoad = async ({ url, cookies, locals: { supabase, s
 		myTeam: string | null;
 	} | null = null;
 
+	// Logged-in dashboard for the current game: my total points + my points over
+	// the last 7 days (in THIS competition — never mixed with the other game).
+	let stats: { totalPoints: number; weekPoints: number } | null = null;
+
 	if (current) {
 		const [{ count: matchCount }, { data: next }, { data: teams }, favRes] = await Promise.all([
 			supabase.from('matches').select('id', { count: 'exact', head: true }).eq('competition_id', current.id),
@@ -34,7 +38,7 @@ export const load: PageServerLoad = async ({ url, cookies, locals: { supabase, s
 			user
 				? supabase
 						.from('favorite_teams')
-						.select('team')
+						.select('team, bonus_points')
 						.eq('competition_id', current.id)
 						.eq('user_id', user.id)
 						.maybeSingle()
@@ -54,7 +58,46 @@ export const load: PageServerLoad = async ({ url, cookies, locals: { supabase, s
 			teamMap,
 			myTeam: (favRes.data as any)?.team ?? null
 		};
+
+		if (user) {
+			const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
+			const nowIso = new Date().toISOString();
+			const [{ data: agg }, { data: recent }] = await Promise.all([
+				supabase
+					.from('competition_pronostic_stats')
+					.select('prono_points')
+					.eq('user_id', user.id)
+					.eq('competition_id', current.id)
+					.maybeSingle(),
+				supabase
+					.from('matches')
+					.select('id')
+					.eq('competition_id', current.id)
+					.gte('match_datetime', sevenDaysAgo)
+					.lte('match_datetime', nowIso)
+			]);
+
+			const prono = parseFloat(String((agg as any)?.prono_points ?? 0));
+			const bonus = parseFloat(String((favRes.data as any)?.bonus_points ?? 0));
+
+			let weekPoints = 0;
+			const recentIds = (recent ?? []).map((m) => m.id);
+			if (recentIds.length > 0) {
+				const { data: wp } = await supabase
+					.from('pronostics')
+					.select('points_earned')
+					.eq('user_id', user.id)
+					.eq('is_scored', true)
+					.in('match_id', recentIds);
+				weekPoints = (wp ?? []).reduce((s, p) => s + (p.points_earned ?? 0), 0);
+			}
+
+			stats = {
+				totalPoints: parseFloat((prono + bonus).toFixed(2)),
+				weekPoints: parseFloat(weekPoints.toFixed(2))
+			};
+		}
 	}
 
-	return { user, card, current, active };
+	return { user, card, current, active, stats };
 };
