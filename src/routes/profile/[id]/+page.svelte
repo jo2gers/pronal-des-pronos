@@ -138,7 +138,7 @@
 			</div>
 		{/if}
 
-		<!-- Favourite CLUB in the current game (crest, not a country flag) -->
+		<!-- Favourite CLUB in the current game (picked HERE now — no "My club" tab) -->
 		{#if data.favTeam}
 			<div class="mt-5 pt-5 border-t border-wire flex items-center gap-4">
 				{#if data.favTeamCrest}
@@ -158,6 +158,23 @@
 						</p>
 					</div>
 				{/if}
+				{#if data.isOwnProfile && data.currentComp}
+					<a href="/{data.currentComp.slug}/team"
+						class="shrink-0 rounded-lg border border-wire hover:border-accent px-3 py-1.5 text-xs font-semibold text-muted hover:text-fg transition-colors">
+						{getLang() === 'fr' ? 'Changer' : 'Change'}
+					</a>
+				{/if}
+			</div>
+		{:else if data.isOwnProfile && data.currentComp}
+			<div class="mt-5 pt-5 border-t border-wire flex items-center justify-between gap-4">
+				<div class="min-w-0">
+					<p class="text-xs text-faint mb-0.5">{t('fav_team')}</p>
+					<p class="text-sm text-muted">{getLang() === 'fr' ? 'Pas encore de club pour ce jeu' : 'No club for this game yet'}</p>
+				</div>
+				<a href="/{data.currentComp.slug}/team"
+					class="shrink-0 rounded-lg bg-accent hover:bg-accent-hi px-4 py-2 text-sm font-bold text-canvas transition-colors">
+					{getLang() === 'fr' ? 'Choisir mon club' : 'Pick my club'}
+				</a>
 			</div>
 		{/if}
 
