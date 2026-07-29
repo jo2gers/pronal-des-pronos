@@ -13,10 +13,11 @@
 	const fr = $derived(getLang() === 'fr');
 
 	const section = $derived(page.url.pathname.split('/')[2] ?? 'matches');
+	// Club-picking lives on the profile now (scoped to the current game), so it's
+	// no longer a tab here.
 	const tabs = $derived([
 		{ seg: 'matches', label: t('nav_matches') },
-		{ seg: 'leaderboard', label: t('nav_leaderboard') },
-		{ seg: 'team', label: fr ? 'Mon club' : 'My club' }
+		{ seg: 'leaderboard', label: t('nav_leaderboard') }
 	]);
 </script>
 
