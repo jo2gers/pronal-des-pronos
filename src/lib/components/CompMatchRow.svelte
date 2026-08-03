@@ -149,14 +149,23 @@
 			<input type="hidden" name="predicted_home" value={h} />
 			<input type="hidden" name="predicted_away" value={a} />
 
-			<div class="flex items-center gap-3">
-				{@render teamSide(match.home_team, home, 'end')}
-				<div class="shrink-0 flex items-center gap-2">
+			<!-- Responsive: on a phone the steppers are too wide to sit between the
+			     names (they'd truncate to one letter), so the matchup goes on top
+			     and the steppers drop to their own centered line. One row on sm+. -->
+			<div class="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
+				<div class="order-1 flex-1 min-w-0 flex items-center gap-2 justify-end">
+					<span class="truncate text-sm font-medium text-fg text-right">{home.short ?? match.home_team}</span>
+					{#if home.logo}<img src={home.logo} alt="" class="w-6 h-6 object-contain shrink-0" loading="lazy" />{/if}
+				</div>
+				<div class="order-3 sm:order-2 basis-full sm:basis-auto shrink-0 flex items-center justify-center gap-2">
 					{@render stepper('home')}
 					<span class="text-xl text-wire-hi" style="font-family: var(--font-display)">–</span>
 					{@render stepper('away')}
 				</div>
-				{@render teamSide(match.away_team, away, 'start')}
+				<div class="order-2 sm:order-3 flex-1 min-w-0 flex items-center gap-2">
+					{#if away.logo}<img src={away.logo} alt="" class="w-6 h-6 object-contain shrink-0" loading="lazy" />{/if}
+					<span class="truncate text-sm font-medium text-fg">{away.short ?? match.away_team}</span>
+				</div>
 			</div>
 
 			<!-- V2: live exact-score multiplier + save state -->
